@@ -1,6 +1,6 @@
 #!/bin/bash
 # pathDatasetEuroc='../EuRoC-Dataset' #Example, it is necesary to change it by the dataset path
-pathDatasetEuroc=$HOME/ORB_SLAM3_datasets/euroc
+pathDatasetEuroc=$HOME/ORB_SLAM3_Datasets/euroc/machine_hall
 
 # Single Session Example (Pure visual)
 # echo "Launching MH01 with Stereo sensor"
