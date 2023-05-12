@@ -96,11 +96,15 @@ int main(int argc, char *argv[])
         tot_images += nImages[seq];
         nImu[seq] = vTimestampsImu[seq].size();
 
+        cout << nImu[seq] << endl;
+
         if((nImages[seq]<=0)||(nImu[seq]<=0))
         {
             cerr << "ERROR: Failed to load images or IMU for sequence" << seq << endl;
             return 1;
         }
+
+        cout << "2" << endl;
 
         // Find first imu to be considered, supposing imu measurements start first
 
@@ -108,6 +112,7 @@ int main(int argc, char *argv[])
             first_imu[seq]++;
         first_imu[seq]--; // first imu measurement to be considered
 
+        cout << "3" << endl;
     }
 
     // Vector for tracking time statistics

@@ -36,6 +36,7 @@
 #include "Thirdparty/g2o/g2o/solvers/linear_solver_dense.h"
 #include "G2oTypes.h"
 #include "Converter.h"
+#include "LoopClosureDetector.h"
 
 #include<mutex>
 
@@ -3947,6 +3948,8 @@ void Optimizer::LocalBundleAdjustment(KeyFrame* pMainKF,vector<KeyFrame*> vpAdju
 
 void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbStopFlag, Map *pMap, LoopClosing::KeyFrameAndPose &corrPoses)
 {
+
+    cout << "-----------------------------------------1" << endl;
     const int Nd = 6;
     const unsigned long maxKFid = pCurrKF->mnId;
 
@@ -3972,6 +3975,8 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
             break;
     }
 
+    cout << "-----------------------------------------2" << endl;
+
     list<KeyFrame*> lFixedKeyFrames;
     if(vpOptimizableKFs.back()->mPrevKF)
     {
@@ -3987,6 +3992,8 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
     // Add temporal neighbours to merge KF (previous and next KFs)
     vpOptimizableKFs.push_back(pMergeKF);
     pMergeKF->mnBALocalForKF = pCurrKF->mnId;
+
+    cout << "-----------------------------------------3" << endl;
 
     // Previous KFs
     for(int i=1; i<(Nd/2); i++)
@@ -4034,6 +4041,8 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
 
     int N = vpOptimizableKFs.size();
 
+    cout << "-----------------------------------------4" << endl;
+
     // Optimizable points seen by optimizable keyframes
     list<MapPoint*> lLocalMapPoints;
     map<MapPoint*,int> mLocalObs;
@@ -4057,6 +4066,8 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
                     }
         }
     }
+
+    cout << "-----------------------------------------5" << endl;
 
     std::vector<std::pair<MapPoint*, int>> pairs;
     pairs.reserve(mLocalObs.size());
@@ -4087,6 +4098,8 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
         }
     }
 
+    cout << "-----------------------------------------6" << endl;
+
     g2o::SparseOptimizer optimizer;
     g2o::BlockSolverX::LinearSolverType * linearSolver;
     linearSolver = new g2o::LinearSolverEigen<g2o::BlockSolverX::PoseMatrixType>();
@@ -4098,7 +4111,7 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
     solver->setUserLambdaInit(1e3);
 
     optimizer.setAlgorithm(solver);
-    optimizer.setVerbose(false);
+    optimizer.setVerbose(true);
 
     // Set Local KeyFrame vertices
     N=vpOptimizableKFs.size();
@@ -4128,6 +4141,8 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
         }
     }
 
+    cout << "-----------------------------------------7" << endl;
+
     // Set Local cov keyframes vertices
     int Ncov=vpOptimizableCovKFs.size();
     for(int i=0; i<Ncov; i++)
@@ -4156,6 +4171,8 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
         }
     }
 
+    cout << "-----------------------------------------8" << endl;
+
     // Set Fixed KeyFrame vertices
     for(list<KeyFrame*>::iterator lit=lFixedKeyFrames.begin(), lend=lFixedKeyFrames.end(); lit!=lend; lit++)
     {
@@ -4181,6 +4198,8 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
             optimizer.addVertex(VA);
         }
     }
+
+    cout << "-----------------------------------------9" << endl;
 
     // Create intertial constraints
     vector<EdgeInertial*> vei(N,(EdgeInertial*)NULL);
@@ -4247,6 +4266,8 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
             Verbose::PrintMess("ERROR building inertial edge", Verbose::VERBOSITY_NORMAL);
     }
 
+    cout << "-----------------------------------------10" << endl;
+
     Verbose::PrintMess("end inserting inertial edges", Verbose::VERBOSITY_NORMAL);
 
 
@@ -4279,6 +4300,8 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
     const float chi2Stereo2 = 7.815;
 
     const unsigned long iniMPid = maxKFid*5;
+
+    cout << "-----------------------------------------11" << endl;
 
     for(list<MapPoint*>::iterator lit=lLocalMapPoints.begin(), lend=lLocalMapPoints.end(); lit!=lend; lit++)
     {
@@ -4366,15 +4389,21 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
         }
     }
 
+    cout << "-----------------------------------------12" << endl;
+
     if(pbStopFlag)
         optimizer.setForceStopFlag(pbStopFlag);
 
     if(pbStopFlag)
         if(*pbStopFlag)
             return;
+    
+    
 
     optimizer.initializeOptimization();
     optimizer.optimize(8);
+
+    cout << "-----------------------------------------13----------" << endl;
 
     vector<pair<KeyFrame*,MapPoint*> > vToErase;
     vToErase.reserve(vpEdgesMono.size()+vpEdgesStereo.size());
@@ -4395,6 +4424,8 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
             vToErase.push_back(make_pair(pKFi,pMP));
         }
     }
+
+    cout << "-----------------------------------------13" << endl;
 
     // Stereo
     for(size_t i=0, iend=vpEdgesStereo.size(); i<iend;i++)
@@ -4425,6 +4456,7 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
         }
     }
 
+    cout << "-----------------------------------------14" << endl;
 
     // Recover optimized data
     //Keyframes
@@ -4452,6 +4484,8 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
         }
     }
 
+    cout << "-----------------------------------------15" << endl;
+
     for(int i=0; i<Ncov; i++)
     {
         KeyFrame* pKFi = vpOptimizableCovKFs[i];
@@ -4475,6 +4509,8 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
             pKFi->SetNewBias(IMU::Bias(b[3],b[4],b[5],b[0],b[1],b[2]));
         }
     }
+
+    cout << "-----------------------------------------16" << endl;
 
     //Points
     for(list<MapPoint*>::iterator lit=lLocalMapPoints.begin(), lend=lLocalMapPoints.end(); lit!=lend; lit++)
@@ -5296,9 +5332,11 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
 {
     typedef g2o::BlockSolver< g2o::BlockSolverTraits<4, 4> > BlockSolver_4_4;
 
+    chrono::steady_clock::time_point start = chrono::steady_clock::now();
+
     // Setup optimizer
     g2o::SparseOptimizer optimizer;
-    optimizer.setVerbose(false);
+    optimizer.setVerbose(true);
     g2o::BlockSolverX::LinearSolverType * linearSolver =
             new g2o::LinearSolverEigen<g2o::BlockSolverX::PoseMatrixType>();
     g2o::BlockSolverX * solver_ptr = new g2o::BlockSolverX(linearSolver);
@@ -5317,6 +5355,8 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
 
     vector<VertexPose4DoF*> vpVertices(nMaxKFid+1);
 
+    cout << "Number of keyframes for pose graph: " << vpKFs.size() << " and map points: " << vpMPs.size() << endl;
+    
     const int minFeat = 100;
     // Set KeyFrame vertices
     for(size_t i=0, iend=vpKFs.size(); i<iend;i++)
@@ -5538,9 +5578,13 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
         }
     }
 
+    chrono::steady_clock::time_point stop = chrono::steady_clock::now();
+
     optimizer.initializeOptimization();
     optimizer.computeActiveErrors();
     optimizer.optimize(20);
+
+    chrono::steady_clock::time_point stop2 = chrono::steady_clock::now();
 
     unique_lock<mutex> lock(pMap->mMutexMapUpdate);
 
@@ -5585,6 +5629,9 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
         pMP->UpdateNormalAndDepth();
     }
     pMap->IncreaseChangeIndex();
+
+    cout << "Pose graph optimization time1 : " << chrono::duration_cast<chrono::duration<double> >(stop - start).count() << endl;
+    cout << "Pose graph optimization time2 : " << chrono::duration_cast<chrono::duration<double> >(stop2 - stop).count() << endl;
 }
 
 } //namespace ORB_SLAM

@@ -22,12 +22,16 @@
 #include "KeyFrame.h"
 #include "Thirdparty/DBoW2/DBoW2/BowVector.h"
 
+using namespace std::chrono;
+
 #include<mutex>
 
 using namespace std;
 
 namespace ORB_SLAM3
 {
+
+std::ofstream myFileDetectCandidates("/localhome/dka119/ORB_SLAM3_Analysis/query/detectCandidates_desktop_200ms_corridor1.csv");
 
 KeyFrameDatabase::KeyFrameDatabase (const ORBVocabulary &voc):
     mpVoc(&voc)
@@ -606,6 +610,10 @@ void KeyFrameDatabase::DetectNBestCandidates(KeyFrame *pKF, vector<KeyFrame*> &v
     list<KeyFrame*> lKFsSharingWords;
     set<KeyFrame*> spConnectedKF;
 
+    auto start = high_resolution_clock::now();
+
+    // std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
     // Search all keyframes that share a word with current frame
     {
         unique_lock<mutex> lock(mMutex);
@@ -648,6 +656,8 @@ void KeyFrameDatabase::DetectNBestCandidates(KeyFrame *pKF, vector<KeyFrame*> &v
     int minCommonWords = maxCommonWords*0.8f;
 
     list<pair<float,KeyFrame*> > lScoreAndMatch;
+
+    auto stop1 = high_resolution_clock::now();
 
     int nscores=0;
 
@@ -701,6 +711,8 @@ void KeyFrameDatabase::DetectNBestCandidates(KeyFrame *pKF, vector<KeyFrame*> &v
 
     lAccScoreAndMatch.sort(compFirst);
 
+    auto stop2 = high_resolution_clock::now();
+
     vpLoopCand.reserve(nNumCandidates);
     vpMergeCand.reserve(nNumCandidates);
     set<KeyFrame*> spAlreadyAddedKF;
@@ -727,6 +739,13 @@ void KeyFrameDatabase::DetectNBestCandidates(KeyFrame *pKF, vector<KeyFrame*> &v
         i++;
         it++;
     }
+
+    auto duration1 = duration_cast<microseconds>(stop1 - start);
+    auto duration2 = duration_cast<microseconds>(stop2 - stop1);
+
+    // std::cout << duration1.count() << ", " << duration2.count() << std::endl;
+
+    // myFileDetectCandidates << duration1.count() << ", " << duration2.count() << std::endl;
 }
 
 

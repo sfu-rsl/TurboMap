@@ -24,6 +24,7 @@
 #include "Optimizer.h"
 #include "ORBmatcher.h"
 #include "G2oTypes.h"
+#include "LoopClosureDetector.h"
 
 #include<mutex>
 #include<thread>
@@ -968,7 +969,9 @@ int LoopClosing::FindMatchesByProjection(KeyFrame* pCurrentKF, KeyFrame* pMatche
 
 void LoopClosing::CorrectLoop()
 {
-    //cout << "Loop detected!" << endl;
+    cout << "Loop detected!" << endl;
+
+    chrono::steady_clock::time_point start = chrono::steady_clock::now();
 
     // Send a stop signal to Local Mapping
     // Avoid new keyframes are inserted while correcting the loop
@@ -1165,6 +1168,8 @@ void LoopClosing::CorrectLoop()
     // TODO CHECK; Solo para el monocular inertial
     if(mpTracker->mSensor==System::IMU_MONOCULAR && !mpCurrentKF->GetMap()->GetIniertialBA2())
         bFixedScale=false;
+    
+    chrono::steady_clock::time_point stop = chrono::steady_clock::now();
 
 #ifdef REGISTER_TIMES
         std::chrono::steady_clock::time_point time_EndFusion = std::chrono::steady_clock::now();
@@ -1175,7 +1180,9 @@ void LoopClosing::CorrectLoop()
     //cout << "Optimize essential graph" << endl;
     if(pLoopMap->IsInertial() && pLoopMap->isImuInitialized())
     {
+        LoopClosureDetector::instance().setLoopClosureDetected(true);
         Optimizer::OptimizeEssentialGraph4DoF(pLoopMap, mpLoopMatchedKF, mpCurrentKF, NonCorrectedSim3, CorrectedSim3, LoopConnections);
+        LoopClosureDetector::instance().setLoopClosureDetected(false);
     }
     else
     {
@@ -1210,6 +1217,11 @@ void LoopClosing::CorrectLoop()
     mpLocalMapper->Release();    
 
     mLastLoopKFid = mpCurrentKF->mnId; //TODO old varible, it is not use in the new algorithm
+
+    chrono::steady_clock::time_point end = chrono::steady_clock::now();
+
+    cout << "Loop closure time1: " << chrono::duration_cast<chrono::duration<double> >(stop - start).count() << endl;
+    cout << "Loop closure time2: " << chrono::duration_cast<chrono::duration<double> >(end - stop).count() << endl;
 }
 
 void LoopClosing::MergeLocal()
@@ -1782,7 +1794,9 @@ void LoopClosing::MergeLocal()
 
 void LoopClosing::MergeLocal2()
 {
-    //cout << "Merge detected!!!!" << endl;
+    cout << "Merge detected!!!!" << endl;
+
+    chrono::steady_clock::time_point start = chrono::steady_clock::now();
 
     int numTemporalKFs = 11; //TODO (set by parameter): Temporal KFs in the local window if the map is inertial.
 
@@ -1799,7 +1813,7 @@ void LoopClosing::MergeLocal2()
     // Flag that is true only when we stopped a running BA, in this case we need relaunch at the end of the merge
     bool bRelaunchBA = false;
 
-    //cout << "Check Full Bundle Adjustment" << endl;
+    cout << "Check Full Bundle Adjustment" << endl;
     // If a Global Bundle Adjustment is running, abort it
     if(isRunningGBA())
     {
@@ -1817,14 +1831,14 @@ void LoopClosing::MergeLocal2()
     }
 
 
-    //cout << "Request Stop Local Mapping" << endl;
+    cout << "Request Stop Local Mapping" << endl;
     mpLocalMapper->RequestStop();
     // Wait until Local Mapping has effectively stopped
     while(!mpLocalMapper->isStopped())
     {
         usleep(1000);
     }
-    //cout << "Local Map stopped" << endl;
+    cout << "Local Map stopped" << endl;
 
     Map* pCurrentMap = mpCurrentKF->GetMap();
     Map* pMergeMap = mpMergeMatchedKF->GetMap();
@@ -1835,14 +1849,14 @@ void LoopClosing::MergeLocal2()
 
         unique_lock<mutex> lock(mpAtlas->GetCurrentMap()->mMutexMapUpdate);
 
-        //cout << "KFs before empty: " << mpAtlas->GetCurrentMap()->KeyFramesInMap() << endl;
+        cout << "KFs before empty: " << mpAtlas->GetCurrentMap()->KeyFramesInMap() << endl;
         mpLocalMapper->EmptyQueue();
-        //cout << "KFs after empty: " << mpAtlas->GetCurrentMap()->KeyFramesInMap() << endl;
+        cout << "KFs after empty: " << mpAtlas->GetCurrentMap()->KeyFramesInMap() << endl;
 
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-        //cout << "updating active map to merge reference" << endl;
-        //cout << "curr merge KF id: " << mpCurrentKF->mnId << endl;
-        //cout << "curr tracking KF id: " << mpTracker->GetLastKeyFrame()->mnId << endl;
+        cout << "updating active map to merge reference" << endl;
+        cout << "curr merge KF id: " << mpCurrentKF->mnId << endl;
+        cout << "curr tracking KF id: " << mpTracker->GetLastKeyFrame()->mnId << endl;
         bool bScaleVel=false;
         if(s_on!=1)
             bScaleVel=true;
@@ -1873,10 +1887,10 @@ void LoopClosing::MergeLocal2()
     }
 
 
-    //cout << "MergeMap init ID: " << pMergeMap->GetInitKFid() << "       CurrMap init ID: " << pCurrentMap->GetInitKFid() << endl;
+    cout << "MergeMap init ID: " << pMergeMap->GetInitKFid() << "       CurrMap init ID: " << pCurrentMap->GetInitKFid() << endl;
 
     // Load KFs and MPs from merge map
-    //cout << "updating current map" << endl;
+    cout << "updating current map" << endl;
     {
         // Get Merge Map Mutex (This section stops tracking!!)
         unique_lock<mutex> currentLock(pCurrentMap->mMutexMapUpdate); // We update the current map with the Merge information
@@ -1920,16 +1934,16 @@ void LoopClosing::MergeLocal2()
         }
     }
 
-    //cout << "MergeMap init ID: " << pMergeMap->GetInitKFid() << "       CurrMap init ID: " << pCurrentMap->GetInitKFid() << endl;
+    cout << "MergeMap init ID: " << pMergeMap->GetInitKFid() << "       CurrMap init ID: " << pCurrentMap->GetInitKFid() << endl;
 
-    //cout << "end updating current map" << endl;
+    cout << "end updating current map" << endl;
 
     // Critical zone
     //bool good = pCurrentMap->CheckEssentialGraph();
     /*if(!good)
         cout << "BAD ESSENTIAL GRAPH!!" << endl;*/
 
-    //cout << "Update essential graph" << endl;
+    cout << "Update essential graph" << endl;
     // mpCurrentKF->UpdateConnections(); // to put at false mbFirstConnection
     pMergeMap->GetOriginKF()->SetFirstConnection(false);
     pNewChild = mpMergeMatchedKF->GetParent(); // Old parent, it will be the new child of this KF
@@ -1946,15 +1960,15 @@ void LoopClosing::MergeLocal2()
     }
 
 
-    //cout << "MergeMap init ID: " << pMergeMap->GetInitKFid() << "       CurrMap init ID: " << pCurrentMap->GetInitKFid() << endl;
+    cout << "MergeMap init ID: " << pMergeMap->GetInitKFid() << "       CurrMap init ID: " << pCurrentMap->GetInitKFid() << endl;
 
-    //cout << "end update essential graph" << endl;
+    cout << "end update essential graph" << endl;
 
     /*good = pCurrentMap->CheckEssentialGraph();
     if(!good)
         cout << "BAD ESSENTIAL GRAPH 1!!" << endl;*/
 
-    //cout << "Update relationship between KFs" << endl;
+    cout << "Update relationship between KFs" << endl;
     vector<MapPoint*> vpCheckFuseMapPoint; // MapPoint vector from current map to allow to fuse duplicated points with the old map (merge)
     vector<KeyFrame*> vpCurrentConnectedKFs;
 
@@ -1984,26 +1998,26 @@ void LoopClosing::MergeLocal2()
             break;
     }
 
-    /*cout << "vpCurrentConnectedKFs.size() " << vpCurrentConnectedKFs.size() << endl;
+    cout << "vpCurrentConnectedKFs.size() " << vpCurrentConnectedKFs.size() << endl;
     cout << "mvpMergeConnectedKFs.size() " << mvpMergeConnectedKFs.size() << endl;
-    cout << "spMapPointMerge.size() " << spMapPointMerge.size() << endl;*/
+    cout << "spMapPointMerge.size() " << spMapPointMerge.size() << endl;
 
 
     vpCheckFuseMapPoint.reserve(spMapPointMerge.size());
     std::copy(spMapPointMerge.begin(), spMapPointMerge.end(), std::back_inserter(vpCheckFuseMapPoint));
-    //cout << "Finished to update relationship between KFs" << endl;
+    cout << "Finished to update relationship between KFs" << endl;
 
-    //cout << "MergeMap init ID: " << pMergeMap->GetInitKFid() << "       CurrMap init ID: " << pCurrentMap->GetInitKFid() << endl;
+    cout << "MergeMap init ID: " << pMergeMap->GetInitKFid() << "       CurrMap init ID: " << pCurrentMap->GetInitKFid() << endl;
 
     /*good = pCurrentMap->CheckEssentialGraph();
     if(!good)
         cout << "BAD ESSENTIAL GRAPH 2!!" << endl;*/
 
-    //cout << "start SearchAndFuse" << endl;
+    cout << "start SearchAndFuse" << endl;
     SearchAndFuse(vpCurrentConnectedKFs, vpCheckFuseMapPoint);
-    //cout << "end SearchAndFuse" << endl;
+    cout << "end SearchAndFuse" << endl;
 
-    //cout << "MergeMap init ID: " << pMergeMap->GetInitKFid() << "       CurrMap init ID: " << pCurrentMap->GetInitKFid() << endl;
+    cout << "MergeMap init ID: " << pMergeMap->GetInitKFid() << "       CurrMap init ID: " << pCurrentMap->GetInitKFid() << endl;
 
     /*good = pCurrentMap->CheckEssentialGraph();
     if(!good)
@@ -2026,9 +2040,9 @@ void LoopClosing::MergeLocal2()
 
         pKFi->UpdateConnections();
     }
-    //cout << "end update connections" << endl;
+    cout << "end update connections" << endl;
 
-    //cout << "MergeMap init ID: " << pMergeMap->GetInitKFid() << "       CurrMap init ID: " << pCurrentMap->GetInitKFid() << endl;
+    cout << "MergeMap init ID: " << pMergeMap->GetInitKFid() << "       CurrMap init ID: " << pCurrentMap->GetInitKFid() << endl;
 
     /*good = pCurrentMap->CheckEssentialGraph();
     if(!good)
@@ -2047,9 +2061,9 @@ void LoopClosing::MergeLocal2()
     // Perform BA
     bool bStopFlag=false;
     KeyFrame* pCurrKF = mpTracker->GetLastKeyFrame();
-    //cout << "start MergeInertialBA" << endl;
+    cout << "start MergeInertialBA" << endl;
     Optimizer::MergeInertialBA(pCurrKF, mpMergeMatchedKF, &bStopFlag, pCurrentMap,CorrectedSim3);
-    //cout << "end MergeInertialBA" << endl;
+    cout << "end MergeInertialBA" << endl;
 
     /*good = pCurrentMap->CheckEssentialGraph();
     if(!good)
@@ -2058,6 +2072,9 @@ void LoopClosing::MergeLocal2()
     // Release Local Mapping.
     mpLocalMapper->Release();
 
+    chrono::steady_clock::time_point end = chrono::steady_clock::now();
+
+    cout << "Merge Time: " << chrono::duration_cast<chrono::milliseconds>(end - start).count() << endl;
 
     return;
 }

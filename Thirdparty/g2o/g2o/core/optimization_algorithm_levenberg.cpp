@@ -32,6 +32,7 @@
 #include <iostream>
 
 #include "../stuff/timeutil.h"
+#include "../../../../include/LoopClosureDetector.h"
 
 #include "sparse_optimizer.h"
 #include "solver.h"
@@ -60,6 +61,11 @@ namespace g2o {
 
   OptimizationAlgorithm::SolverResult OptimizationAlgorithmLevenberg::solve(int iteration, bool online)
   {
+    double time = get_monotonic_time();
+    if(LoopClosureDetector::instance().isLoopClosureDetected())
+    {
+      cout << "Levenberg: Loop closure detected" << endl;
+    }
     assert(_optimizer && "_optimizer not set");
     assert(_solver->optimizer() == _optimizer && "underlying linear solver operates on different graph");
 
@@ -71,12 +77,24 @@ namespace g2o {
       }
     }
 
+    if(LoopClosureDetector::instance().isLoopClosureDetected())
+    {
+      cout << "Levenberg [Build Structure]: " << get_monotonic_time()-time << endl;
+      time = get_monotonic_time();
+    }
+
     double t=get_monotonic_time();
     _optimizer->computeActiveErrors();
     G2OBatchStatistics* globalStats = G2OBatchStatistics::globalStats();
     if (globalStats) {
       globalStats->timeResiduals = get_monotonic_time()-t;
       t=get_monotonic_time();
+    }
+
+    if(LoopClosureDetector::instance().isLoopClosureDetected())
+    {
+      cout << "Levenberg [ComputeActiveErrors]: " << get_monotonic_time()-time << endl;
+      time = get_monotonic_time();
     }
 
     double currentChi = _optimizer->activeRobustChi2();
@@ -89,11 +107,23 @@ namespace g2o {
       globalStats->timeQuadraticForm = get_monotonic_time()-t;
     }
 
+    if(LoopClosureDetector::instance().isLoopClosureDetected())
+    {
+      cout << "Levenberg [Build System]: " << get_monotonic_time()-time << endl;
+      time = get_monotonic_time();
+    }
+
     // core part of the Levenbarg algorithm
     if (iteration == 0) {       
       _currentLambda = computeLambdaInit();
       _ni = 2;
       _nBad = 0;
+    }
+
+    if(LoopClosureDetector::instance().isLoopClosureDetected())
+    {
+      cout << "Levenberg [computeLambdaInit]: " << get_monotonic_time()-time << endl;
+      time = get_monotonic_time();
     }
 
     double rho=0;
@@ -163,6 +193,11 @@ namespace g2o {
     if(_nBad>=3)
     {
         return Terminate;
+    }
+
+    if(LoopClosureDetector::instance().isLoopClosureDetected())
+    {
+      cout << "Levenberg [Main Algorithm]: " << get_monotonic_time()-time << endl;
     }
 
     return OK;

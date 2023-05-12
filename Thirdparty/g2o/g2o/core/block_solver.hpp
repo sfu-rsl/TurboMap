@@ -32,6 +32,7 @@
 #include "../stuff/timeutil.h"
 #include "../stuff/macros.h"
 #include "../stuff/misc.h"
+#include "../../../../include/LoopClosureDetector.h"
 
 namespace g2o {
 
@@ -142,6 +143,10 @@ BlockSolver<Traits>::~BlockSolver()
 template <typename Traits>
 bool BlockSolver<Traits>::buildStructure(bool zeroBlocks)
 {
+  // double loopClosureTime=get_monotonic_time();
+  // if(LoopClosureDetector::instance().isLoopClosureDetected()) {
+  //   std::cout << "Loop closure detected, building structure" << std::endl;
+  // }
   assert(_optimizer);
 
   size_t sparseDim = 0;
@@ -291,12 +296,20 @@ bool BlockSolver<Traits>::buildStructure(bool zeroBlocks)
   delete schurMatrixLookup;
   _Hschur->fillSparseBlockMatrixCCSTransposed(*_HschurTransposedCCS);
 
+  // if(LoopClosureDetector::instance().isLoopClosureDetected()) {
+  //   std::cout << "Structure built, time = " << get_monotonic_time()-loopClosureTime << std::endl;
+  // }
   return true;
 }
 
 template <typename Traits>
 bool BlockSolver<Traits>::updateStructure(const std::vector<HyperGraph::Vertex*>& vset, const HyperGraph::EdgeSet& edges)
 {
+  double loopClosureTime = get_monotonic_time();
+  if(LoopClosureDetector::instance().isLoopClosureDetected()) {
+    std::cout << "Updating structure" << std::endl;
+  }
+
   for (std::vector<HyperGraph::Vertex*>::const_iterator vit = vset.begin(); vit != vset.end(); ++vit) {
     OptimizableGraph::Vertex* v = static_cast<OptimizableGraph::Vertex*>(*vit);
     int dim = v->dimension();
@@ -347,12 +360,20 @@ bool BlockSolver<Traits>::updateStructure(const std::vector<HyperGraph::Vertex*>
 
   }
 
+  if(LoopClosureDetector::instance().isLoopClosureDetected()) {
+    std::cout << "Structure updated, time = " << get_monotonic_time()-loopClosureTime << std::endl;
+  }
+
   return true;
 }
 
 template <typename Traits>
 bool BlockSolver<Traits>::solve(){
   //cerr << __PRETTY_FUNCTION__ << endl;
+  // double loopClosureTime = get_monotonic_time();
+  // if(LoopClosureDetector::instance().isLoopClosureDetected()) {
+  //   std::cout << "Solving" << std::endl;
+  // }
   if (! _doSchur){
     double t=get_monotonic_time();
     bool ok = _linearSolver->solve(*_Hpp, _x, _b);
@@ -481,7 +502,9 @@ bool BlockSolver<Traits>::solve(){
   _DInvSchur->multiply(xl,cl);
   //_DInvSchur->rightMultiply(xl,cl);
   //cerr << "Solve [landmark delta] = " <<  get_monotonic_time()-t << endl;
-
+  // if(LoopClosureDetector::instance().isLoopClosureDetected()) {
+  //   std::cout << "Solved, time = " << get_monotonic_time()-loopClosureTime << std::endl;
+  // }
   return true;
 }
 
