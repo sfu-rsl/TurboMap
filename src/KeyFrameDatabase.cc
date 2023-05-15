@@ -31,7 +31,7 @@ using namespace std;
 namespace ORB_SLAM3
 {
 
-std::ofstream myFileDetectCandidates("/localhome/dka119/ORB_SLAM3_Analysis/query/detectCandidates_desktop_200ms_corridor1.csv");
+// std::ofstream myFileDetectCandidates("/localhome/dka119/ORB_SLAM3_Analysis/query/detectCandidates_desktop_nclt.csv");
 
 KeyFrameDatabase::KeyFrameDatabase (const ORBVocabulary &voc):
     mpVoc(&voc)
@@ -743,7 +743,7 @@ void KeyFrameDatabase::DetectNBestCandidates(KeyFrame *pKF, vector<KeyFrame*> &v
     auto duration1 = duration_cast<microseconds>(stop1 - start);
     auto duration2 = duration_cast<microseconds>(stop2 - stop1);
 
-    // std::cout << duration1.count() << ", " << duration2.count() << std::endl;
+    std::cout << duration1.count() << ", " << duration2.count() << std::endl;
 
     // myFileDetectCandidates << duration1.count() << ", " << duration2.count() << std::endl;
 }

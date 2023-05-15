@@ -37,6 +37,7 @@
 #include "sparse_optimizer.h"
 #include "solver.h"
 #include "batch_stats.h"
+#include "chrono"
 using namespace std;
 
 namespace g2o {
@@ -61,11 +62,11 @@ namespace g2o {
 
   OptimizationAlgorithm::SolverResult OptimizationAlgorithmLevenberg::solve(int iteration, bool online)
   {
-    double time = get_monotonic_time();
     if(LoopClosureDetector::instance().isLoopClosureDetected())
     {
       cout << "Levenberg: Loop closure detected" << endl;
     }
+    chrono::steady_clock::time_point buildStructureStart = chrono::steady_clock::now();
     assert(_optimizer && "_optimizer not set");
     assert(_solver->optimizer() == _optimizer && "underlying linear solver operates on different graph");
 
@@ -77,13 +78,13 @@ namespace g2o {
       }
     }
 
+    chrono::steady_clock::time_point buildStructureEnd = chrono::steady_clock::now();
     if(LoopClosureDetector::instance().isLoopClosureDetected())
     {
-      cout << "Levenberg [Build Structure]: " << get_monotonic_time()-time << endl;
-      time = get_monotonic_time();
+      cout << "Levenberg [Build Structure]: " << chrono::duration_cast<chrono::milliseconds>(buildStructureEnd - buildStructureStart).count() << " ms" << endl;
     }
 
-    double t=get_monotonic_time();
+    double t = get_monotonic_time();
     _optimizer->computeActiveErrors();
     G2OBatchStatistics* globalStats = G2OBatchStatistics::globalStats();
     if (globalStats) {
@@ -91,10 +92,11 @@ namespace g2o {
       t=get_monotonic_time();
     }
 
+    chrono::steady_clock::time_point computeActiveErrors = chrono::steady_clock::now();
+
     if(LoopClosureDetector::instance().isLoopClosureDetected())
     {
-      cout << "Levenberg [ComputeActiveErrors]: " << get_monotonic_time()-time << endl;
-      time = get_monotonic_time();
+      cout << "Levenberg [ComputeActiveErrors]: " << chrono::duration_cast<chrono::milliseconds>(computeActiveErrors - buildStructureEnd).count() << " ms" << endl;
     }
 
     double currentChi = _optimizer->activeRobustChi2();
@@ -107,10 +109,11 @@ namespace g2o {
       globalStats->timeQuadraticForm = get_monotonic_time()-t;
     }
 
+    chrono::steady_clock::time_point buildSystemEnd = chrono::steady_clock::now();
+
     if(LoopClosureDetector::instance().isLoopClosureDetected())
     {
-      cout << "Levenberg [Build System]: " << get_monotonic_time()-time << endl;
-      time = get_monotonic_time();
+      cout << "Levenberg [Build System]: " << chrono::duration_cast<chrono::milliseconds>(buildSystemEnd - computeActiveErrors).count() << " ms" << endl;
     }
 
     // core part of the Levenbarg algorithm
@@ -120,10 +123,11 @@ namespace g2o {
       _nBad = 0;
     }
 
+    chrono::steady_clock::time_point computeLambdaInit = chrono::steady_clock::now();
+
     if(LoopClosureDetector::instance().isLoopClosureDetected())
     {
-      cout << "Levenberg [computeLambdaInit]: " << get_monotonic_time()-time << endl;
-      time = get_monotonic_time();
+      cout << "Levenberg [computeLambdaInit]: " << chrono::duration_cast<chrono::milliseconds>(computeLambdaInit - buildSystemEnd).count() << " ms" << endl;
     }
 
     double rho=0;
@@ -195,9 +199,11 @@ namespace g2o {
         return Terminate;
     }
 
+    chrono::steady_clock::time_point mainAlgorithmEnd = chrono::steady_clock::now();
+
     if(LoopClosureDetector::instance().isLoopClosureDetected())
     {
-      cout << "Levenberg [Main Algorithm]: " << get_monotonic_time()-time << endl;
+      cout << "Levenberg [Main Algorithm]: " << chrono::duration_cast<chrono::milliseconds>(mainAlgorithmEnd - computeLambdaInit).count() << " ms" << endl;
     }
 
     return OK;

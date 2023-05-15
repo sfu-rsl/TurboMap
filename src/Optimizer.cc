@@ -5607,8 +5607,8 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
     }
     pMap->IncreaseChangeIndex();
 
-    cout << "Pose graph optimization time1 : " << chrono::duration_cast<chrono::duration<double> >(stop - start).count() << endl;
-    cout << "Pose graph optimization time2 : " << chrono::duration_cast<chrono::duration<double> >(stop2 - stop).count() << endl;
+    cout << "Pose graph optimization time1 : " << chrono::duration_cast<chrono::milliseconds>(stop - start).count() << endl;
+    cout << "Pose graph optimization time2 : " << chrono::duration_cast<chrono::milliseconds>(stop2 - stop).count() << endl;
 }
 
 } //namespace ORB_SLAM

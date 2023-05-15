@@ -1,12 +1,12 @@
 #!/bin/bash
-pathDataset=$HOME/Robot-Localization-on-NCLT-dataset-using-ORB-SLAM-III-and-Graph-Based-Sensor-Fusion
+pathDataset=$HOME/ORB_SLAM3_Datasets/nclt/Robot-Localization-on-NCLT-dataset-using-ORB-SLAM-III-and-Graph-Based-Sensor-Fusion/Utility
  #Example, it is necesary to change it by the dataset path
 
 # Single Session Example
 
-echo "Launching MH01 with Stereo-Inertial sensor"
-# ./Stereo-Inertial/stereo_inertial_euroc ../Vocabulary/ORBvoc.txt ./Stereo-Inertial/NCLT.yaml "$pathDatasetEuroc"/NCLT ./Stereo-Inertial/nclt.txt dataset-NCLT_easy_stereoi
+echo "Launching NCLT with Monocular-Inertial sensor"
+./Monocular-Inertial/mono_inertial_euroc ../Vocabulary/ORBvoc.txt ./Monocular-Inertial/NCLT.yaml "$pathDataset"/NCLT ./Monocular-Inertial/NCLT_TimeStamps/2013-04-05.txt dataset-NCLT_monoi
 
-./Monocular-Inertial/mono_inertial_euroc ../Vocabulary/ORBvoc.txt ./Monocular-Inertial/NCLT.yaml "$pathDataset"/Utility/NCLT "$pathDataset"/Utility/time_stamp.txt dataset-NCLT_easy_stereoi
-
-python3 ../evaluation/evaluate3.py /localhome/dka119/ORB_SLAM3_Datasets/michigan/groundtruth_2013-01-10.csv f_dataset-NCLT_easy_stereoi.txt --plot dataset-NCLT_easy_stereoi.pdf
+echo "------------------------------------"
+echo "Evaluation of NCLT trajectory with Monocular-Inertial sensor"
+python3 ../evaluation/evaluate3.py "$pathDataset"/groundtruth_2013-04-05.csv f_dataset-NCLT_monoi.txt --plot dataset-NCLT_monoi.pdf --verbose

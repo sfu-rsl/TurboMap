@@ -1220,8 +1220,8 @@ void LoopClosing::CorrectLoop()
 
     chrono::steady_clock::time_point end = chrono::steady_clock::now();
 
-    cout << "Loop closure time1: " << chrono::duration_cast<chrono::duration<double> >(stop - start).count() << endl;
-    cout << "Loop closure time2: " << chrono::duration_cast<chrono::duration<double> >(end - stop).count() << endl;
+    cout << "Loop closure time1: " << chrono::duration_cast<chrono::milliseconds>(stop - start).count() << endl;
+    cout << "Loop closure time2: " << chrono::duration_cast<chrono::milliseconds>(end - stop).count() << endl;
 }
 
 void LoopClosing::MergeLocal()

@@ -104,16 +104,13 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        cout << "2" << endl;
-
-        // Find first imu to be considered, supposing imu measurements start first
-
         while(vTimestampsImu[seq][first_imu[seq]]<=vTimestampsCam[seq][0])
             first_imu[seq]++;
         first_imu[seq]--; // first imu measurement to be considered
 
-        cout << "3" << endl;
     }
+
+    cout << "Total images: " << tot_images << endl;
 
     // Vector for tracking time statistics
     vector<float> vTimesTrack;
@@ -122,7 +119,7 @@ int main(int argc, char *argv[])
     cout.precision(17);
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::IMU_MONOCULAR, true);
+    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::IMU_MONOCULAR, false);
     float imageScale = SLAM.GetImageScale();
 
     double t_resize = 0.f;
