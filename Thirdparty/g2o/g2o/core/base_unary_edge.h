@@ -60,7 +60,7 @@ namespace g2o {
 
       virtual bool allVerticesFixed() const;
 
-      virtual void linearizeOplus(JacobianWorkspace& jacobianWorkspace);
+      virtual void linearizeOplus(JacobianWorkspace& jacobianWorkspace, std::chrono::microseconds& totalLockTime);
 
       /**
        * Linearizes the oplus operator in the vertex, and stores

@@ -867,6 +867,7 @@ void LocalMapping::Release()
         delete *lit;
     mlNewKeyFrames.clear();
 
+    cout << "KeyFrames to clear: " << mlNewKeyFrames.size() << endl;
     cout << "Local Mapping RELEASE" << endl;
 }
 

@@ -33,6 +33,7 @@
 
 #include "../stuff/timeutil.h"
 #include "../../../../include/LoopClosureDetector.h"
+#include "base_edge.h"
 
 #include "sparse_optimizer.h"
 #include "solver.h"
@@ -62,10 +63,6 @@ namespace g2o {
 
   OptimizationAlgorithm::SolverResult OptimizationAlgorithmLevenberg::solve(int iteration, bool online)
   {
-    if(LoopClosureDetector::instance().isLoopClosureDetected())
-    {
-      cout << "Levenberg: Loop closure detected" << endl;
-    }
     chrono::steady_clock::time_point buildStructureStart = chrono::steady_clock::now();
     assert(_optimizer && "_optimizer not set");
     assert(_solver->optimizer() == _optimizer && "underlying linear solver operates on different graph");
@@ -104,7 +101,9 @@ namespace g2o {
 
     double iniChi = currentChi;
 
-    _solver->buildSystem();
+
+    _solver->buildSystem(iteration);
+    
     if (globalStats) {
       globalStats->timeQuadraticForm = get_monotonic_time()-t;
     }
@@ -125,7 +124,7 @@ namespace g2o {
 
     chrono::steady_clock::time_point computeLambdaInit = chrono::steady_clock::now();
 
-    if(LoopClosureDetector::instance().isLoopClosureDetected())
+    if(LoopClosureDetector::instance().isLoopClosureDetected() || LoopClosureDetector::instance().isMergeDetected())
     {
       cout << "Levenberg [computeLambdaInit]: " << chrono::duration_cast<chrono::milliseconds>(computeLambdaInit - buildSystemEnd).count() << " ms" << endl;
     }
@@ -204,6 +203,11 @@ namespace g2o {
     if(LoopClosureDetector::instance().isLoopClosureDetected())
     {
       cout << "Levenberg [Main Algorithm]: " << chrono::duration_cast<chrono::milliseconds>(mainAlgorithmEnd - computeLambdaInit).count() << " ms" << endl;
+      cout << "Iteration : " << iteration << endl;
+      cout << "Edges: " << _optimizer->activeEdges().size() << endl;
+      cout << "Vertices: " << _optimizer->activeVertices().size() << endl;
+      std::string filename = "opt_" + std::to_string(iteration) + ".txt";
+      _optimizer->save(filename.c_str());
     }
 
     return OK;

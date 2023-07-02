@@ -4377,7 +4377,7 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
         if(*pbStopFlag)
             return;
 
-    cout << "Time before optimizer: " << chrono::duration_cast<chrono::duration<double> >(chrono::steady_clock::now() - start).count() << endl;
+    cout << "Time before optimizer: " << chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - start).count() << endl;
     
     auto t1 = chrono::steady_clock::now();
 
@@ -4386,7 +4386,7 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
 
     auto t2 = chrono::steady_clock::now();
 
-    cout << "Optimzer time : " << chrono::duration_cast<chrono::duration<double> >(t2 - t1).count() << endl;
+    cout << "Optimzer time : " << chrono::duration_cast<chrono::milliseconds>(t2 - t1).count() << endl;
 
     vector<pair<KeyFrame*,MapPoint*> > vToErase;
     vToErase.reserve(vpEdgesMono.size()+vpEdgesStereo.size());
@@ -4498,7 +4498,7 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
 
     pMap->IncreaseChangeIndex();
 
-    cout << "Time after optimizer: " << chrono::duration_cast<chrono::duration<double> >(chrono::steady_clock::now() - t2).count() << endl;
+    cout << "Time after optimizer: " << chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - t2).count() << endl;
 }
 
 int Optimizer::PoseInertialOptimizationLastKeyFrame(Frame *pFrame, bool bRecInit)
@@ -5317,6 +5317,7 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
     g2o::BlockSolverX::LinearSolverType * linearSolver =
             new g2o::LinearSolverEigen<g2o::BlockSolverX::PoseMatrixType>();
     g2o::BlockSolverX * solver_ptr = new g2o::BlockSolverX(linearSolver);
+    // solver_ptr->setStats(true);
 
     g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
 
@@ -5331,8 +5332,6 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
     vector<g2o::Sim3,Eigen::aligned_allocator<g2o::Sim3> > vCorrectedSwc(nMaxKFid+1);
 
     vector<VertexPose4DoF*> vpVertices(nMaxKFid+1);
-
-    cout << "Number of keyframes for pose graph: " << vpKFs.size() << " and map points: " << vpMPs.size() << endl;
     
     const int minFeat = 100;
     // Set KeyFrame vertices
@@ -5557,9 +5556,17 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
 
     chrono::steady_clock::time_point stop = chrono::steady_clock::now();
 
+    std::string filename = "opt_initial.txt";
+    optimizer.save(filename.c_str());
+    cout << endl << "g2o before optimization file saved" << endl;
+
     optimizer.initializeOptimization();
     optimizer.computeActiveErrors();
     optimizer.optimize(20);
+
+    std::string filename2 = "opt_final.txt";
+    optimizer.save(filename2.c_str());
+    cout << endl << "g2o after optimization file saved" << endl;
 
     chrono::steady_clock::time_point stop2 = chrono::steady_clock::now();
 
@@ -5606,6 +5613,8 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
         pMP->UpdateNormalAndDepth();
     }
     pMap->IncreaseChangeIndex();
+
+    solver_ptr->setStats(false);
 
     cout << "Pose graph optimization time1 : " << chrono::duration_cast<chrono::milliseconds>(stop - start).count() << endl;
     cout << "Pose graph optimization time2 : " << chrono::duration_cast<chrono::milliseconds>(stop2 - stop).count() << endl;

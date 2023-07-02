@@ -49,7 +49,7 @@ void BaseMultiEdge<D, E>::constructQuadraticForm()
 
 
 template <int D, typename E>
-void BaseMultiEdge<D, E>::linearizeOplus(JacobianWorkspace& jacobianWorkspace)
+void BaseMultiEdge<D, E>::linearizeOplus(JacobianWorkspace& jacobianWorkspace, std::chrono::microseconds& totalLockTime)
 {
   for (size_t i = 0; i < _vertices.size(); ++i) {
     OptimizableGraph::Vertex* v = static_cast<OptimizableGraph::Vertex*>(_vertices[i]);

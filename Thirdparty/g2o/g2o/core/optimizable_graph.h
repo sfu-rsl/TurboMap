@@ -33,6 +33,7 @@
 #include <limits>
 #include <cmath>
 #include <typeinfo>
+#include <chrono>
 
 #include "openmp_mutex.h"
 #include "hyper_graph.h"
@@ -451,7 +452,7 @@ namespace g2o {
          * Linearizes the constraint in the edge in the manifold space, and store
          * the result in the given workspace
          */
-        virtual void linearizeOplus(JacobianWorkspace& jacobianWorkspace) = 0;
+        virtual void linearizeOplus(JacobianWorkspace& jacobianWorkspace, std::chrono::microseconds& totalLockTime) = 0;
 
         /** set the estimate of the to vertex, based on the estimate of the from vertices in the edge. */
         virtual void initialEstimate(const OptimizableGraph::VertexSet& from, OptimizableGraph::Vertex* to) = 0;

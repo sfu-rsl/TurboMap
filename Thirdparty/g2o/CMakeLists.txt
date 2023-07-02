@@ -73,7 +73,8 @@ FIND_PACKAGE(Eigen3 3.1.0 REQUIRED)
 IF(EIGEN3_FOUND)
   SET(G2O_EIGEN3_INCLUDE ${EIGEN3_INCLUDE_DIR} CACHE PATH "Directory of Eigen3")
 ELSE(EIGEN3_FOUND)
-  SET(G2O_EIGEN3_INCLUDE "" CACHE PATH "Directory of Eigen3")
+  # SET(G2O_EIGEN3_INCLUDE "" CACHE PATH "Directory of Eigen3")
+  SET(G2O_EIGEN3_INCLUDE "/usr/local/include/eigen3" CACHE PATH "Directory of Eigen3")
 ENDIF(EIGEN3_FOUND)
 
 # Generate config.h

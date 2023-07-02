@@ -30,7 +30,7 @@ pathDatasetEuroc=$HOME/ORB_SLAM3_Datasets/euroc/vicon_room2
 echo "Launching MH01 with Stereo-Inertial sensor"
 ./Stereo-Inertial/stereo_inertial_euroc ../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "$pathDatasetEuroc"/V2_01_easy ./Stereo-Inertial/EuRoC_TimeStamps/V201.txt "$pathDatasetEuroc"/V2_02_medium ./Stereo-Inertial/EuRoC_TimeStamps/V202.txt dataset-V2_01_02_stereoi
 echo "------------------------------------"
-echo "Evaluation of MH_01_easy trajectory with Stereo-Inertial sensor"
+# echo "Evaluation of MH_01_easy trajectory with Stereo-Inertial sensor"
 # python3 ../evaluation/evaluate3.py "$pathDatasetEuroc"/MH_01_easy/mav0/state_groundtruth_estimate0/data.csv f_dataset-MH_01_easy_stereoi.txt --plot MH_01_easy_stereoi.pdf --verbose
 
 

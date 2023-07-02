@@ -72,7 +72,7 @@ void BaseUnaryEdge<D, E, VertexXiType>::constructQuadraticForm()
 }
 
 template <int D, typename E, typename VertexXiType>
-void BaseUnaryEdge<D, E, VertexXiType>::linearizeOplus(JacobianWorkspace& jacobianWorkspace)
+void BaseUnaryEdge<D, E, VertexXiType>::linearizeOplus(JacobianWorkspace& jacobianWorkspace, std::chrono::microseconds& totalLockTime)
 {
   new (&_jacobianOplusXi) JacobianXiOplusType(jacobianWorkspace.workspaceForVertex(0), D, VertexXiType::Dimension);
   linearizeOplus();

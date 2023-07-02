@@ -63,7 +63,7 @@ namespace g2o {
       /**
        * build the current system
        */
-      virtual bool buildSystem() = 0;
+      virtual bool buildSystem(int iteration) = 0;
 
       /**
        * solve Ax = b

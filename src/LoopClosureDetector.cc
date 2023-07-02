@@ -13,4 +13,12 @@ void LoopClosureDetector::setLoopClosureDetected(bool val) {
     loopClosureDetected = val;
 }
 
-LoopClosureDetector::LoopClosureDetector() : loopClosureDetected(false) {}
+bool LoopClosureDetector::isMergeDetected() const {
+    return mergeDetected;
+}
+
+void LoopClosureDetector::setMergeDetected(bool val) {
+    mergeDetected = val;
+}
+
+LoopClosureDetector::LoopClosureDetector() : loopClosureDetected(false), mergeDetected(false) {}

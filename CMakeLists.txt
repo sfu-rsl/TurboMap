@@ -127,6 +127,16 @@ ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
 -lcrypto
 )
 
+# Enable OpenMP
+FIND_PACKAGE(OpenMP)
+SET(OS3_USE_OPENMP OFF CACHE BOOL "Build ORB-SLAM3 with g2o OpenMP support, requires g2o to be built with G2O_USE_OPENMP=ON (EXPERIMENTAL)")
+if (OS3_USE_OPENMP)
+   add_definitions(-DG2O_OPENMP)
+   SET (G2O_OPENMP 1)
+   SET(ORB_SLAM3_C_FLAGS "${ORB_SLAM3_C_FLAGS} ${OpenMP_C_FLAGS}")
+   SET(ORB_SLAM3_CXX_FLAGS "${ORB_SLAM3_CXX_FLAGS} -DEIGEN_DONT_PARALLELIZE ${OpenMP_CXX_FLAGS}")
+endif(OS3_USE_OPENMP)
+
 # If RealSense SDK is found the library is added and its examples compiled
 if(realsense2_FOUND)
     include_directories(${PROJECT_NAME}

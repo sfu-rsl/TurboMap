@@ -74,6 +74,10 @@
         "variant": "cpp",
         "*.ipp": "cpp",
         "core": "cpp",
-        "specialfunctions": "cpp"
+        "specialfunctions": "cpp",
+        "*.def": "cpp",
+        "*.txx": "cpp",
+        "geometry": "cpp",
+        "*.inc": "cpp"
     }
 }

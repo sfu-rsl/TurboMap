@@ -178,10 +178,13 @@ void LoopClosing::Run()
                         nMerges += 1;
 #endif
                         // TODO UNCOMMENT
-                        if (mpTracker->mSensor==System::IMU_MONOCULAR ||mpTracker->mSensor==System::IMU_STEREO || mpTracker->mSensor==System::IMU_RGBD)
+                        if (mpTracker->mSensor==System::IMU_MONOCULAR ||mpTracker->mSensor==System::IMU_STEREO || mpTracker->mSensor==System::IMU_RGBD) {
+                            // LoopClosureDetector::instance().setLoopClosureDetected(true);
                             MergeLocal2();
-                        else
+                            // LoopClosureDetector::instance().setLoopClosureDetected(false);
+                        } else {
                             MergeLocal();
+                        }
 
 #ifdef REGISTER_TIMES
                         std::chrono::steady_clock::time_point time_EndMerge = std::chrono::steady_clock::now();
@@ -1222,6 +1225,7 @@ void LoopClosing::CorrectLoop()
 
     cout << "Loop closure time1: " << chrono::duration_cast<chrono::milliseconds>(stop - start).count() << endl;
     cout << "Loop closure time2: " << chrono::duration_cast<chrono::milliseconds>(end - stop).count() << endl;
+    cout << "Keyframes in queue: " << mpLocalMapper->KeyframesInQueue() << endl;
 }
 
 void LoopClosing::MergeLocal()

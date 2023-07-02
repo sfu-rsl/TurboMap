@@ -123,7 +123,7 @@ namespace g2o {
       virtual bool init(SparseOptimizer* optmizer, bool online = false);
       virtual bool buildStructure(bool zeroBlocks = false);
       virtual bool updateStructure(const std::vector<HyperGraph::Vertex*>& vset, const HyperGraph::EdgeSet& edges);
-      virtual bool buildSystem();
+      virtual bool buildSystem(int iteration);
       virtual bool solve();
       virtual bool computeMarginals(SparseBlockMatrix<MatrixXd>& spinv, const std::vector<std::pair<int, int> >& blockIndices);
       virtual bool setLambda(double lambda, bool backup = false);
@@ -140,6 +140,8 @@ namespace g2o {
       virtual bool saveHessian(const std::string& fileName) const;
 
       virtual void multiplyHessian(double* dest, const double* src) const { _Hpp->multiplySymmetricUpperTriangle(dest, src);}
+
+      virtual void setStats(bool status) {_stats = status;}
 
     protected:
       void resize(int* blockPoseIndices, int numPoseBlocks, 
@@ -173,6 +175,8 @@ namespace g2o {
 
       int _numPoses, _numLandmarks;
       int _sizePoses, _sizeLandmarks;
+
+      bool _stats;
   };
 
 

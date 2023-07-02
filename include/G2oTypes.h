@@ -170,7 +170,7 @@ public:
     }
 
     virtual bool read(std::istream& is){return false;}
-    virtual bool write(std::ostream& os) const{return false;}
+    virtual bool write(std::ostream& os) const;
 
     virtual void setToOriginImpl() {
         }
@@ -826,7 +826,9 @@ public:
     }
 
     virtual bool read(std::istream& is){return false;}
-    virtual bool write(std::ostream& os) const{return false;}
+    virtual bool write(std::ostream& os) const;
+
+    virtual bool writeError(std::ostream& os) const;
 
     void computeError(){
         const VertexPose4DoF* VPi = static_cast<const VertexPose4DoF*>(_vertices[0]);

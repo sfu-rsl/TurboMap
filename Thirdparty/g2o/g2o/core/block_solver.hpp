@@ -60,6 +60,7 @@ BlockSolver<Traits>::BlockSolver(LinearSolverType* linearSolver) :
   _sizePoses=0;
   _sizeLandmarks=0;
   _doSchur=true;
+  _stats = false;
 }
 
 template <typename Traits>
@@ -522,8 +523,19 @@ bool BlockSolver<Traits>::computeMarginals(SparseBlockMatrix<MatrixXd>& spinv, c
 }
 
 template <typename Traits>
-bool BlockSolver<Traits>::buildSystem()
+bool BlockSolver<Traits>::buildSystem(int iteration)
 {
+
+  std::ofstream jacobianFile;
+  if (_stats) {
+    jacobianFile.open("jacobians_" + std::to_string(iteration) + ".txt", std::ios::out | std::ios::app);
+    if (!jacobianFile) {
+      std::cerr << "Error opening file for writing: " << "jacobianFileName" << "\n";
+      // handle error
+    }
+  }
+  // std::ofstream myFile("ORB_SLAM3_Analysis/buildSystem_magistrale1.csv", std::ios::app);
+  chrono::steady_clock::time_point buildSystemStart = chrono::steady_clock::now();
   // clear b vector
 # ifdef G2O_OPENMP
 # pragma omp parallel for default (shared) if (_optimizer->indexMapping().size() > 1000)
@@ -533,12 +545,28 @@ bool BlockSolver<Traits>::buildSystem()
     assert(v);
     v->clearQuadraticForm();
   }
+
+  chrono::steady_clock::time_point firstForLoopEnd = chrono::steady_clock::now();
+  // if(LoopClosureDetector::instance().isLoopClosureDetected())
+  // cout << "BuildSystem [First for loop]: " << chrono::duration_cast<chrono::microseconds>(firstForLoopEnd - buildSystemStart).count() << endl;
+  // cout << chrono::duration_cast<chrono::microseconds>(firstForLoopEnd - buildSystemStart).count() << ",";
+  // myFile << chrono::duration_cast<chrono::microseconds>(firstForLoopEnd - buildSystemStart).count() << ",";
   _Hpp->clear();
+  chrono::steady_clock::time_point hppClearEnd = chrono::steady_clock::now();
+  // if(LoopClosureDetector::instance().isLoopClosureDetected())
+  // cout << "BuildSystem [hpp clear]: " << chrono::duration_cast<chrono::microseconds>(hppClearEnd - firstForLoopEnd).count() << endl;
+  // cout << chrono::duration_cast<chrono::microseconds>(hppClearEnd - firstForLoopEnd).count() << ",";
+  // myFile << chrono::duration_cast<chrono::microseconds>(hppClearEnd - firstForLoopEnd).count() << ",";
   if (_doSchur) {
     _Hll->clear();
     _Hpl->clear();
   }
 
+  auto linearizeTime = std::chrono::microseconds(0);
+  auto constructTime = std::chrono::microseconds(0);
+
+  size_t totalMemory = 0;
+  auto totalLockTime = std::chrono::microseconds(0);
   // resetting the terms for the pairwise constraints
   // built up the current system by storing the Hessian blocks in the edges and vertices
 # ifndef G2O_OPENMP
@@ -551,8 +579,29 @@ bool BlockSolver<Traits>::buildSystem()
 # endif
   for (int k = 0; k < static_cast<int>(_optimizer->activeEdges().size()); ++k) {
     OptimizableGraph::Edge* e = _optimizer->activeEdges()[k];
-    e->linearizeOplus(jacobianWorkspace); // jacobian of the nodes' oplus (manifold)
+    auto start = chrono::steady_clock::now();
+    e->linearizeOplus(jacobianWorkspace, totalLockTime); // jacobian of the nodes' oplus (manifold)
+
+    auto end = chrono::steady_clock::now();
     e->constructQuadraticForm();
+    auto end2 = chrono::steady_clock::now();
+    linearizeTime += std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    constructTime += std::chrono::duration_cast<std::chrono::microseconds>(end2 - end);
+
+    if(_stats){
+      const OptimizableGraph::Vertex* v1 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(0));
+      const OptimizableGraph::Vertex* v2 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(1));
+      jacobianFile << v1->id() << " " << v2->id() << ":";
+      for(int j = 0; j < e->dimension() * v1->dimension(); ++j){
+        jacobianFile << jacobianWorkspace.workspaceForVertex(0)[j] << " ";
+      }
+      jacobianFile << ",";
+      for(int j = 0; j < e->dimension() * v2->dimension(); ++j){
+        jacobianFile << jacobianWorkspace.workspaceForVertex(1)[j] << " ";
+      }
+      jacobianFile << endl;
+    }
+
 #  ifndef NDEBUG
     for (size_t i = 0; i < e->vertices().size(); ++i) {
       const OptimizableGraph::Vertex* v = static_cast<const OptimizableGraph::Vertex*>(e->vertex(i));
@@ -567,6 +616,17 @@ bool BlockSolver<Traits>::buildSystem()
 #  endif
   }
 
+  chrono::steady_clock::time_point secondForLoopEnd = chrono::steady_clock::now();
+  // if(LoopClosureDetector::instance().isLoopClosureDetected()){
+
+  //   // cout << "BuildSystem [Second for loop]: " << chrono::duration_cast<chrono::microseconds>(secondForLoopEnd - hppClearEnd).count() << endl;
+  //   cout << chrono::duration_cast<chrono::microseconds>(secondForLoopEnd - hppClearEnd).count() << ",";
+  //   // myFile << chrono::duration_cast<chrono::microseconds>(secondForLoopEnd - hppClearEnd).count() << ",";
+  //   cout << "Linearize Time: " << linearizeTime.count() << endl;
+  //   cout << "Construct Time: " << constructTime.count() << endl;
+  //   // cout << "Total Lock Time: " << totalLockTime.count() << endl;
+  //   cout << "Total Memory: " << totalMemory << " bytes" << endl;
+  // }
   // flush the current system in a sparse block matrix
 # ifdef G2O_OPENMP
 # pragma omp parallel for default (shared) if (_optimizer->indexMapping().size() > 1000)
@@ -579,6 +639,31 @@ bool BlockSolver<Traits>::buildSystem()
     v->copyB(_b+iBase);
   }
 
+  chrono::steady_clock::time_point thirdForLoopEnd = chrono::steady_clock::now();
+  // if(LoopClosureDetector::instance().isLoopClosureDetected())
+  // cout << "BuildSystem [Third for loop]: " << chrono::duration_cast<chrono::microseconds>(thirdForLoopEnd - secondForLoopEnd).count() << endl;
+  // cout << chrono::duration_cast<chrono::microseconds>(thirdForLoopEnd - secondForLoopEnd).count() << endl;
+  // myFile << chrono::duration_cast<chrono::microseconds>(thirdForLoopEnd - secondForLoopEnd).count() << endl;
+
+  // Jacobians stored in column major format
+  // if(_stats){
+  //     std::string jacobianFileName = "jacobians_" + std::to_string(iteration) + ".txt";
+  //     std::ofstream jacobianFile(jacobianFileName.c_str());
+  //     for (int k = 0; k < static_cast<int>(_optimizer->activeEdges().size()); ++k) {
+  //       OptimizableGraph::Edge* e = _optimizer->activeEdges()[k];
+  //       const OptimizableGraph::Vertex* v1 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(0));
+  //       const OptimizableGraph::Vertex* v2 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(1));
+  //       jacobianFile << v1->id() << " " << v2->id() << ":";
+  //       for(int j = 0; j < e->dimension() * v1->dimension(); ++j){
+  //         jacobianFile << jacobianWorkspace.workspaceForVertex(0)[j] << " ";
+  //       }
+  //       jacobianFile << ",";
+  //       for(int j = 0; j < e->dimension() * v2->dimension(); ++j){
+  //         jacobianFile << jacobianWorkspace.workspaceForVertex(1)[j] << " ";
+  //       }
+  //       jacobianFile << endl;
+  //     }
+  // }
   return 0;
 }
 
