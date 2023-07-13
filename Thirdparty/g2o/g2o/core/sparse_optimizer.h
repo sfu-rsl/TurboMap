@@ -32,7 +32,8 @@
 #include "optimizable_graph.h"
 #include "sparse_block_matrix.h"
 #include "batch_stats.h"
-// #include "../../../pose-graph-optimizer/include/Graph.h"
+#include "../../../pose-graph-optimizer/include/GraphInterface.h"
+#include <memory>
 
 #include <map>
 
@@ -285,7 +286,13 @@ namespace g2o {
     //! remove an action that should no longer be execured before computing the error vectors
     bool removeComputeErrorAction(HyperGraphAction* action);
 
-    
+    void createGraphInterface() {_graphInterface = optimizer::GraphInterface::create();};
+
+    optimizer::GraphInterface* graphInterface() {return _graphInterface.get();}
+
+    void setUseGPU(bool useGPU) {this->useGPU = useGPU;}
+
+    bool getUseGPU() {return useGPU;}
 
     protected:
     bool* _forceStopFlag;
@@ -307,6 +314,11 @@ namespace g2o {
 
     BatchStatisticsContainer _batchStatistics;   ///< global statistics of the optimizer, e.g., timing, num-non-zeros
     bool _computeBatchStatistics;
+
+    std::unique_ptr<optimizer::GraphInterface> _graphInterface;
+
+    bool useGPU = false;
+
   };
 } // end namespace
 

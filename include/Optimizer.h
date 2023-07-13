@@ -37,7 +37,6 @@
 #include "Thirdparty/g2o/g2o/types/types_six_dof_expmap.h"
 #include "Thirdparty/g2o/g2o/core/robust_kernel_impl.h"
 #include "Thirdparty/g2o/g2o/solvers/linear_solver_dense.h"
-// #include "Thirdparty/pose-graph-optimizer/include/Graph.h"
 
 namespace ORB_SLAM3
 {

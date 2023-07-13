@@ -86,12 +86,22 @@ ENDIF(EIGEN3_FOUND)
 SET(G2O_CXX_COMPILER "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER}")
 configure_file(config.h.in ${g2o_SOURCE_DIR}/config.h)
 
+SET(pose-graph-optimizer_INCLUDE_DIR ${g2o_SOURCE_DIR}/../pose-graph-optimizer/include)
+SET(pose-graph-optimizer_LIBRARY_DIR ${g2o_SOURCE_DIR}/../pose-graph-optimizer/build/liboptimizer.so)
+
 # Set up the top-level include directories
 INCLUDE_DIRECTORIES(
 ${g2o_SOURCE_DIR}/core
 ${g2o_SOURCE_DIR}/types
 ${g2o_SOURCE_DIR}/stuff 
-${G2O_EIGEN3_INCLUDE})
+${G2O_EIGEN3_INCLUDE}
+${pose-graph-optimizer_INCLUDE_DIR}
+)
+
+# Set up the top-level link directories
+LINK_DIRECTORIES( g2o
+${pose-graph-optimizer_LIBRARY_DIR}
+)
 
 # Include the subdirectories
 ADD_LIBRARY(g2o ${G2O_LIB_TYPE}
