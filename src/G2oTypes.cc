@@ -370,38 +370,38 @@ bool VertexPose4DoF::write(std::ostream& os) const
         os << ":";
         for (int i=0; i<3; i++){
             for (int j=0; j<3; j++)
-                os << Rcw[idx](i,j) << " ";
+                os << std::setprecision(15) << Rcw[idx](i,j) << " ";
         }
         os << ",";
         for (int i=0; i<3; i++){
             for (int j=0; j<3; j++)
-                os << Rcb[idx](i,j) << " ";
+                os << std::setprecision(15) << Rcb[idx](i,j) << " ";
         }
         os << ",";
         for (int i=0; i<3; i++){
             for (int j=0; j<3; j++)
-                os << Rbc[idx](i,j) << " ";
+                os << std::setprecision(15) << Rbc[idx](i,j) << " ";
         }
         os << ",";
         for (int i=0; i<3; i++){
             for (int j=0; j<3; j++)
-                os << Rwb(i,j) << " ";
+                os << std::setprecision(15) << Rwb(i,j) << " ";
         }
         os << ",";
         for (int i=0; i<3; i++){
-            os << tcw[idx](i) << " ";
+            os << std::setprecision(15) << tcw[idx](i) << " ";
         }
         os << ",";
         for (int i=0; i<3; i++){
-            os << tcb[idx](i) << " ";
+            os << std::setprecision(15) << tcb[idx](i) << " ";
         }
         os << ",";
         for (int i=0; i<3; i++){
-            os << tbc[idx](i) << " ";
+            os << std::setprecision(15) << tbc[idx](i) << " ";
         }
         os << ",";
         for (int i=0; i<3; i++){
-            os << twb(i) << " ";
+            os << std::setprecision(15) << twb(i) << " ";
         }
         // os << ",";
         // for(size_t i = 0; i < _estimate.pCamera[idx]->size(); i++){
@@ -419,11 +419,11 @@ bool Edge4DoF::write(std::ostream& os) const
     os <<":";
     for(int i=0; i<3; i++){
         for(int j=0; j<3; j++)
-        os << dRij(i,j) << " ";
+        os << std::setprecision(15) << dRij(i,j) << " ";
     }
     os << ",";
     for(int i=0; i<3; i++){
-        os << dtij(i) << " ";
+        os << std::setprecision(15) << dtij(i) << " ";
     }
 
     return os.good();

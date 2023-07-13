@@ -34,9 +34,12 @@
 #include "Thirdparty/g2o/g2o/types/types_six_dof_expmap.h"
 #include "Thirdparty/g2o/g2o/core/robust_kernel_impl.h"
 #include "Thirdparty/g2o/g2o/solvers/linear_solver_dense.h"
+#include "Thirdparty/pose-graph-optimizer/include/Graph.h"
 #include "G2oTypes.h"
 #include "Converter.h"
 #include "LoopClosureDetector.h"
+
+#include <sycl/sycl.hpp>
 
 #include<mutex>
 
@@ -5317,11 +5320,14 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
     g2o::BlockSolverX::LinearSolverType * linearSolver =
             new g2o::LinearSolverEigen<g2o::BlockSolverX::PoseMatrixType>();
     g2o::BlockSolverX * solver_ptr = new g2o::BlockSolverX(linearSolver);
-    // solver_ptr->setStats(true);
+    solver_ptr->setStats(true);
 
     g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
 
     optimizer.setAlgorithm(solver);
+
+    // Initialize graph from pose-graph-optimizer
+    // optimizer::Graph graph;
 
     const vector<KeyFrame*> vpKFs = pMap->GetAllKeyFrames();
     const vector<MapPoint*> vpMPs = pMap->GetAllMapPoints();
@@ -5555,6 +5561,9 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
     }
 
     chrono::steady_clock::time_point stop = chrono::steady_clock::now();
+
+    std::cout << "Active edges: " << optimizer.activeEdges().size() << std::endl;
+    std::cout << "Active vertices: " << optimizer.activeVertices().size() << std::endl;
 
     std::string filename = "opt_initial.txt";
     optimizer.save(filename.c_str());

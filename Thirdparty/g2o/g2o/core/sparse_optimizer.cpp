@@ -42,6 +42,7 @@
 #include "../stuff/macros.h"
 #include "../stuff/misc.h"
 #include "../../config.h"
+#include "../../../pose-graph-optimizer/include/Graph.h"
 
 namespace g2o{
   using namespace std;
@@ -267,6 +268,7 @@ namespace g2o{
   }
 
   bool SparseOptimizer::initializeOptimization(HyperGraph::EdgeSet& eset){
+    optimizer::Graph graph;
     bool workspaceAllocated = _jacobianWorkspace.allocate(); (void) workspaceAllocated;
     assert(workspaceAllocated && "Error while allocating memory for the Jacobians");
     clearIndexMapping();

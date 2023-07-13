@@ -1,0 +1,3 @@
+[submodule "Thirdparty/pose-graph-optimizer"]
+	path = Thirdparty/pose-graph-optimizer
+	url = https://github.com/sfu-rsl/pose-graph-optimizer

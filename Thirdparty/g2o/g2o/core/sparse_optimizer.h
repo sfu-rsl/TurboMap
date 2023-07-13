@@ -32,6 +32,7 @@
 #include "optimizable_graph.h"
 #include "sparse_block_matrix.h"
 #include "batch_stats.h"
+// #include "../../../pose-graph-optimizer/include/Graph.h"
 
 #include <map>
 

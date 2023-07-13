@@ -593,14 +593,15 @@ bool BlockSolver<Traits>::buildSystem(int iteration)
       const OptimizableGraph::Vertex* v2 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(1));
       jacobianFile << v1->id() << " " << v2->id() << ":";
       for(int j = 0; j < e->dimension() * v1->dimension(); ++j){
-        jacobianFile << jacobianWorkspace.workspaceForVertex(0)[j] << " ";
+        jacobianFile << std::setprecision(15) << jacobianWorkspace.workspaceForVertex(0)[j] << " ";
       }
       jacobianFile << ",";
       for(int j = 0; j < e->dimension() * v2->dimension(); ++j){
-        jacobianFile << jacobianWorkspace.workspaceForVertex(1)[j] << " ";
+        jacobianFile << std::setprecision(15) << jacobianWorkspace.workspaceForVertex(1)[j] << " ";
       }
       jacobianFile << endl;
     }
+
 
 #  ifndef NDEBUG
     for (size_t i = 0; i < e->vertices().size(); ++i) {

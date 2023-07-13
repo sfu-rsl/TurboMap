@@ -223,7 +223,8 @@ protected:
     bool mbFixScale;
 
 
-    bool mnFullBAIdx;
+    // bool mnFullBAIdx;
+    int mnFullBAIdx;
 
 
 

@@ -145,6 +145,21 @@ namespace g2o {
         globalStats->timeLinearSolution+=get_monotonic_time()-t;
         t=get_monotonic_time();
       }
+
+      // if(LoopClosureDetector::instance().isLoopClosureDetected())
+      // {
+      //   // std::string filename = "update_" + std::to_string(iteration) + ".txt";
+      //   const double* update = _solver->x();
+      //   // ofstream myfile;
+      //   // myfile.open (filename.c_str());
+      //   std::cout << "Update : ";
+      //   for(int i = 0; i < 4; i++)
+      //   {
+      //     std::cout << update[i] << " ";
+      //     // myfile << update[i] << " ";
+      //   }
+      //   std::cout << std::endl;
+      // }
       _optimizer->update(_solver->x());
       if (globalStats) {
         globalStats->timeUpdate = get_monotonic_time()-t;

@@ -78,6 +78,7 @@
         "*.def": "cpp",
         "*.txx": "cpp",
         "geometry": "cpp",
-        "*.inc": "cpp"
+        "*.inc": "cpp",
+        "matrixfunctions": "cpp"
     }
 }
