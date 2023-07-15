@@ -33,7 +33,9 @@ namespace internal {
 }
 
 template <int D, typename E>
-void BaseMultiEdge<D, E>::constructQuadraticForm()
+void BaseMultiEdge<D, E>::constructQuadraticForm(
+    const Eigen::Map<Eigen::Matrix<double, 6, 4, Eigen::ColMajor>>* optionalJacobianX, 
+    const Eigen::Map<Eigen::Matrix<double, 6, 4, Eigen::ColMajor>>* optionalJacobianY)
 {
   if (this->robustKernel()) {
     double error = this->chi2();
@@ -49,7 +51,8 @@ void BaseMultiEdge<D, E>::constructQuadraticForm()
 
 
 template <int D, typename E>
-void BaseMultiEdge<D, E>::linearizeOplus(JacobianWorkspace& jacobianWorkspace, std::chrono::microseconds& totalLockTime)
+void BaseMultiEdge<D, E>::linearizeOplus(JacobianWorkspace& jacobianWorkspace, std::chrono::microseconds& totalLockTime, 
+                                        double* jacobianX, double* jacobianY)
 {
   for (size_t i = 0; i < _vertices.size(); ++i) {
     OptimizableGraph::Vertex* v = static_cast<OptimizableGraph::Vertex*>(_vertices[i]);

@@ -317,6 +317,8 @@ namespace g2o {
 
     std::unique_ptr<optimizer::GraphInterface> _graphInterface;
 
+    std::map<int, int> gpuEdgeMap;
+
     bool useGPU = false;
 
   };

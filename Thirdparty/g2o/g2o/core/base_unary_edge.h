@@ -34,6 +34,7 @@
 #include "base_edge.h"
 #include "robust_kernel.h"
 #include "../../config.h"
+#include "Eigen/Dense"
 
 namespace g2o {
 
@@ -60,7 +61,7 @@ namespace g2o {
 
       virtual bool allVerticesFixed() const;
 
-      virtual void linearizeOplus(JacobianWorkspace& jacobianWorkspace, std::chrono::microseconds& totalLockTime);
+      virtual void linearizeOplus(JacobianWorkspace& jacobianWorkspace, std::chrono::microseconds& totalLockTime, double* jacobianX = nullptr, double* jacobianY = nullptr);
 
       /**
        * Linearizes the oplus operator in the vertex, and stores
@@ -71,7 +72,9 @@ namespace g2o {
       //! returns the result of the linearization in the manifold space for the node xi
       const JacobianXiOplusType& jacobianOplusXi() const { return _jacobianOplusXi;}
 
-      virtual void constructQuadraticForm();
+      virtual void constructQuadraticForm(
+        const Eigen::Map<Eigen::Matrix<double, 6, 4, Eigen::ColMajor>>* optionalJacobianX = nullptr,
+        const Eigen::Map<Eigen::Matrix<double, 6, 4, Eigen::ColMajor>>* optionalJacobianY = nullptr);
 
       virtual void initialEstimate(const OptimizableGraph::VertexSet& from, OptimizableGraph::Vertex* to);
 

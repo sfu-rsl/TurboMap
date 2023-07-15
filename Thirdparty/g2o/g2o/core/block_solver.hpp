@@ -526,15 +526,23 @@ template <typename Traits>
 bool BlockSolver<Traits>::buildSystem(int iteration)
 {
 
+  if(_optimizer->getUseGPU()){
+    std::cout << "GPU is enabled in Build System" << std::endl;
+  }
   std::ofstream jacobianFile;
+  std::ofstream jacobianFile_gpu;
   if (_stats) {
     jacobianFile.open("jacobians_" + std::to_string(iteration) + ".txt", std::ios::out | std::ios::app);
     if (!jacobianFile) {
       std::cerr << "Error opening file for writing: " << "jacobianFileName" << "\n";
       // handle error
     }
+    jacobianFile_gpu.open("jacobians_gpu_" + std::to_string(iteration) + ".txt", std::ios::out | std::ios::app);
+    if (!jacobianFile_gpu) {
+      std::cerr << "Error opening file for writing: " << "jacobianFileName" << "\n";
+      // handle error
+    }
   }
-  // std::ofstream myFile("ORB_SLAM3_Analysis/buildSystem_magistrale1.csv", std::ios::app);
   chrono::steady_clock::time_point buildSystemStart = chrono::steady_clock::now();
   // clear b vector
 # ifdef G2O_OPENMP
@@ -546,92 +554,82 @@ bool BlockSolver<Traits>::buildSystem(int iteration)
     v->clearQuadraticForm();
   }
 
-  chrono::steady_clock::time_point firstForLoopEnd = chrono::steady_clock::now();
-  // if(LoopClosureDetector::instance().isLoopClosureDetected())
-  // cout << "BuildSystem [First for loop]: " << chrono::duration_cast<chrono::microseconds>(firstForLoopEnd - buildSystemStart).count() << endl;
-  // cout << chrono::duration_cast<chrono::microseconds>(firstForLoopEnd - buildSystemStart).count() << ",";
-  // myFile << chrono::duration_cast<chrono::microseconds>(firstForLoopEnd - buildSystemStart).count() << ",";
   _Hpp->clear();
   chrono::steady_clock::time_point hppClearEnd = chrono::steady_clock::now();
-  // if(LoopClosureDetector::instance().isLoopClosureDetected())
-  // cout << "BuildSystem [hpp clear]: " << chrono::duration_cast<chrono::microseconds>(hppClearEnd - firstForLoopEnd).count() << endl;
-  // cout << chrono::duration_cast<chrono::microseconds>(hppClearEnd - firstForLoopEnd).count() << ",";
-  // myFile << chrono::duration_cast<chrono::microseconds>(hppClearEnd - firstForLoopEnd).count() << ",";
   if (_doSchur) {
     _Hll->clear();
     _Hpl->clear();
   }
 
-  auto linearizeTime = std::chrono::microseconds(0);
-  auto constructTime = std::chrono::microseconds(0);
-
-  size_t totalMemory = 0;
   auto totalLockTime = std::chrono::microseconds(0);
   // resetting the terms for the pairwise constraints
   // built up the current system by storing the Hessian blocks in the edges and vertices
-# ifndef G2O_OPENMP
-  // no threading, we do not need to copy the workspace
-  JacobianWorkspace& jacobianWorkspace = _optimizer->jacobianWorkspace();
-# else
-  // if running with threads need to produce copies of the workspace for each thread
-  JacobianWorkspace jacobianWorkspace = _optimizer->jacobianWorkspace();
-# pragma omp parallel for default (shared) firstprivate(jacobianWorkspace) if (_optimizer->activeEdges().size() > 100)
-# endif
-  for (int k = 0; k < static_cast<int>(_optimizer->activeEdges().size()); ++k) {
-    OptimizableGraph::Edge* e = _optimizer->activeEdges()[k];
-    auto start = chrono::steady_clock::now();
-    e->linearizeOplus(jacobianWorkspace, totalLockTime); // jacobian of the nodes' oplus (manifold)
 
-    auto end = chrono::steady_clock::now();
-    e->constructQuadraticForm();
-    auto end2 = chrono::steady_clock::now();
-    linearizeTime += std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    constructTime += std::chrono::duration_cast<std::chrono::microseconds>(end2 - end);
-
-    if(_stats){
+  if(_optimizer->getUseGPU()){
+    int numEdges = _optimizer->activeEdges().size();
+    std::map<int, int> edgeIdMap = _optimizer->graphInterface()->getEdgeIDMap();
+    std::vector<double> jacobiansX(numEdges*24), jacobiansY(numEdges*24);
+    _optimizer->graphInterface()->computeJacobians();
+    _optimizer->graphInterface()->getJacobianX(jacobiansX);
+    _optimizer->graphInterface()->getJacobianY(jacobiansY);
+    std::cout << "edgeIdMap size: " << edgeIdMap.size() << std::endl;
+    # ifndef G2O_OPENMP
+      // no threading, we do not need to copy the workspace
+      JacobianWorkspace& jacobianWorkspace = _optimizer->jacobianWorkspace();
+    # else
+      // if running with threads need to produce copies of the workspace for each thread
+      JacobianWorkspace jacobianWorkspace = _optimizer->jacobianWorkspace();
+    # pragma omp parallel for default (shared) firstprivate(jacobianWorkspace) if (_optimizer->activeEdges().size() > 100)
+    #endif
+    for (int k = 0; k < static_cast<int>(_optimizer->activeEdges().size()); ++k) {
+      OptimizableGraph::Edge* e = _optimizer->activeEdges()[k];
       const OptimizableGraph::Vertex* v1 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(0));
       const OptimizableGraph::Vertex* v2 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(1));
-      jacobianFile << v1->id() << " " << v2->id() << ":";
-      for(int j = 0; j < e->dimension() * v1->dimension(); ++j){
-        jacobianFile << std::setprecision(15) << jacobianWorkspace.workspaceForVertex(0)[j] << " ";
-      }
-      jacobianFile << ",";
-      for(int j = 0; j < e->dimension() * v2->dimension(); ++j){
-        jacobianFile << std::setprecision(15) << jacobianWorkspace.workspaceForVertex(1)[j] << " ";
-      }
-      jacobianFile << endl;
+      e->linearizeOplus(jacobianWorkspace, totalLockTime,
+                        &jacobiansX[edgeIdMap[e->id()]*24],
+                        &jacobiansY[edgeIdMap[e->id()]*24]);
+      e->constructQuadraticForm();
     }
-
-
-#  ifndef NDEBUG
-    for (size_t i = 0; i < e->vertices().size(); ++i) {
-      const OptimizableGraph::Vertex* v = static_cast<const OptimizableGraph::Vertex*>(e->vertex(i));
-      if (! v->fixed()) {
-        bool hasANan = arrayHasNaN(jacobianWorkspace.workspaceForVertex(i), e->dimension() * v->dimension());
-        if (hasANan) {
-          cerr << "buildSystem(): NaN within Jacobian for edge " << e << " for vertex " << i << endl;
-          break;
-        }
-      }
+  } else {
+    # ifndef G2O_OPENMP
+      // no threading, we do not need to copy the workspace
+      JacobianWorkspace& jacobianWorkspace = _optimizer->jacobianWorkspace();
+    # else
+      // if running with threads need to produce copies of the workspace for each thread
+      JacobianWorkspace jacobianWorkspace = _optimizer->jacobianWorkspace();
+    # pragma omp parallel for default (shared) firstprivate(jacobianWorkspace) if (_optimizer->activeEdges().size() > 100)
+    #endif
+    for (int k = 0; k < static_cast<int>(_optimizer->activeEdges().size()); ++k) {
+      OptimizableGraph::Edge* e = _optimizer->activeEdges()[k];
+      const OptimizableGraph::Vertex* v1 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(0));
+      const OptimizableGraph::Vertex* v2 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(1));
+      e->linearizeOplus(jacobianWorkspace, totalLockTime);
+      e->constructQuadraticForm();
     }
-#  endif
   }
 
-  chrono::steady_clock::time_point secondForLoopEnd = chrono::steady_clock::now();
-  // if(LoopClosureDetector::instance().isLoopClosureDetected()){
+  # ifndef G2O_OPENMP
+    // no threading, we do not need to copy the workspace
+    JacobianWorkspace& jacobianWorkspace = _optimizer->jacobianWorkspace();
+  # else
+    // if running with threads need to produce copies of the workspace for each thread
+    JacobianWorkspace jacobianWorkspace = _optimizer->jacobianWorkspace();
+  # pragma omp parallel for default (shared) firstprivate(jacobianWorkspace) if (_optimizer->activeEdges().size() > 100)
+  #endif
+  for (int k = 0; k < static_cast<int>(_optimizer->activeEdges().size()); ++k) {
+    OptimizableGraph::Edge* e = _optimizer->activeEdges()[k];
+    const OptimizableGraph::Vertex* v1 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(0));
+    const OptimizableGraph::Vertex* v2 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(1));
+    e->linearizeOplus(jacobianWorkspace, totalLockTime);
+    e->constructQuadraticForm();
+  }
+    // }
 
-  //   // cout << "BuildSystem [Second for loop]: " << chrono::duration_cast<chrono::microseconds>(secondForLoopEnd - hppClearEnd).count() << endl;
-  //   cout << chrono::duration_cast<chrono::microseconds>(secondForLoopEnd - hppClearEnd).count() << ",";
-  //   // myFile << chrono::duration_cast<chrono::microseconds>(secondForLoopEnd - hppClearEnd).count() << ",";
-  //   cout << "Linearize Time: " << linearizeTime.count() << endl;
-  //   cout << "Construct Time: " << constructTime.count() << endl;
-  //   // cout << "Total Lock Time: " << totalLockTime.count() << endl;
-  //   cout << "Total Memory: " << totalMemory << " bytes" << endl;
-  // }
+  chrono::steady_clock::time_point secondForLoopEnd = chrono::steady_clock::now();
   // flush the current system in a sparse block matrix
-# ifdef G2O_OPENMP
-# pragma omp parallel for default (shared) if (_optimizer->indexMapping().size() > 1000)
-# endif
+  # ifdef G2O_OPENMP
+  # pragma omp parallel for default (shared) if (_optimizer->indexMapping().size() > 1000)
+  # endif
   for (int i = 0; i < static_cast<int>(_optimizer->indexMapping().size()); ++i) {
     OptimizableGraph::Vertex* v=_optimizer->indexMapping()[i];
     int iBase = v->colInHessian();
@@ -641,30 +639,6 @@ bool BlockSolver<Traits>::buildSystem(int iteration)
   }
 
   chrono::steady_clock::time_point thirdForLoopEnd = chrono::steady_clock::now();
-  // if(LoopClosureDetector::instance().isLoopClosureDetected())
-  // cout << "BuildSystem [Third for loop]: " << chrono::duration_cast<chrono::microseconds>(thirdForLoopEnd - secondForLoopEnd).count() << endl;
-  // cout << chrono::duration_cast<chrono::microseconds>(thirdForLoopEnd - secondForLoopEnd).count() << endl;
-  // myFile << chrono::duration_cast<chrono::microseconds>(thirdForLoopEnd - secondForLoopEnd).count() << endl;
-
-  // Jacobians stored in column major format
-  // if(_stats){
-  //     std::string jacobianFileName = "jacobians_" + std::to_string(iteration) + ".txt";
-  //     std::ofstream jacobianFile(jacobianFileName.c_str());
-  //     for (int k = 0; k < static_cast<int>(_optimizer->activeEdges().size()); ++k) {
-  //       OptimizableGraph::Edge* e = _optimizer->activeEdges()[k];
-  //       const OptimizableGraph::Vertex* v1 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(0));
-  //       const OptimizableGraph::Vertex* v2 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(1));
-  //       jacobianFile << v1->id() << " " << v2->id() << ":";
-  //       for(int j = 0; j < e->dimension() * v1->dimension(); ++j){
-  //         jacobianFile << jacobianWorkspace.workspaceForVertex(0)[j] << " ";
-  //       }
-  //       jacobianFile << ",";
-  //       for(int j = 0; j < e->dimension() * v2->dimension(); ++j){
-  //         jacobianFile << jacobianWorkspace.workspaceForVertex(1)[j] << " ";
-  //       }
-  //       jacobianFile << endl;
-  //     }
-  // }
   return 0;
 }
 

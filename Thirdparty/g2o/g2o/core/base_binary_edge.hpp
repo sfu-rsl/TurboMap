@@ -54,15 +54,19 @@ bool BaseBinaryEdge<D, E, VertexXiType, VertexXjType>::allVerticesFixed() const
 }
 
 template <int D, typename E, typename VertexXiType, typename VertexXjType>
-void BaseBinaryEdge<D, E, VertexXiType, VertexXjType>::constructQuadraticForm()
+void BaseBinaryEdge<D, E, VertexXiType, VertexXjType>::constructQuadraticForm(
+    const Eigen::Map<Eigen::Matrix<double, 6, 4, Eigen::ColMajor>>* optionalJacobianX, 
+    const Eigen::Map<Eigen::Matrix<double, 6, 4, Eigen::ColMajor>>* optionalJacobianY)
 {
   VertexXiType* from = static_cast<VertexXiType*>(_vertices[0]);
   VertexXjType* to   = static_cast<VertexXjType*>(_vertices[1]);
 
-  // get the Jacobian of the nodes in the manifold domain
+
   const JacobianXiOplusType& A = jacobianOplusXi();
   const JacobianXjOplusType& B = jacobianOplusXj();
 
+  // const JacobianXiOplusType& A_temp = *optionalJacobianX;
+  // const JacobianXjOplusType& B_temp = *optionalJacobianY; 
 
   bool fromNotFixed = !(from->fixed());
   bool toNotFixed = !(to->fixed());
@@ -122,11 +126,19 @@ void BaseBinaryEdge<D, E, VertexXiType, VertexXjType>::constructQuadraticForm()
 }
 
 template <int D, typename E, typename VertexXiType, typename VertexXjType>
-void BaseBinaryEdge<D, E, VertexXiType, VertexXjType>::linearizeOplus(JacobianWorkspace& jacobianWorkspace, std::chrono::microseconds& totalLockTime)
+void BaseBinaryEdge<D, E, VertexXiType, VertexXjType>::linearizeOplus(JacobianWorkspace& jacobianWorkspace, std::chrono::microseconds& totalLockTime, 
+                                                                      double* jacobianX, double* jacobianY)
 {
   new (&_jacobianOplusXi) JacobianXiOplusType(jacobianWorkspace.workspaceForVertex(0), D, Di);
   new (&_jacobianOplusXj) JacobianXjOplusType(jacobianWorkspace.workspaceForVertex(1), D, Dj);
-  linearizeOplus();
+  if(jacobianX && jacobianY){
+    for (int i = 0; i < 4; ++i) {
+        _jacobianOplusXi.col(i) = Eigen::Map<ErrorVector>(&jacobianX[i * 6]);
+        _jacobianOplusXj.col(i) = Eigen::Map<ErrorVector>(&jacobianY[i * 6]);
+    }
+  } else {
+    linearizeOplus();
+  }
 }
 
 template <int D, typename E, typename VertexXiType, typename VertexXjType>

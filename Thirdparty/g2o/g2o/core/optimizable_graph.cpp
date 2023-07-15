@@ -580,7 +580,7 @@ bool OptimizableGraph::load(const char* filename, bool createEdges)
 
 bool OptimizableGraph::save(const char* filename, int level) const
 {
-  std::cout << "Saving graph to " << filename << std::endl;
+  // std::cout << "Saving graph to " << filename << std::endl;
   ofstream ofs(filename);
   if (!ofs)
     return false;
@@ -606,7 +606,7 @@ bool OptimizableGraph::save(ostream& os, int level) const
     saveVertex(os, v);
   }
 
-  std::cout << "Saving " << verticesToSave.size() << " edges" << std::endl;
+  // std::cout << "Saving " << verticesToSave.size() << " edges" << std::endl;
 
   EdgeContainer edgesToSave;
   for (HyperGraph::EdgeSet::const_iterator it = edges().begin(); it != edges().end(); ++it) {
@@ -621,7 +621,7 @@ bool OptimizableGraph::save(ostream& os, int level) const
     saveEdge(os, e);
   }
 
-  std::cout << "Saving " << edgesToSave.size() << " edges" << std::endl;
+  // std::cout << "Saving " << edgesToSave.size() << " edges" << std::endl;
 
   return os.good();
 }

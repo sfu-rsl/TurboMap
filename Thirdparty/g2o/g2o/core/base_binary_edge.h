@@ -35,6 +35,7 @@
 #include "../../config.h"
 #include <thread>
 #include <chrono>
+#include "Eigen/Dense"
 
 
 namespace g2o {
@@ -78,7 +79,7 @@ namespace g2o {
 
       virtual bool allVerticesFixed() const;
 
-      virtual void linearizeOplus(JacobianWorkspace& jacobianWorkspace, std::chrono::microseconds& totalLockTime);
+      virtual void linearizeOplus(JacobianWorkspace& jacobianWorkspace, std::chrono::microseconds& totalLockTime, double* jacobianX = nullptr, double* jacobianY = nullptr);
 
       /**
        * Linearizes the oplus operator in the vertex, and stores
@@ -91,7 +92,9 @@ namespace g2o {
       //! returns the result of the linearization in the manifold space for the node xj
       const JacobianXjOplusType& jacobianOplusXj() const { return _jacobianOplusXj;}
 
-      virtual void constructQuadraticForm() ;
+      virtual void constructQuadraticForm(
+        const Eigen::Map<Eigen::Matrix<double, 6, 4, Eigen::ColMajor>>* optionalJacobianX = nullptr,
+        const Eigen::Map<Eigen::Matrix<double, 6, 4, Eigen::ColMajor>>* optionalJacobianY = nullptr);
 
       virtual void mapHessianMemory(double* d, int i, int j, bool rowMajor);
 

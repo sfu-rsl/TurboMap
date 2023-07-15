@@ -160,7 +160,13 @@ namespace g2o {
       //   }
       //   std::cout << std::endl;
       // }
-      _optimizer->update(_solver->x());
+      if(_optimizer->getUseGPU())
+      {
+        _optimizer->graphInterface()->update(_solver->x());
+        _optimizer->update(_solver->x());
+      } else {
+        _optimizer->update(_solver->x());
+      }
       if (globalStats) {
         globalStats->timeUpdate = get_monotonic_time()-t;
       }
@@ -221,8 +227,8 @@ namespace g2o {
       cout << "Iteration : " << iteration << endl;
       cout << "Edges: " << _optimizer->activeEdges().size() << endl;
       cout << "Vertices: " << _optimizer->activeVertices().size() << endl;
-      std::string filename = "opt_" + std::to_string(iteration) + ".txt";
-      _optimizer->save(filename.c_str());
+      // std::string filename = "opt_" + std::to_string(iteration) + ".txt";
+      // _optimizer->save(filename.c_str());
     }
 
     return OK;

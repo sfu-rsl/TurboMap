@@ -5330,6 +5330,8 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
             new g2o::LinearSolverEigen<g2o::BlockSolverX::PoseMatrixType>();
     g2o::BlockSolverX * solver_ptr_gpu = new g2o::BlockSolverX(linearSolver_gpu);
 
+    solver_ptr->setStats(true);
+
     g2o::OptimizationAlgorithmLevenberg* solver_gpu = new g2o::OptimizationAlgorithmLevenberg(solver_ptr_gpu);
 
     optimizer_gpu.setAlgorithm(solver_gpu);
@@ -5634,8 +5636,6 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
     if(optimizer.getUseGPU()) {
         graph_interface->initializeBuffers();
     }
-
-    // graph_interface->initializeBuffers();
 
     // std::string filename = "opt_initial.txt";
     // optimizer.save(filename.c_str());

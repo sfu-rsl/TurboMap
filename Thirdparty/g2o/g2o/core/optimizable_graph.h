@@ -436,7 +436,9 @@ namespace g2o {
          * the parameter vector b and the hessian blocks ii and jj.
          * The off diagoinal block is accesed via _hessian.
          */
-        virtual void constructQuadraticForm() = 0;
+        virtual void constructQuadraticForm(
+          const Eigen::Map<Eigen::Matrix<double, 6, 4, Eigen::ColMajor>>* optionalJacobianX = nullptr,
+          const Eigen::Map<Eigen::Matrix<double, 6, 4, Eigen::ColMajor>>* optionalJacobianY = nullptr) = 0;
 
         /**
          * maps the internal matrix to some external memory location,
@@ -452,7 +454,7 @@ namespace g2o {
          * Linearizes the constraint in the edge in the manifold space, and store
          * the result in the given workspace
          */
-        virtual void linearizeOplus(JacobianWorkspace& jacobianWorkspace, std::chrono::microseconds& totalLockTime) = 0;
+        virtual void linearizeOplus(JacobianWorkspace& jacobianWorkspace, std::chrono::microseconds& totalLockTime, double* jacobianX = nullptr, double* jacobianY = nullptr) = 0;
 
         /** set the estimate of the to vertex, based on the estimate of the from vertices in the edge. */
         virtual void initialEstimate(const OptimizableGraph::VertexSet& from, OptimizableGraph::Vertex* to) = 0;
