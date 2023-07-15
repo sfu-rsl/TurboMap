@@ -5451,7 +5451,7 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
 
             sInsertedEdges.insert(make_pair(min(nIDi,nIDj),max(nIDi,nIDj)));
 
-            optimizer::Edge* e_opt = new optimizer::Edge(e->id(), nIDi, nIDj, Tij.block<3,3>(0,0), Tij.block<3,1>(0,3));
+            optimizer::Edge* e_opt = new optimizer::Edge(e->internalId(), nIDi, nIDj, Tij.block<3,3>(0,0), Tij.block<3,1>(0,3));
             graph_interface->addEdge(*e_opt);
         }
     }
@@ -5506,7 +5506,7 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
             e_gpu->information() = matLambda;
             optimizer_gpu.addEdge(e_gpu);
 
-            optimizer::Edge* e_opt = new optimizer::Edge(e->id(), nIDi, nIDj, Tij.block<3,3>(0,0), Tij.block<3,1>(0,3));
+            optimizer::Edge* e_opt = new optimizer::Edge(e->internalId(), nIDi, nIDj, Tij.block<3,3>(0,0), Tij.block<3,1>(0,3));
             graph_interface->addEdge(*e_opt);
         }
 
@@ -5543,7 +5543,7 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
             e_gpu->information() = matLambda;
             optimizer_gpu.addEdge(e_gpu);
 
-            optimizer::Edge* e_opt = new optimizer::Edge(e->id(), nIDi, nIDj, Tij.block<3,3>(0,0), Tij.block<3,1>(0,3));
+            optimizer::Edge* e_opt = new optimizer::Edge(e->internalId(), nIDi, nIDj, Tij.block<3,3>(0,0), Tij.block<3,1>(0,3));
             graph_interface->addEdge(*e_opt);
         }
 
@@ -5581,7 +5581,7 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
                 e_gpu->information() = matLambda;
                 optimizer_gpu.addEdge(e_gpu);
 
-                optimizer::Edge* e_opt = new optimizer::Edge(e->id(), nIDi, pLKF->mnId, Til.block<3,3>(0,0), Til.block<3,1>(0,3));
+                optimizer::Edge* e_opt = new optimizer::Edge(e->internalId(), nIDi, pLKF->mnId, Til.block<3,3>(0,0), Til.block<3,1>(0,3));
                 graph_interface->addEdge(*e_opt);
             }
         }
@@ -5624,7 +5624,7 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
                     e_gpu->information() = matLambda;
                     optimizer_gpu.addEdge(e_gpu);
 
-                    optimizer::Edge* e_opt = new optimizer::Edge(e->id(), nIDi, pKFn->mnId, Tin.block<3,3>(0,0), Tin.block<3,1>(0,3));
+                    optimizer::Edge* e_opt = new optimizer::Edge(e->internalId(), nIDi, pKFn->mnId, Tin.block<3,3>(0,0), Tin.block<3,1>(0,3));
                     graph_interface->addEdge(*e_opt);
                 }
             }
@@ -5636,6 +5636,8 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
     if(optimizer.getUseGPU()) {
         graph_interface->initializeBuffers();
     }
+
+    // graph_interface->initializeBuffers();
 
     // std::string filename = "opt_initial.txt";
     // optimizer.save(filename.c_str());
