@@ -5320,6 +5320,8 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
             new g2o::LinearSolverEigen<g2o::BlockSolverX::PoseMatrixType>();
     g2o::BlockSolverX * solver_ptr = new g2o::BlockSolverX(linearSolver);
 
+    solver_ptr->setStats(true);
+
     g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
 
     optimizer.setAlgorithm(solver);
@@ -5330,17 +5332,17 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
             new g2o::LinearSolverEigen<g2o::BlockSolverX::PoseMatrixType>();
     g2o::BlockSolverX * solver_ptr_gpu = new g2o::BlockSolverX(linearSolver_gpu);
 
-    solver_ptr->setStats(true);
+    solver_ptr_gpu->setStats(true);
 
     g2o::OptimizationAlgorithmLevenberg* solver_gpu = new g2o::OptimizationAlgorithmLevenberg(solver_ptr_gpu);
 
     optimizer_gpu.setAlgorithm(solver_gpu);
 
-    optimizer.setUseGPU(true);
+    optimizer_gpu.setUseGPU(true);
 
-    optimizer.createGraphInterface();
+    optimizer_gpu.createGraphInterface();
 
-    optimizer::GraphInterface* graph_interface = optimizer.graphInterface();
+    optimizer::GraphInterface* graph_interface = optimizer_gpu.graphInterface();
 
     const vector<KeyFrame*> vpKFs = pMap->GetAllKeyFrames();
     const vector<MapPoint*> vpMPs = pMap->GetAllMapPoints();
@@ -5386,9 +5388,10 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
             V4DoF_gpu = new VertexPose4DoF(pKF);
         }
 
-        if(pKF==pLoopKF)
+        if(pKF==pLoopKF){
             V4DoF->setFixed(true);
             V4DoF_gpu->setFixed(true);
+        }
 
         V4DoF->setId(nIDi);
         V4DoF->setMarginalized(false);
@@ -5405,6 +5408,7 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
         optimizer::Vertex* v = new optimizer::Vertex(nIDi, estimate.Rcw[0], estimate.Rcb[0], estimate.Rbc[0], estimate.Rwb, estimate.tcw[0], estimate.tcb[0], estimate.tbc[0], estimate.twb, estimate.bf);
         graph_interface->addVertex(*v);
     }
+
     set<pair<long unsigned int,long unsigned int> > sInsertedEdges;
 
     // Edge used in posegraph has still 6Dof, even if updates of camera poses are just in 4DoF
@@ -5633,25 +5637,29 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
 
     chrono::steady_clock::time_point stop = chrono::steady_clock::now();
 
-    if(optimizer.getUseGPU()) {
-        graph_interface->initializeBuffers();
-    }
+    // if(optimizer.getUseGPU()) {
+    //     graph_interface->initializeBuffers();
+    // }
 
-    // graph_interface->initializeBuffers();
+    graph_interface->initializeBuffers();
+
+    optimizer_gpu.setGPUEdgeMap();
 
     // std::string filename = "opt_initial.txt";
     // optimizer.save(filename.c_str());
     // cout << endl << "g2o before optimization file saved" << endl;
 
+    std::cout << "--------------------------- OpenMP -------------------------------" << std::endl;
 
     optimizer.initializeOptimization();
     optimizer.computeActiveErrors();
     optimizer.optimize(20);
 
+    std::cout << " ---------------------------- GPU ----------------------------- " << std::endl;
 
-    // optimizer_gpu.initializeOptimization();
-    // optimizer_gpu.computeActiveErrors();
-    // optimizer_gpu.optimize(20);
+    optimizer_gpu.initializeOptimization();
+    optimizer_gpu.computeActiveErrors();
+    optimizer_gpu.optimize(20);
 
     // std::string filename2 = "opt_final.txt";
     // optimizer.save(filename2.c_str());

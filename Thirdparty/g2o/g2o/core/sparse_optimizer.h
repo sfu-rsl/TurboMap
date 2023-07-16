@@ -294,6 +294,14 @@ namespace g2o {
 
     bool getUseGPU() {return useGPU;}
 
+    void setGPUEdgeMap() { _gpuEdgeMap = _graphInterface->getEdgeIDMap();}
+
+    void setUseOpenMP(bool useOpenMP) {this->useOpenMP = useOpenMP;}
+
+    bool getUseOpenMP() {return useOpenMP;}
+
+    std::map<int, int>& getGPUEdgeMap() { return _gpuEdgeMap;}
+
     protected:
     bool* _forceStopFlag;
     bool _verbose;
@@ -317,9 +325,11 @@ namespace g2o {
 
     std::unique_ptr<optimizer::GraphInterface> _graphInterface;
 
-    std::map<int, int> gpuEdgeMap;
+    std::map<int, int> _gpuEdgeMap;
 
     bool useGPU = false;
+
+    bool useOpenMP = false;
 
   };
 } // end namespace

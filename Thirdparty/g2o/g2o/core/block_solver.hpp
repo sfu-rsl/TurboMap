@@ -526,23 +526,23 @@ template <typename Traits>
 bool BlockSolver<Traits>::buildSystem(int iteration)
 {
 
-  if(_optimizer->getUseGPU()){
-    std::cout << "GPU is enabled in Build System" << std::endl;
-  }
-  std::ofstream jacobianFile;
-  std::ofstream jacobianFile_gpu;
-  if (_stats) {
-    jacobianFile.open("jacobians_" + std::to_string(iteration) + ".txt", std::ios::out | std::ios::app);
-    if (!jacobianFile) {
-      std::cerr << "Error opening file for writing: " << "jacobianFileName" << "\n";
-      // handle error
-    }
-    jacobianFile_gpu.open("jacobians_gpu_" + std::to_string(iteration) + ".txt", std::ios::out | std::ios::app);
-    if (!jacobianFile_gpu) {
-      std::cerr << "Error opening file for writing: " << "jacobianFileName" << "\n";
-      // handle error
-    }
-  }
+  // if(_optimizer->getUseGPU()){
+  //   std::cout << "GPU is enabled in Build System" << std::endl;
+  // }
+  // std::ofstream jacobianFile;
+  // std::ofstream jacobianFile_gpu;
+  // if (_stats) {
+  //   jacobianFile.open("jacobians_" + std::to_string(iteration) + ".txt", std::ios::out | std::ios::app);
+  //   if (!jacobianFile) {
+  //     std::cerr << "Error opening file for writing: " << "jacobianFileName" << "\n";
+  //     // handle error
+  //   }
+  //   jacobianFile_gpu.open("jacobians_gpu_" + std::to_string(iteration) + ".txt", std::ios::out | std::ios::app);
+  //   if (!jacobianFile_gpu) {
+  //     std::cerr << "Error opening file for writing: " << "jacobianFileName" << "\n";
+  //     // handle error
+  //   }
+  // }
   chrono::steady_clock::time_point buildSystemStart = chrono::steady_clock::now();
   // clear b vector
 # ifdef G2O_OPENMP
@@ -571,9 +571,12 @@ bool BlockSolver<Traits>::buildSystem(int iteration)
     std::cout << "Computing Jacobians on GPU" << std::endl;
     chrono::steady_clock::time_point gpu_start = chrono::steady_clock::now();
     int numEdges = _optimizer->activeEdges().size();
-    std::map<int, int> edgeIdMap = _optimizer->graphInterface()->getEdgeIDMap();
+    chrono::steady_clock::time_point edgeMap_start = chrono::steady_clock::now();
+    std::map<int, int>& edgeIdMap = _optimizer->getGPUEdgeMap();
+    chrono::steady_clock::time_point edgeMap_stop = chrono::steady_clock::now();
     std::vector<double> jacobiansX(numEdges*24), jacobiansY(numEdges*24);
     _optimizer->graphInterface()->computeJacobians();
+    chrono::steady_clock::time_point jacobianStop = chrono::steady_clock::now();
     _optimizer->graphInterface()->getJacobianX(jacobiansX);
     _optimizer->graphInterface()->getJacobianY(jacobiansY);
 
@@ -581,18 +584,26 @@ bool BlockSolver<Traits>::buildSystem(int iteration)
     # ifndef G2O_OPENMP
       // no threading, we do not need to copy the workspace
       JacobianWorkspace& jacobianWorkspace = _optimizer->jacobianWorkspace();
+      if(_stats) std::cout << "No OpenMP for Jacobian computation on GPU" << std::endl;
     # else
       // if running with threads need to produce copies of the workspace for each thread
       JacobianWorkspace jacobianWorkspace = _optimizer->jacobianWorkspace();
     # pragma omp parallel for default (shared) firstprivate(jacobianWorkspace) if (_optimizer->activeEdges().size() > 100)
+    {
+      if(_stats)
+      std::cout << "Using OpenMP for Jacobian computation on GPU" << std::endl;
+    }
     #endif
     for (int k = 0; k < static_cast<int>(_optimizer->activeEdges().size()); ++k) {
       OptimizableGraph::Edge* e = _optimizer->activeEdges()[k];
       const OptimizableGraph::Vertex* v1 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(0));
       const OptimizableGraph::Vertex* v2 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(1));
+      // e->linearizeOplus(jacobianWorkspace, totalLockTime,
+      //                   &jacobiansX[edgeIdMap[e->internalId()]*24],
+      //                   &jacobiansY[edgeIdMap[e->internalId()]*24]);
       e->linearizeOplus(jacobianWorkspace, totalLockTime,
-                        &jacobiansX[edgeIdMap[e->internalId()]*24],
-                        &jacobiansY[edgeIdMap[e->internalId()]*24]);
+                  &jacobiansX[edgeIdMap[e->internalId()]*24],
+                  &jacobiansY[edgeIdMap[e->internalId()]*24]);
       // jacobianFile_gpu << v1->id() << " " << v2->id() << ": ";
       // for(int i = 0; i < 24; i++){
       //   jacobianFile_gpu << jacobiansX[edgeIdMap[e->internalId()]*24 + i] << " ";
@@ -608,8 +619,10 @@ bool BlockSolver<Traits>::buildSystem(int iteration)
       // jacobianFile << std::endl;
       e->constructQuadraticForm();
     }
-
     chrono::steady_clock::time_point gpu_end = chrono::steady_clock::now();
+    std::cout << "Library times: " << std::chrono::duration_cast<std::chrono::microseconds>(edgeMap_stop - edgeMap_start).count();
+    std::cout << ", " << std::chrono::duration_cast<std::chrono::microseconds>(jacobianStop - edgeMap_stop).count();
+    std::cout << ", " << std::chrono::duration_cast<std::chrono::microseconds>(gpu_mid - jacobianStop).count() << std::endl;
     std::cout << "GPU time: " << std::chrono::duration_cast<std::chrono::microseconds>(gpu_mid - gpu_start).count();
     std::cout << ", " << std::chrono::duration_cast<std::chrono::microseconds>(gpu_end - gpu_mid).count() << " microseconds" << std::endl;
   } else {
@@ -618,10 +631,15 @@ bool BlockSolver<Traits>::buildSystem(int iteration)
     # ifndef G2O_OPENMP
       // no threading, we do not need to copy the workspace
       JacobianWorkspace& jacobianWorkspace = _optimizer->jacobianWorkspace();
+      if(_stats) std::cout << "No OpenMP for Jacobian computation on CPU" << std::endl;
     # else
       // if running with threads need to produce copies of the workspace for each thread
       JacobianWorkspace jacobianWorkspace = _optimizer->jacobianWorkspace();
     # pragma omp parallel for default (shared) firstprivate(jacobianWorkspace) if (_optimizer->activeEdges().size() > 100)
+    {
+      if(_stats)
+      std::cout << "Using OpenMP for Jacobian computation on CPU" << std::endl;
+    }
     #endif
     for (int k = 0; k < static_cast<int>(_optimizer->activeEdges().size()); ++k) {
       OptimizableGraph::Edge* e = _optimizer->activeEdges()[k];
@@ -648,10 +666,6 @@ bool BlockSolver<Traits>::buildSystem(int iteration)
   }
 
   chrono::steady_clock::time_point third = chrono::steady_clock::now();
-  if(_stats){
-    std::cout << "JacobianComputation: " << std::chrono::duration_cast<std::chrono::microseconds>(second - first).count() << " microseconds" << std::endl;
-    std::cout << "IndexMapping: " << std::chrono::duration_cast<std::chrono::microseconds>(third - second).count() << " microseconds" << std::endl;
-  }
   return 0;
 }
 
