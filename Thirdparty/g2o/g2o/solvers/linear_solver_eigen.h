@@ -36,6 +36,8 @@
 
 #include "../core/eigen_types.h"
 
+#include "../../../../include/LoopClosureDetector.h"
+
 #include <iostream>
 #include <vector>
 

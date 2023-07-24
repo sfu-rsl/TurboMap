@@ -31,6 +31,8 @@
 #include "../core/linear_solver.h"
 #include "../core/batch_stats.h"
 
+#include "../../../../include/LoopClosureDetector.h"
+
 #include <vector>
 #include <utility>
 #include<Eigen/Core>

@@ -44,9 +44,25 @@
 
 #include "OptimizableTypes.h"
 
+#include "Thirdparty/g2o/g2o/gpu/block_solver2.h"
+
 
 namespace ORB_SLAM3
 {
+
+static compute::ComputeEngine* engine = nullptr;
+
+void initialize_compute_engine() {
+    if (!engine) {
+        engine = new compute::ComputeEngine();
+    }
+}
+
+void destroy_compute_engine() {
+    delete engine;
+    engine = nullptr;
+}
+
 bool sortByVal(const pair<MapPoint*, int> &a, const pair<MapPoint*, int> &b)
 {
     return (a.second < b.second);
@@ -54,6 +70,7 @@ bool sortByVal(const pair<MapPoint*, int> &a, const pair<MapPoint*, int> &b)
 
 void Optimizer::GlobalBundleAdjustemnt(Map* pMap, int nIterations, bool* pbStopFlag, const unsigned long nLoopKF, const bool bRobust)
 {
+    std::cout << "GlobalBundleAdjustment" << std::endl;
     vector<KeyFrame*> vpKFs = pMap->GetAllKeyFrames();
     vector<MapPoint*> vpMP = pMap->GetAllMapPoints();
     BundleAdjustment(vpKFs,vpMP,nIterations,pbStopFlag, nLoopKF, bRobust);
@@ -394,6 +411,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
 
 void Optimizer::FullInertialBA(Map *pMap, int its, const bool bFixLocal, const long unsigned int nLoopId, bool *pbStopFlag, bool bInit, float priorG, float priorA, Eigen::VectorXd *vSingVal, bool *bHess)
 {
+    std::cout << "FullInertialBA" << std::endl;
     long unsigned int maxKFid = pMap->GetMaxKFid();
     const vector<KeyFrame*> vpKFs = pMap->GetAllKeyFrames();
     const vector<MapPoint*> vpMPs = pMap->GetAllMapPoints();
@@ -407,6 +425,10 @@ void Optimizer::FullInertialBA(Map *pMap, int its, const bool bFixLocal, const l
     g2o::BlockSolverX * solver_ptr = new g2o::BlockSolverX(linearSolver);
 
     g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
+
+    // solver->setGbaStats(true);
+
+    // solver_ptr->setStats(true);
     solver->setUserLambdaInit(1e-5);
     optimizer.setAlgorithm(solver);
     optimizer.setVerbose(false);
@@ -1506,16 +1528,39 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
                                        const LoopClosing::KeyFrameAndPose &CorrectedSim3,
                                        const map<KeyFrame *, set<KeyFrame *> > &LoopConnections, const bool &bFixScale)
 {   
+    std::cout << "OptimizeEssentialGraph" << std::endl;
     // Setup optimizer
     g2o::SparseOptimizer optimizer;
-    optimizer.setVerbose(false);
+    optimizer.setVerbose(true);
     g2o::BlockSolver_7_3::LinearSolverType * linearSolver =
            new g2o::LinearSolverEigen<g2o::BlockSolver_7_3::PoseMatrixType>();
     g2o::BlockSolver_7_3 * solver_ptr= new g2o::BlockSolver_7_3(linearSolver);
     g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
+    
+    // solver->setGbaStats(true);
 
     solver->setUserLambdaInit(1e-16);
     optimizer.setAlgorithm(solver);
+
+    solver_ptr->setStats(true);
+
+    g2o::SparseOptimizer optimizer_gpu;
+    optimizer_gpu.setVerbose(true);
+    g2o::BlockSolver_7_3::LinearSolverType * linearSolver_gpu =
+           new g2o::LinearSolverEigen<g2o::BlockSolver_7_3::PoseMatrixType>();
+    g2o::BlockSolver_7_3 * solver_ptr_gpu= new g2o::BlockSolver_7_3(linearSolver_gpu);
+    g2o::OptimizationAlgorithmLevenberg* solver_gpu = new g2o::OptimizationAlgorithmLevenberg(solver_ptr_gpu);
+
+    solver_gpu->setUserLambdaInit(1e-16);
+    optimizer_gpu.setAlgorithm(solver_gpu);
+
+    solver_ptr_gpu->setStats(true);
+
+    optimizer_gpu.setUseGPU(true);
+
+    optimizer_gpu.createGraphInterface();
+
+    optimizer::GraphInterface* graph_interface = optimizer_gpu.graphInterface();
 
     const vector<KeyFrame*> vpKFs = pMap->GetAllKeyFrames();
     const vector<MapPoint*> vpMPs = pMap->GetAllMapPoints();
@@ -5313,6 +5358,9 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
 
     chrono::steady_clock::time_point start = chrono::steady_clock::now();
 
+    compute::LinearSolver<double> *_linearSolver = new compute::LDLTSolver<double>();
+    // g2o::BlockSolver2X *solver_ptr_ = new g2o::BlockSolver2X(engine, _linearSolver);
+
     // Setup optimizer
     g2o::SparseOptimizer optimizer;
     optimizer.setVerbose(true);
@@ -5657,9 +5705,9 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
 
     std::cout << " ---------------------------- GPU ----------------------------- " << std::endl;
 
-    optimizer_gpu.initializeOptimization();
-    optimizer_gpu.computeActiveErrors();
-    optimizer_gpu.optimize(20);
+    // optimizer_gpu.initializeOptimization();
+    // optimizer_gpu.computeActiveErrors();
+    // optimizer_gpu.optimize(20);
 
     // std::string filename2 = "opt_final.txt";
     // optimizer.save(filename2.c_str());

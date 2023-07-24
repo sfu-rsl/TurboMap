@@ -372,9 +372,7 @@ template <typename Traits>
 bool BlockSolver<Traits>::solve(){
   //cerr << __PRETTY_FUNCTION__ << endl;
   // double loopClosureTime = get_monotonic_time();
-  // if(LoopClosureDetector::instance().isLoopClosureDetected()) {
-  //   std::cout << "Solving" << std::endl;
-  // }
+  std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
   if (! _doSchur){
     double t=get_monotonic_time();
     bool ok = _linearSolver->solve(*_Hpp, _x, _b);
@@ -503,9 +501,6 @@ bool BlockSolver<Traits>::solve(){
   _DInvSchur->multiply(xl,cl);
   //_DInvSchur->rightMultiply(xl,cl);
   //cerr << "Solve [landmark delta] = " <<  get_monotonic_time()-t << endl;
-  // if(LoopClosureDetector::instance().isLoopClosureDetected()) {
-  //   std::cout << "Solved, time = " << get_monotonic_time()-loopClosureTime << std::endl;
-  // }
   return true;
 }
 
@@ -589,10 +584,6 @@ bool BlockSolver<Traits>::buildSystem(int iteration)
       // if running with threads need to produce copies of the workspace for each thread
       JacobianWorkspace jacobianWorkspace = _optimizer->jacobianWorkspace();
     # pragma omp parallel for default (shared) firstprivate(jacobianWorkspace) if (_optimizer->activeEdges().size() > 100)
-    {
-      if(_stats)
-      std::cout << "Using OpenMP for Jacobian computation on GPU" << std::endl;
-    }
     #endif
     for (int k = 0; k < static_cast<int>(_optimizer->activeEdges().size()); ++k) {
       OptimizableGraph::Edge* e = _optimizer->activeEdges()[k];
@@ -636,10 +627,6 @@ bool BlockSolver<Traits>::buildSystem(int iteration)
       // if running with threads need to produce copies of the workspace for each thread
       JacobianWorkspace jacobianWorkspace = _optimizer->jacobianWorkspace();
     # pragma omp parallel for default (shared) firstprivate(jacobianWorkspace) if (_optimizer->activeEdges().size() > 100)
-    {
-      if(_stats)
-      std::cout << "Using OpenMP for Jacobian computation on CPU" << std::endl;
-    }
     #endif
     for (int k = 0; k < static_cast<int>(_optimizer->activeEdges().size()); ++k) {
       OptimizableGraph::Edge* e = _optimizer->activeEdges()[k];

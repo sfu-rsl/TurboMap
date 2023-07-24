@@ -6,6 +6,11 @@ PROJECT(g2o)
 SET(g2o_C_FLAGS)
 SET(g2o_CXX_FLAGS)
 
+if(POLICY CMP0015)
+  cmake_policy(SET CMP0015 NEW)
+endif()
+
+
 # default built type
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
@@ -46,20 +51,21 @@ ENDIF(UNIX)
 # OPENMP is experimental. We experienced some slowdown with it
 FIND_PACKAGE(OpenMP)
 SET(G2O_USE_OPENMP OFF CACHE BOOL "Build g2o with OpenMP support (EXPERIMENTAL)")
-IF(OPENMP_FOUND AND G2O_USE_OPENMP)
-  SET (G2O_OPENMP 1)
-  SET(g2o_C_FLAGS "${g2o_C_FLAGS} ${OpenMP_C_FLAGS}")
-  SET(g2o_CXX_FLAGS "${g2o_CXX_FLAGS} -DEIGEN_DONT_PARALLELIZE ${OpenMP_CXX_FLAGS}")
-  MESSAGE(STATUS "Compiling with OpenMP support")
-ENDIF(OPENMP_FOUND AND G2O_USE_OPENMP)
+# IF(OPENMP_FOUND AND G2O_USE_OPENMP)
+#   SET (G2O_OPENMP 1)
+#   SET(g2o_C_FLAGS "${g2o_C_FLAGS} ${OpenMP_C_FLAGS}")
+#   SET(g2o_CXX_FLAGS "${g2o_CXX_FLAGS} -DEIGEN_DONT_PARALLELIZE ${OpenMP_CXX_FLAGS}")
+#   MESSAGE(STATUS "Compiling with OpenMP support")
+# ENDIF(OPENMP_FOUND AND G2O_USE_OPENMP)
 
 # set(CMAKE_C_COMPILE "clang")
 # set(CMAKE_CXX_COMPILER "clang++")
 
 # Compiler specific options for gcc
-SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native")
+# SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native -fopenmp")
 SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -march=native")
-SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -std=c++17")
+SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -march=native")
+SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -std=c++17 -fopenmp")
 SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3")
 
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -std=c++17 --hipsycl-targets=cuda:sm_86")
@@ -93,7 +99,8 @@ SET(pose-graph-optimizer_LIBRARY_DIR ${g2o_SOURCE_DIR}/../pose-graph-optimizer/b
 INCLUDE_DIRECTORIES(
 ${g2o_SOURCE_DIR}/core
 ${g2o_SOURCE_DIR}/types
-${g2o_SOURCE_DIR}/stuff 
+${g2o_SOURCE_DIR}/stuff
+${g2o_SOURCE_DIR}/gpu
 ${G2O_EIGEN3_INCLUDE}
 ${pose-graph-optimizer_INCLUDE_DIR}
 )
@@ -102,6 +109,9 @@ ${pose-graph-optimizer_INCLUDE_DIR}
 LINK_DIRECTORIES( g2o
 ${pose-graph-optimizer_LIBRARY_DIR}
 )
+
+add_compile_definitions(SPDLOG_ACTIVE_LEVEL=5)
+add_subdirectory(spearhead)
 
 # Include the subdirectories
 ADD_LIBRARY(g2o ${G2O_LIB_TYPE}
@@ -190,5 +200,19 @@ g2o/stuff/os_specific.c
 g2o/stuff/os_specific.h
 g2o/stuff/string_tools.cpp
 g2o/stuff/property.cpp       
-g2o/stuff/property.h       
+g2o/stuff/property.h     
+
+#gpu
+g2o/gpu/BAStats.hpp
+g2o/gpu/BAStats.cpp
+g2o/gpu/block_solver2.h
+g2o/gpu/block_solver2.hpp
 )
+
+target_link_libraries(g2o compute)
+
+IF(OPENMP_FOUND AND G2O_USE_OPENMP)
+  add_definitions(-DG2O_OPENMP)  
+  target_link_libraries(g2o OpenMP::OpenMP_CXX)
+  MESSAGE(STATUS "Compiling with OpenMP support")
+ENDIF(OPENMP_FOUND AND G2O_USE_OPENMP)

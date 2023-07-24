@@ -43,6 +43,9 @@ namespace ORB_SLAM3
 
 class LoopClosing;
 
+void initialize_compute_engine();
+void destroy_compute_engine();
+
 class Optimizer
 {
 public:

@@ -1,7 +1,7 @@
 #!/bin/bash
 pathDatasetTUM_VI=$HOME/ORB_SLAM3_Datasets/tumvi #Example, it is necesary to change it by the dataset path
-seqNumber=1
-datasetName=magistrale
+seqNumber=3
+datasetName=room
 
 # Single Session Example
 

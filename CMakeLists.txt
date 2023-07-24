@@ -16,7 +16,8 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native")
 include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG("-std=c++17" COMPILER_SUPPORTS_CXX17)
 if(COMPILER_SUPPORTS_CXX17)
-   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -O3")
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -O3 -fopenmp")
+#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -O3")
    add_definitions(-DCOMPILEDWITHC17)
    message(STATUS "Using flag -std=c++17.")
 else()
@@ -50,6 +51,10 @@ ${PROJECT_SOURCE_DIR}/Thirdparty/Sophus
 ${EIGEN3_INCLUDE_DIR}
 ${Pangolin_INCLUDE_DIRS}
 ${PROJECT_SOURCE_DIR}/Thirdparty/pose-graph-optimizer/include
+${PROJECT_SOURCE_DIR}/Thirdparty/g2o/spearhead/src/include
+${PROJECT_SOURCE_DIR}/Thirdparty/g2o/spearhead/external/kompute/src/include
+${PROJECT_SOURCE_DIR}/Thirdparty/g2o/spearhead/external/kompute/external/VulkanMemoryAllocator/include
+${PROJECT_SOURCE_DIR}/Thirdparty/fmt/include
 )
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
@@ -116,6 +121,7 @@ include/SerializationUtils.h
 include/Config.h
 include/Settings.h)
 
+add_compile_definitions(SPDLOG_ACTIVE_LEVEL=5) # suppress log
 add_subdirectory(Thirdparty/g2o)
 
 target_link_libraries(${PROJECT_NAME}
@@ -127,6 +133,7 @@ ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
 -lboost_serialization
 -lcrypto
 ${PROJECT_SOURCE_DIR}/Thirdparty/pose-graph-optimizer/build/liboptimizer.so
+compute
 )
 
 # Enable OpenMP
@@ -134,9 +141,10 @@ FIND_PACKAGE(OpenMP)
 SET(OS3_USE_OPENMP OFF CACHE BOOL "Build ORB-SLAM3 with g2o OpenMP support, requires g2o to be built with G2O_USE_OPENMP=ON (EXPERIMENTAL)")
 if (OS3_USE_OPENMP)
    add_definitions(-DG2O_OPENMP)
-   SET (G2O_OPENMP 1)
-   SET(ORB_SLAM3_C_FLAGS "${ORB_SLAM3_C_FLAGS} ${OpenMP_C_FLAGS}")
-   SET(ORB_SLAM3_CXX_FLAGS "${ORB_SLAM3_CXX_FLAGS} -DEIGEN_DONT_PARALLELIZE ${OpenMP_CXX_FLAGS}")
+   target_link_libraries(${PROJECT_NAME} OpenMP::OpenMP_CXX)
+#    SET (G2O_OPENMP 1)
+#    SET(ORB_SLAM3_C_FLAGS "${ORB_SLAM3_C_FLAGS} ${OpenMP_C_FLAGS}")
+#    SET(ORB_SLAM3_CXX_FLAGS "${ORB_SLAM3_CXX_FLAGS} -DEIGEN_DONT_PARALLELIZE ${OpenMP_CXX_FLAGS}")
 endif(OS3_USE_OPENMP)
 
 # If RealSense SDK is found the library is added and its examples compiled

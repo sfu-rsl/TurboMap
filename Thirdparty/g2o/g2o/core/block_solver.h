@@ -143,6 +143,8 @@ namespace g2o {
 
       virtual void setStats(bool status) {_stats = status;}
 
+      virtual bool getStats() {return _stats;}
+
     protected:
       void resize(int* blockPoseIndices, int numPoseBlocks, 
           int* blockLandmarkIndices, int numLandmarkBlocks, int totalDim);
