@@ -846,7 +846,7 @@ bool BlockSolver2::computeMarginals(SparseBlockMatrix<MatrixXd>& spinv, const st
   return false;
 }
 
-bool BlockSolver2::buildSystem()
+bool BlockSolver2::buildSystem(int iteration)
 {
   auto ta = get_monotonic_time();
   gpu_alloc_task.get();
