@@ -111,7 +111,7 @@ ${pose-graph-optimizer_LIBRARY_DIR}
 )
 
 add_compile_definitions(SPDLOG_ACTIVE_LEVEL=5)
-add_subdirectory(spearhead)
+add_subdirectory(compute-engine)
 
 # Include the subdirectories
 ADD_LIBRARY(g2o ${G2O_LIB_TYPE}

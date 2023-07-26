@@ -51,9 +51,9 @@ ${PROJECT_SOURCE_DIR}/Thirdparty/Sophus
 ${EIGEN3_INCLUDE_DIR}
 ${Pangolin_INCLUDE_DIRS}
 ${PROJECT_SOURCE_DIR}/Thirdparty/pose-graph-optimizer/include
-${PROJECT_SOURCE_DIR}/Thirdparty/g2o/spearhead/src/include
-${PROJECT_SOURCE_DIR}/Thirdparty/g2o/spearhead/external/kompute/src/include
-${PROJECT_SOURCE_DIR}/Thirdparty/g2o/spearhead/external/kompute/external/VulkanMemoryAllocator/include
+${PROJECT_SOURCE_DIR}/Thirdparty/g2o/compute-engine/src/include
+${PROJECT_SOURCE_DIR}/Thirdparty/g2o/compute-engine/external/kompute/src/include
+${PROJECT_SOURCE_DIR}/Thirdparty/g2o/compute-engine/external/kompute/external/VulkanMemoryAllocator/include
 ${PROJECT_SOURCE_DIR}/Thirdparty/fmt/include
 )
 
