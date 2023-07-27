@@ -158,6 +158,11 @@ bool BlockSolver<Traits>::buildStructure(bool zeroBlocks)
   int* blockPoseIndices = new int[_optimizer->indexMapping().size()];
   int* blockLandmarkIndices = new int[_optimizer->indexMapping().size()];
 
+  if(_stats){
+    std::cout << "Index mapping size: " << _optimizer->indexMapping().size() << std::endl;
+    std::cout << "_numPoses and _numLandmarks: " << _numPoses << " " << _numLandmarks << std::endl;
+  }
+
   for (size_t i = 0; i < _optimizer->indexMapping().size(); ++i) {
     OptimizableGraph::Vertex* v = _optimizer->indexMapping()[i];
     int dim = v->dimension();

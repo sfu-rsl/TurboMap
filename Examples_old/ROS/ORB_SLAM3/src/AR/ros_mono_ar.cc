@@ -148,7 +148,13 @@ void ImageGrabber::GrabImage(const sensor_msgs::ImageConstPtr& msg)
     }
     cv::Mat im = cv_ptr->image.clone();
     cv::Mat imu;
-    cv::Mat Tcw = mpSLAM->TrackMonocular(cv_ptr->image,cv_ptr->header.stamp.toSec());
+    Eigen::Matrix4f eigen_mat = mpSLAM->TrackMonocular(cv_ptr->image,cv_ptr->header.stamp.toSec()).matrix();
+    cv::Mat Tcw = (cv::Mat_<float>(4,4) << 
+    eigen_mat(0,0), eigen_mat(0,1), eigen_mat(0,2), eigen_mat(0,3),
+    eigen_mat(1,0), eigen_mat(1,1), eigen_mat(1,2), eigen_mat(1,3),
+    eigen_mat(2,0), eigen_mat(2,1), eigen_mat(2,2), eigen_mat(2,3),
+    eigen_mat(3,0), eigen_mat(3,1), eigen_mat(3,2), eigen_mat(3,3));
+    // cv::Mat Tcw = mpSLAM->TrackMonocular(cv_ptr->image,cv_ptr->header.stamp.toSec());
     int state = mpSLAM->GetTrackingState();
     vector<ORB_SLAM3::MapPoint*> vMPs = mpSLAM->GetTrackedMapPoints();
     vector<cv::KeyPoint> vKeys = mpSLAM->GetTrackedKeyPointsUn();

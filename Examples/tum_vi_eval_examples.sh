@@ -1,16 +1,16 @@
 #!/bin/bash
 pathDatasetTUM_VI=$HOME/ORB_SLAM3_Datasets/tumvi #Example, it is necesary to change it by the dataset path
-seqNumber=3
-datasetName=room
+seqNumber=1
+datasetName=magistrale
 
 # Single Session Example
 
 # echo "Launching magistrale with Stereo-Inertial sensor"
 ./Stereo-Inertial/stereo_inertial_tum_vi ../Vocabulary/ORBvoc.txt Stereo-Inertial/TUM-VI.yaml "$pathDatasetTUM_VI"/${datasetName}/dataset-${datasetName}${seqNumber}_512_16/mav0/cam0/data "$pathDatasetTUM_VI"/${datasetName}/dataset-${datasetName}${seqNumber}_512_16/mav0/cam1/data Stereo-Inertial/TUM_TimeStamps/dataset-${datasetName}${seqNumber}_512.txt Stereo-Inertial/TUM_IMU/dataset-${datasetName}${seqNumber}_512.txt  dataset-${datasetName}${seqNumber}_512_stereoi
 
-# echo "------------------------------------"
-# echo "Evaluation of Corridor 2 trajectory with Stereo-Inertial sensor"
-# python3 ../evaluation/evaluate3.py "$pathDatasetTUM_VI"/dataset-magistrale1_512_16/mav0/mocap0/data.csv f_dataset-magistrale1_512_stereoi.txt --plot magistrale1_512_stereoi.pdf
+echo "------------------------------------"
+echo "Evaluation of Corridor 2 trajectory with Stereo-Inertial sensor"
+python3 ../evaluation/evaluate3.py "$pathDatasetTUM_VI"/${datasetName}/dataset-${datasetName}${seqNumber}_512_16//mav0/mocap0/data.csv f_dataset-${datasetName}${seqNumber}_512_stereoi.txt --plot ${datasetName}${seqNumber}_512_stereoi.pdf
 
 
 #Multi Session Example

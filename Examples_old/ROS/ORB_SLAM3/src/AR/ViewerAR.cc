@@ -402,7 +402,10 @@ Plane* ViewerAR::DetectPlane(const cv::Mat Tcw, const std::vector<MapPoint*> &vM
         {
             if(pMP->Observations()>5)
             {
-                vPoints.push_back(pMP->GetWorldPos());
+                Eigen::Vector3f eigen_vec = pMP->GetWorldPos();
+                cv::Mat cv_mat = (cv::Mat_<float>(3,1) << eigen_vec[0], eigen_vec[1], eigen_vec[2]);
+                vPoints.push_back(cv_mat);
+                // vPoints.push_back(pMP->GetWorldPos());
                 vPointMP.push_back(pMP);
             }
         }
@@ -527,7 +530,9 @@ void Plane::Recompute()
         MapPoint* pMP = mvMPs[i];
         if(!pMP->isBad())
         {
-            cv::Mat Xw = pMP->GetWorldPos();
+            Eigen::Vector3f eigen_vec = pMP->GetWorldPos();
+            cv::Mat Xw = (cv::Mat_<float>(3,1) << eigen_vec[0], eigen_vec[1], eigen_vec[2]);
+            // cv::Mat Xw = pMP->GetWorldPos();
             o+=Xw;
             A.row(nPoints).colRange(0,3) = Xw.t();
             nPoints++;

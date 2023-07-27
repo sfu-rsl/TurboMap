@@ -212,7 +212,7 @@ bool BlockSolver2::buildStructure(bool zeroBlocks)
   #else
   constexpr auto async_mode = std::launch::async;
   #endif
-  // std::cout << "BlockSolver2: buildStructure!\n";
+  std::cout << "BlockSolver2: buildStructure!\n";
 
   auto tr0 = std::chrono::high_resolution_clock::now();
   assert(_optimizer);
@@ -227,6 +227,9 @@ bool BlockSolver2::buildStructure(bool zeroBlocks)
   std::vector<BlockIndex> blockLandmarkIndices;
   blockLandmarkIndices.reserve(_optimizer->indexMapping().size()+1);
   // std::cout << "BlockSolver2: buildStructure - Finding dimensions...\n";
+
+  std::cout << "Poses and landmarks: " << _optimizer->indexMapping().size() << "\n";
+  std::cout << "_numPoses and _numLandmarks: " << _numPoses << " " << _numLandmarks << "\n";
 
 
   for (size_t i = 0; i < _optimizer->indexMapping().size(); ++i) {
@@ -246,16 +249,16 @@ bool BlockSolver2::buildStructure(bool zeroBlocks)
     sparseDim += dim;
   }
 
-  if (_sizeLandmarks && _sizePoses) {
+  if (_sizePoses) {
     blockPoseIndices.push_back(_sizePoses);
     blockLandmarkIndices.push_back(_sizeLandmarks);
   }
   else {
     throw std::runtime_error("BlockSolver2: Landmark or pose size was 0!");
   }
-  // std::cout << "Resizing!";
+  std::cout << "Resizing!";
   resize(blockPoseIndices, _numPoses, blockLandmarkIndices, _numLandmarks, sparseDim);
-  // std::cout << "Done resizing!";
+  std::cout << "Done resizing!";
 
   // allocate the diagonal on Hpp and Hll
   int poseIdx = 0;

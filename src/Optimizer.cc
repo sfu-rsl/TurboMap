@@ -5358,15 +5358,15 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
 
     chrono::steady_clock::time_point start = chrono::steady_clock::now();
 
-    compute::LinearSolver<double> *_linearSolver = new compute::LDLTSolver<double>();
-    g2o::BlockSolver2X *solver_ptr_ = new g2o::BlockSolver2X(engine, _linearSolver);
-
     // Setup optimizer
     g2o::SparseOptimizer optimizer;
     optimizer.setVerbose(true);
     g2o::BlockSolverX::LinearSolverType * linearSolver =
             new g2o::LinearSolverEigen<g2o::BlockSolverX::PoseMatrixType>();
     g2o::BlockSolverX * solver_ptr = new g2o::BlockSolverX(linearSolver);
+
+    // compute::LinearSolver<double> *_linearSolver = new compute::LDLTSolver<double>();
+    // g2o::BlockSolver2X *solver_ptr_ = new g2o::BlockSolver2X(engine, _linearSolver);
 
     solver_ptr->setStats(true);
 
