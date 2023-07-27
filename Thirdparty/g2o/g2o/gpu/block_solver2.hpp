@@ -922,33 +922,84 @@ bool BlockSolver2::buildSystem(int iteration)
   auto tb = get_monotonic_time();
 
   auto totalLockTime = std::chrono::microseconds(0);
-
   // resetting the terms for the pairwise constraints
   // built up the current system by storing the Hessian blocks in the edges and vertices
-# ifndef G2O_OPENMP
-  // no threading, we do not need to copy the workspace
-  JacobianWorkspace& jacobianWorkspace = _optimizer->jacobianWorkspace();
-# else
-  // if running with threads need to produce copies of the workspace for each thread
-  JacobianWorkspace jacobianWorkspace = _optimizer->jacobianWorkspace();
-# pragma omp parallel for default (shared) firstprivate(jacobianWorkspace) if (_optimizer->activeEdges().size() > 100)
-# endif
-  for (int k = 0; k < static_cast<int>(_optimizer->activeEdges().size()); ++k) {
-    OptimizableGraph::Edge* e = _optimizer->activeEdges()[k];
-    e->linearizeOplus(jacobianWorkspace, totalLockTime); // jacobian of the nodes' oplus (manifold)
-    e->constructQuadraticForm();
-#  ifndef NDEBUG
-    for (size_t i = 0; i < e->vertices().size(); ++i) {
-      const OptimizableGraph::Vertex* v = static_cast<const OptimizableGraph::Vertex*>(e->vertex(i));
-      if (! v->fixed()) {
-        bool hasANan = arrayHasNaN(jacobianWorkspace.workspaceForVertex(i), e->dimension() * v->dimension());
-        if (hasANan) {
-          cerr << "buildSystem(): NaN within Jacobian for edge " << e << " for vertex " << i << endl;
-          break;
-        }
-      }
+
+  if(_optimizer->getUseGPU()){
+    std::cout << "Computing Jacobians on GPU" << std::endl;
+    chrono::steady_clock::time_point gpu_start = chrono::steady_clock::now();
+    int numEdges = _optimizer->activeEdges().size();
+    chrono::steady_clock::time_point edgeMap_start = chrono::steady_clock::now();
+    std::map<int, int>& edgeIdMap = _optimizer->getGPUEdgeMap();
+    chrono::steady_clock::time_point edgeMap_stop = chrono::steady_clock::now();
+    std::vector<double> jacobiansX(numEdges*24), jacobiansY(numEdges*24);
+    _optimizer->graphInterface()->computeJacobians();
+    chrono::steady_clock::time_point jacobianStop = chrono::steady_clock::now();
+    _optimizer->graphInterface()->getJacobianX(jacobiansX);
+    _optimizer->graphInterface()->getJacobianY(jacobiansY);
+
+    chrono::steady_clock::time_point gpu_mid = chrono::steady_clock::now();
+    # ifndef G2O_OPENMP
+      // no threading, we do not need to copy the workspace
+      JacobianWorkspace& jacobianWorkspace = _optimizer->jacobianWorkspace();
+      if(_stats) std::cout << "No OpenMP for Jacobian computation on GPU" << std::endl;
+    # else
+      // if running with threads need to produce copies of the workspace for each thread
+      JacobianWorkspace jacobianWorkspace = _optimizer->jacobianWorkspace();
+    # pragma omp parallel for default (shared) firstprivate(jacobianWorkspace) if (_optimizer->activeEdges().size() > 100)
+    #endif
+    for (int k = 0; k < static_cast<int>(_optimizer->activeEdges().size()); ++k) {
+      OptimizableGraph::Edge* e = _optimizer->activeEdges()[k];
+      const OptimizableGraph::Vertex* v1 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(0));
+      const OptimizableGraph::Vertex* v2 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(1));
+      // e->linearizeOplus(jacobianWorkspace, totalLockTime,
+      //                   &jacobiansX[edgeIdMap[e->internalId()]*24],
+      //                   &jacobiansY[edgeIdMap[e->internalId()]*24]);
+      e->linearizeOplus(jacobianWorkspace, totalLockTime,
+                  &jacobiansX[edgeIdMap[e->internalId()]*24],
+                  &jacobiansY[edgeIdMap[e->internalId()]*24]);
+      // jacobianFile_gpu << v1->id() << " " << v2->id() << ": ";
+      // for(int i = 0; i < 24; i++){
+      //   jacobianFile_gpu << jacobiansX[edgeIdMap[e->internalId()]*24 + i] << " ";
+      //   jacobianFile << jacobiansX[k*24 + i] << " ";
+      // }
+      // jacobianFile_gpu << ", ";
+      // jacobianFile << ", ";
+      // for(int i = 0; i < 24; i++){
+      //   jacobianFile_gpu << jacobiansY[edgeIdMap[e->internalId()]*24 + i] << " ";
+      //   jacobianFile << jacobiansY[k*24 + i] << " ";
+      // }
+      // jacobianFile_gpu << std::endl;
+      // jacobianFile << std::endl;
+      e->constructQuadraticForm();
     }
-#  endif
+    chrono::steady_clock::time_point gpu_end = chrono::steady_clock::now();
+    std::cout << "Library times: " << std::chrono::duration_cast<std::chrono::microseconds>(edgeMap_stop - edgeMap_start).count();
+    std::cout << ", " << std::chrono::duration_cast<std::chrono::microseconds>(jacobianStop - edgeMap_stop).count();
+    std::cout << ", " << std::chrono::duration_cast<std::chrono::microseconds>(gpu_mid - jacobianStop).count() << std::endl;
+    std::cout << "GPU time: " << std::chrono::duration_cast<std::chrono::microseconds>(gpu_mid - gpu_start).count();
+    std::cout << ", " << std::chrono::duration_cast<std::chrono::microseconds>(gpu_end - gpu_mid).count() << " microseconds" << std::endl;
+  } else {
+    if(_stats) std::cout << "Computing Jacobians on CPU" << std::endl;
+    chrono::steady_clock::time_point cpu_start = chrono::steady_clock::now();
+    # ifndef G2O_OPENMP
+      // no threading, we do not need to copy the workspace
+      JacobianWorkspace& jacobianWorkspace = _optimizer->jacobianWorkspace();
+      if(_stats) std::cout << "No OpenMP for Jacobian computation on CPU" << std::endl;
+    # else
+      // if running with threads need to produce copies of the workspace for each thread
+      JacobianWorkspace jacobianWorkspace = _optimizer->jacobianWorkspace();
+    # pragma omp parallel for default (shared) firstprivate(jacobianWorkspace) if (_optimizer->activeEdges().size() > 100)
+    #endif
+    for (int k = 0; k < static_cast<int>(_optimizer->activeEdges().size()); ++k) {
+      OptimizableGraph::Edge* e = _optimizer->activeEdges()[k];
+      const OptimizableGraph::Vertex* v1 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(0));
+      const OptimizableGraph::Vertex* v2 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(1));
+      e->linearizeOplus(jacobianWorkspace, totalLockTime);
+      e->constructQuadraticForm();
+    }
+    chrono::steady_clock::time_point cpu_end = chrono::steady_clock::now();
+    if(_stats) std::cout << "CPU time: " << std::chrono::duration_cast<std::chrono::microseconds>(cpu_end - cpu_start).count() << " microseconds" << std::endl;
   }
 
 auto tc = get_monotonic_time();
