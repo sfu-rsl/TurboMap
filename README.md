@@ -1,4 +1,4 @@
-# 1. FastTrack
+# FastTrack
 
 FastTrack is an optimized visual-inertial tracking module designed to harness GPU computing power, significantly speeding up the most computationally intensive aspects of SLAM (Simultaneous Localization and Mapping). Our implementation is based on the well-established ORB-SLAM3 system.
 
