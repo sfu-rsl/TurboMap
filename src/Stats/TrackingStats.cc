@@ -3,29 +3,6 @@
 
 using namespace std;
 
-// std::vector<std::pair<long unsigned int, double>> TrackingStats::tracking_time;
-// std::vector<std::pair<long unsigned int, double>> TrackingStats::orbExtraction_time;
-// std::vector<std::pair<long unsigned int, double>> TrackingStats::stereoMatch_time;
-// std::vector<std::pair<long unsigned int, double>> TrackingStats::trackWithMotionModel_time;
-// std::vector<std::pair<long unsigned int, double>> TrackingStats::TWM_poseEstimation_time;
-// std::vector<std::pair<long unsigned int, double>> TrackingStats::TWM_poseOptimization_time;
-// std::vector<std::pair<long unsigned int, double>> TrackingStats::relocalization_time;
-// std::vector<std::pair<long unsigned int, double>> TrackingStats::trackLocalMap_time;
-// std::vector<std::pair<long unsigned int, double>> TrackingStats::updateLocalMap_time;
-// std::vector<std::pair<long unsigned int, double>> TrackingStats::updateLocalKF_time;
-// std::vector<std::pair<long unsigned int, double>> TrackingStats::updateLocalPoints_time;
-// std::vector<std::pair<long unsigned int, double>> TrackingStats::searchLocalPoints_time;
-// std::vector<std::pair<long unsigned int, double>> TrackingStats::SLP_frameMapPointsItr_time;
-// std::vector<std::pair<long unsigned int, double>> TrackingStats::SLP_localMapPointsItr_time;
-// std::vector<std::pair<long unsigned int, double>> TrackingStats::SLP_searchByProjection_time;
-// std::vector<std::pair<long unsigned int, double>> TrackingStats::TLM_poseOptimization_time;
-// std::vector<std::pair<long unsigned int, int>> TrackingStats::num_local_mappoints;
-// double TrackingStats::orbExtraction_init_time = 0;
-// double TrackingStats::stereoMatch_init_time = 0;
-// double TrackingStats::searchLocalPoints_init_time = 0;
-// double TrackingStats::poseEstimation_init_time = 0;
-// int TrackingStats::num_frames_lost = 0;
-
 void TrackingStats::saveStats(const string &file_path) {
 #ifdef REGISTER_STATS
     string data_path = file_path + "/data/";
