@@ -66,7 +66,7 @@ This will create **libORB_SLAM3.so**  at *lib* folder and the executables in *Ex
 
 3. Execute the following script to process all the sequences with all sensor configurations:
 ```
-./run_script $dataset_name
+./run_script $dataset_name 1
 ```
 
 ## TUM-VI Examples
@@ -78,5 +78,5 @@ This will create **libORB_SLAM3.so**  at *lib* folder and the executables in *Ex
 
 3. Execute the following script to process all the sequences with all sensor configurations:
 ```
-./run_script $dataset_name
+./run_script $dataset_name 1
 ```
