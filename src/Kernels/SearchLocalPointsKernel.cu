@@ -9,7 +9,7 @@ void SearchLocalPointsKernel::initialize() {
         return;
     }
 
-    checkCudaError(cudaMalloc(&d_frame, sizeof(DATA_WRAPPER::CudaFrame)), "Failed to allocate memory for d_frame");
+    checkCudaError(cudaMalloc(&d_frame, sizeof(TRACKING_DATA_WRAPPER::CudaFrame)), "Failed to allocate memory for d_frame");
     
     checkCudaError(cudaMallocHost(&h_isEmpty, MAX_NUM_MAPPOINTS * sizeof(bool)), "Failed to allocate memory for h_isEmpty");
     checkCudaError(cudaMallocHost(&h_mbTrackInView, MAX_NUM_MAPPOINTS * sizeof(bool)), "Failed to allocate memory for h_mbTrackInView");
@@ -64,11 +64,11 @@ void SearchLocalPointsKernel::initialize() {
     memory_is_initialized = true;
 }
 
-void SearchLocalPointsKernel::setFrame(DATA_WRAPPER::CudaFrame* cudaFrame) {
-    checkCudaError(cudaMemcpy(d_frame, cudaFrame, sizeof(DATA_WRAPPER::CudaFrame), cudaMemcpyHostToDevice), "Failed to copy Frame to device");
+void SearchLocalPointsKernel::setFrame(TRACKING_DATA_WRAPPER::CudaFrame* cudaFrame) {
+    checkCudaError(cudaMemcpy(d_frame, cudaFrame, sizeof(TRACKING_DATA_WRAPPER::CudaFrame), cudaMemcpyHostToDevice), "Failed to copy Frame to device");
 }
 
-__global__ void searchByProjectionKernel(DATA_WRAPPER::CudaFrame* d_frame, 
+__global__ void searchByProjectionKernel(TRACKING_DATA_WRAPPER::CudaFrame* d_frame, 
                                 bool *d_isEmpty,
                                 bool *d_mbTrackInView,
                                 bool *d_mbTrackInViewR,
@@ -162,7 +162,7 @@ __global__ void searchByProjectionKernel(DATA_WRAPPER::CudaFrame* d_frame,
                         for(size_t j=0, jend=vCell_size; j<jend; j++) {
                             
 
-                            const DATA_WRAPPER::CudaKeyPoint &kpUn = (d_frame->Nleft == -1) ? d_frame->mvKeysUn[vCell[j]]
+                            const TRACKING_DATA_WRAPPER::CudaKeyPoint &kpUn = (d_frame->Nleft == -1) ? d_frame->mvKeysUn[vCell[j]]
                                                                     : (!bRight) ? d_frame->mvKeys[vCell[j]]
                                                                                 : d_frame->mvKeysRight[vCell[j]];
                 
@@ -290,7 +290,7 @@ __global__ void searchByProjectionKernel(DATA_WRAPPER::CudaFrame* d_frame,
                         }
                         for(size_t j=0, jend=vCell_size; j<jend; j++) {
                             
-                            const DATA_WRAPPER::CudaKeyPoint &kpUn = (d_frame->Nleft == -1) ? d_frame->mvKeysUn[vCell[j]]
+                            const TRACKING_DATA_WRAPPER::CudaKeyPoint &kpUn = (d_frame->Nleft == -1) ? d_frame->mvKeysUn[vCell[j]]
                                                                     : (!bRight) ? d_frame->mvKeys[vCell[j]]
                                                                                 : d_frame->mvKeysRight[vCell[j]];
                             if(bCheckLevels)
@@ -347,7 +347,7 @@ void SearchLocalPointsKernel::launch(ORB_SLAM3::Frame &F, const vector<ORB_SLAM3
                         int* h_bestLevel, int* h_bestLevel2, int* h_bestDist, int* h_bestDist2, int* h_bestIdx,
                         int* h_bestLevelR, int* h_bestLevelR2, int* h_bestDistR, int* h_bestDistR2, int* h_bestIdxR){
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point startTotal = std::chrono::steady_clock::now();
 #endif
     
@@ -361,7 +361,7 @@ void SearchLocalPointsKernel::launch(ORB_SLAM3::Frame &F, const vector<ORB_SLAM3
         raise(SIGSEGV);
     }
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point startMapPointsWrap = std::chrono::steady_clock::now();
 #endif
 
@@ -389,7 +389,7 @@ void SearchLocalPointsKernel::launch(ORB_SLAM3::Frame &F, const vector<ORB_SLAM3
         std::memcpy(&h_mDescriptor[i*DESCRIPTOR_SIZE], pMP->GetDescriptor().data, DESCRIPTOR_SIZE * sizeof(uint8_t));
     }
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point endMapPointsWrap = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point startMapPointsTransfer = std::chrono::steady_clock::now();
 #endif
@@ -408,7 +408,7 @@ void SearchLocalPointsKernel::launch(ORB_SLAM3::Frame &F, const vector<ORB_SLAM3
     cudaMemcpy(d_mTrackProjYR, h_mTrackProjYR, numPoints * sizeof(float), cudaMemcpyHostToDevice); 
     cudaMemcpy(d_mDescriptor, h_mDescriptor, numPoints * DESCRIPTOR_SIZE * sizeof(uint8_t), cudaMemcpyHostToDevice); 
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point endMapPointsTransfer = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point startKernel = std::chrono::steady_clock::now();
 #endif
@@ -434,7 +434,7 @@ void SearchLocalPointsKernel::launch(ORB_SLAM3::Frame &F, const vector<ORB_SLAM3
                                                         d_bestLevelR, d_bestLevelR2, d_bestDistR, d_bestDistR2, d_bestIdxR);
     checkCudaError(cudaDeviceSynchronize(), "[searchByProjectionKernel:] Kernel launch failed");  
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point endKernel = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point startOutputTransfer = std::chrono::steady_clock::now();
 #endif
@@ -450,7 +450,7 @@ void SearchLocalPointsKernel::launch(ORB_SLAM3::Frame &F, const vector<ORB_SLAM3
     checkCudaError(cudaMemcpy(h_bestDistR2, d_bestDistR2, numPoints * sizeof(int), cudaMemcpyDeviceToHost), "Failed to copy d_bestDistR2 back to host");
     checkCudaError(cudaMemcpy(h_bestIdxR, d_bestIdxR, numPoints * sizeof(int), cudaMemcpyDeviceToHost), "Failed to copy d_bestIdxR back to host");
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point endOutputTransfer = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point endTotal = std::chrono::steady_clock::now();
 

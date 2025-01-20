@@ -5,7 +5,7 @@
 #include <opencv2/opencv.hpp>
 #include <Eigen/Core>
 
-namespace DATA_WRAPPER {
+namespace TRACKING_DATA_WRAPPER {
 
 class CudaMapPoint {
     public:

@@ -22,15 +22,15 @@ class PoseEstimationKernel: public KernelInterface {
         void launch(ORB_SLAM3::Frame &CurrentFrame, const ORB_SLAM3::Frame &LastFrame,
                     const float th, const bool bForward, const bool bBackward, Eigen::Matrix4f transform_matrix,
                     int* h_bestDist, int* h_bestIdx2, int* h_bestDistR, int* h_bestIdxR2);
-        void setCurrentFrame(DATA_WRAPPER::CudaFrame* cudaFrame);
-        void setLastFrame(DATA_WRAPPER::CudaFrame* cudaFrame);
-        DATA_WRAPPER::CudaFrame* getLastFrame() { return d_lastFrame; };
-        DATA_WRAPPER::CudaFrame* getCurrentFrame() { return d_currentFrame; };
+        void setCurrentFrame(TRACKING_DATA_WRAPPER::CudaFrame* cudaFrame);
+        void setLastFrame(TRACKING_DATA_WRAPPER::CudaFrame* cudaFrame);
+        TRACKING_DATA_WRAPPER::CudaFrame* getLastFrame() { return d_lastFrame; };
+        TRACKING_DATA_WRAPPER::CudaFrame* getCurrentFrame() { return d_currentFrame; };
     
     private:
         bool memory_is_initialized;
-        DATA_WRAPPER::CudaFrame *d_currentFrame, *h_currentFrame;
-        DATA_WRAPPER::CudaFrame *d_lastFrame, *h_lastFrame;
+        TRACKING_DATA_WRAPPER::CudaFrame *d_currentFrame, *h_currentFrame;
+        TRACKING_DATA_WRAPPER::CudaFrame *d_lastFrame, *h_lastFrame;
         int *d_bestDist, *d_bestIdx2, *d_bestDistR, *d_bestIdxR2;
 
     public:

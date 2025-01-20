@@ -3,18 +3,7 @@
 
 #include <opencv2/opencv.hpp>
 
-namespace DATA_WRAPPER {
-
-// class CudaKeyPoint {
-//     public:
-//         CudaKeyPoint();
-//         CudaKeyPoint(int _oct, float _ptx, float _pty) : octave(_oct), ptx(_ptx), pty(_pty) {}
-
-//     public:
-//         int octave;
-//         float ptx;
-//         float pty;
-//     };
+namespace TRACKING_DATA_WRAPPER {
 
     struct CudaKeyPoint {
         float ptx;

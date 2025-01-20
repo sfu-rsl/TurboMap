@@ -4,12 +4,19 @@
 using namespace std;
 
 void TrackingStats::saveStats(const string &file_path) {
-#ifdef REGISTER_STATS
-    string data_path = file_path + "/data/";
-    cout << "Writing stats data into file: " << data_path << '\n';
+#ifdef REGISTER_TRACKING_STATS
+    string data_path = file_path + "/Tracking";
     if (mkdir(data_path.c_str(), 0755) == -1) {
         std::cerr << "[TrackingStats:] Error creating directory: " << strerror(errno) << std::endl;
     }
+
+    data_path = data_path + "/data/";
+    if (mkdir(data_path.c_str(), 0755) == -1) {
+        std::cerr << "[TrackingStats:] Error creating directory: " << strerror(errno) << std::endl;
+    }
+    cout << "Writing stats data into file: " << data_path << '\n';
+
+    std::ofstream myfile;
 
     KernelController::saveKernelsStats(data_path);
 

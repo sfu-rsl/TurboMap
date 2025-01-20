@@ -6,7 +6,7 @@
 #define TIMESTAMP_PRINT(msg) do {} while (0)
 #endif
 
-namespace DATA_WRAPPER
+namespace TRACKING_DATA_WRAPPER
 {
     CudaMapPoint::CudaMapPoint() {
         isEmpty = true;

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-if [ $# -ne 2 ]; then
-    echo "Usage: $0 <dataset_name> <[0] for ORB-SLAM3, [1] for FastTrack>"
+if [ $# -lt 2 ]; then
+    echo "Usage: $0 <dataset_name> <[0] for ORB-SLAM3, [1] for FastTrack> <save_stream>"
     exit 1
 fi
 
@@ -25,6 +25,12 @@ if [ "$2" -eq 0 ]; then
     version='ORB-SLAM3'
 fi
 
+if [ $# -ge 3 ]; then
+    save_ostream=$3
+else
+    save_ostream=0
+fi
+
 tumvi_datasets=("corridor1" "corridor2" "corridor3" "corridor4" "corridor5" "outdoors1" "outdoors5" "room1" "room2" "room3" "room4" "room5" "room6" "magistrale2" "magistrale6")
 euroc_datasets=("MH01" "MH03" "MH02" "MH04" "MH05" "V101" "V102" "V103" "V201" "V202" "V203")
 
@@ -45,13 +51,31 @@ for dataset in "${euroc_datasets[@]}"; do
     fi
 done
 
-if $found_in_euroc; then
-    cd Examples/
-    ./euroc_eval_examples.sh "$orbExtractionRunstatus" "$stereoMatchRunstatus" "$searchLocalPointsRunstatus" "$poseEstimationRunstatus" "$poseOptimizationRunstatus" "$dataset_name" "$version" 
-elif $found_in_tumvi; then
-    cd Examples/
-    ./tum_vi_eval_examples.sh "$orbExtractionRunstatus" "$stereoMatchRunstatus" "$searchLocalPointsRunstatus" "$poseEstimationRunstatus" "$poseOptimizationRunstatus" "$dataset_name" "$version" 
+if [ "$save_ostream" -eq 0 ]; then
+    if $found_in_euroc; then
+        cd Examples/
+        ./euroc_eval_examples.sh "$orbExtractionRunstatus" "$stereoMatchRunstatus" "$searchLocalPointsRunstatus" "$poseEstimationRunstatus" "$poseOptimizationRunstatus" "$dataset_name" "$version" 
+    elif $found_in_tumvi; then
+        cd Examples/
+        ./tum_vi_eval_examples.sh "$orbExtractionRunstatus" "$stereoMatchRunstatus" "$searchLocalPointsRunstatus" "$poseEstimationRunstatus" "$poseOptimizationRunstatus" "$dataset_name" "$version" 
+    else
+        echo "Invalid dataset: $dataset_name"
+        exit 1
+    fi
 else
-    echo "Invalid dataset: $dataset_name"
-    exit 1
+    statsDir="Results/${version}/${dataset_name}"
+    if [ ! -d "$statsDir" ]; then
+        echo $statsDir
+        mkdir -p "$statsDir"
+    fi
+    if $found_in_euroc; then
+        cd Examples/
+        ./euroc_eval_examples.sh "$orbExtractionRunstatus" "$stereoMatchRunstatus" "$searchLocalPointsRunstatus" "$poseEstimationRunstatus" "$poseOptimizationRunstatus" "$dataset_name" "$version" > "../${statsDir}/ostream.txt" 
+    elif $found_in_tumvi; then
+        cd Examples/
+        ./tum_vi_eval_examples.sh "$orbExtractionRunstatus" "$stereoMatchRunstatus" "$searchLocalPointsRunstatus" "$poseEstimationRunstatus" "$poseOptimizationRunstatus" "$dataset_name" "$version" > "../${statsDir}/ostream.txt" 
+    else
+        echo "Invalid dataset: $dataset_name"
+        exit 1
+    fi
 fi

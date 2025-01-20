@@ -27,6 +27,7 @@
 
 #include<System.h>
 #include<Stats/TrackingStats.h>
+#include<Stats/LocalMappingStats.h>
 #include "ImuTypes.h"
 
 using namespace std;
@@ -235,7 +236,7 @@ int main(int argc, char **argv)
             std::chrono::monotonic_clock::time_point t2 = std::chrono::monotonic_clock::now();
     #endif
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
             t_track = t_resize + std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t2 - t1).count();
             TrackingStats::getInstance().tracking_time.emplace_back((long unsigned int)ni, t_track);
 #endif
@@ -272,7 +273,13 @@ int main(int argc, char **argv)
 
     // Stop all threads
     SLAM.Shutdown();
+#ifdef REGISTER_TRACKING_STATS
     TrackingStats::getInstance().saveStats(strStatsFile);
+#endif
+
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    LocalMappingStats::getInstance().saveStats(strStatsFile);
+#endif
 
     // Tracking time statistics
 

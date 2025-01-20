@@ -48,7 +48,7 @@ public:
 private:
     static bool memory_is_initialized;
     static bool stereoMatchDataHasMovedForward;
-    static DATA_WRAPPER::CudaFrame *cudaFramePtr, *cudaLastFramePtr;
+    static TRACKING_DATA_WRAPPER::CudaFrame *cudaFramePtr, *cudaLastFramePtr;
     static std::unique_ptr<StereoMatchKernel> mpStereoMatchKernel;
     static std::unique_ptr<SearchLocalPointsKernel> mpSearchLocalPointsKernel;
     static std::unique_ptr<PoseEstimationKernel> mpPoseEstimationKernel;

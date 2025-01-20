@@ -41,7 +41,7 @@ private:
     std::vector<std::pair<int, int>> convertToVectorOfPairs(int* X, int N);
     void flattenVRowIndices(const std::vector<std::vector<int>>& input, int* flat);
     void flattenPyramid(std::vector<cv::Mat>& mvImagePyramid, int origImageSize, uchar* flat);
-    void copyGPUKeypoints(const std::vector<cv::KeyPoint> keypoints, DATA_WRAPPER::CudaKeyPoint* out);
+    void copyGPUKeypoints(const std::vector<cv::KeyPoint> keypoints, TRACKING_DATA_WRAPPER::CudaKeyPoint* out);
 
 private:
     std::vector<std::pair<long unsigned int, double>> data_wrap_time;
@@ -58,8 +58,8 @@ private:
     long unsigned int frameCounter;
 
 public:
-    DATA_WRAPPER::CudaKeyPoint* get_d_gpuKeypointsL() { return d_gpuKeypointsL; };
-    DATA_WRAPPER::CudaKeyPoint* get_d_gpuKeypointsR() { return d_gpuKeypointsR; };
+    TRACKING_DATA_WRAPPER::CudaKeyPoint* get_d_gpuKeypointsL() { return d_gpuKeypointsL; };
+    TRACKING_DATA_WRAPPER::CudaKeyPoint* get_d_gpuKeypointsR() { return d_gpuKeypointsR; };
     uchar* get_d_descriptorsL() { return d_descriptorsL; };
     uchar* get_d_descriptorsR() { return d_descriptorsR; };
     // For fisheye
@@ -70,7 +70,7 @@ private:
     int *d_rowIndices;
     uchar *d_imagePyramidL, *d_imagePyramidR;
     uchar *d_imagePyramidLCopied, *d_imagePyramidRCopied;
-    DATA_WRAPPER::CudaKeyPoint *d_gpuKeypointsL, *d_gpuKeypointsR;
+    TRACKING_DATA_WRAPPER::CudaKeyPoint *d_gpuKeypointsL, *d_gpuKeypointsR;
     uchar *d_descriptorsL, *d_descriptorsR, *d_descriptorsAll;
     int *d_vDistIdx;
     float *d_mvuRight, *d_mvDepth;

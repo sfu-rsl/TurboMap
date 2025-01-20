@@ -18,8 +18,8 @@ bool KernelController::stereoMatchDataHasMovedForward = false;
 std::unique_ptr<SearchLocalPointsKernel> KernelController::mpSearchLocalPointsKernel = std::make_unique<SearchLocalPointsKernel>();
 std::unique_ptr<PoseEstimationKernel> KernelController::mpPoseEstimationKernel = std::make_unique<PoseEstimationKernel>();
 std::unique_ptr<StereoMatchKernel> KernelController::mpStereoMatchKernel = std::make_unique<StereoMatchKernel>();
-DATA_WRAPPER::CudaFrame* KernelController::cudaFramePtr;
-DATA_WRAPPER::CudaFrame* KernelController::cudaLastFramePtr;
+TRACKING_DATA_WRAPPER::CudaFrame* KernelController::cudaFramePtr;
+TRACKING_DATA_WRAPPER::CudaFrame* KernelController::cudaLastFramePtr;
 
 void KernelController::setCUDADevice(int deviceID) {
     cudaSetDevice(deviceID);
@@ -37,26 +37,26 @@ void KernelController::setGPURunMode(bool orbExtractionStatus, bool stereoMatchS
 }
 
 void KernelController::initializeKernels(){
-    cudaFramePtr = new DATA_WRAPPER::CudaFrame();
-    cudaLastFramePtr = new DATA_WRAPPER::CudaFrame();
-#ifdef REGISTER_STATS
+    cudaFramePtr = new TRACKING_DATA_WRAPPER::CudaFrame();
+    cudaLastFramePtr = new TRACKING_DATA_WRAPPER::CudaFrame();
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point SM_start = std::chrono::steady_clock::now();
 #endif
     if(stereoMatchKernelRunStatus == 1)
         mpStereoMatchKernel->initialize();
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point SM_end = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point SLP_start = std::chrono::steady_clock::now();
 #endif
     if(searchLocalPointsKernelRunStatus == 1)
         mpSearchLocalPointsKernel->initialize();
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point SLP_end = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point PE_start = std::chrono::steady_clock::now();
 #endif
     if(poseEstimationKernelRunStatus == 1)
         mpPoseEstimationKernel->initialize();
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point PE_end = std::chrono::steady_clock::now();
     TrackingStats::getInstance().stereoMatch_init_time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(SM_end - SM_start).count();
     TrackingStats::getInstance().searchLocalPoints_init_time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(SLP_end - SLP_start).count();
@@ -124,16 +124,16 @@ void KernelController::launchSearchLocalPointsKernel(ORB_SLAM3::Frame &F, const 
          
     // DEBUG_PRINT("launching SearchLocalPoints Kernel"); 
     // if(cudaFramePtr->mnId == NULL || cudaFramePtr->mnId != F.mnId) {
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point startFrameWrap = std::chrono::steady_clock::now();
 #endif
         cudaFramePtr->setMemory(F);
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point endFrameWrap = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point startFrameTransfer = std::chrono::steady_clock::now();
 #endif
         mpSearchLocalPointsKernel->setFrame(cudaFramePtr);
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point endFrameTransfer = std::chrono::steady_clock::now();
     double frameWrap = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endFrameWrap - startFrameWrap).count();
     double frameTransfer = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endFrameTransfer - startFrameTransfer).count();
@@ -152,18 +152,18 @@ void KernelController::launchPoseEstimationKernel(ORB_SLAM3::Frame &CurrentFrame
                                                 int* h_bestDist, int* h_bestIdx2, int* h_bestDistR, int* h_bestIdxR2){
 
     DEBUG_PRINT("launching PoseEstimation Kernel"); 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point startFrameWrap = std::chrono::steady_clock::now();
 #endif
     cudaLastFramePtr->setMemory(LastFrame);
     cudaFramePtr->setMemory(CurrentFrame);
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point endFrameWrap = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point startFrameTransfer = std::chrono::steady_clock::now();
 #endif
     mpPoseEstimationKernel->setLastFrame(cudaLastFramePtr);
     mpPoseEstimationKernel->setCurrentFrame(cudaFramePtr);
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point endFrameTransfer = std::chrono::steady_clock::now();
     double frameWrap = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endFrameWrap - startFrameWrap).count();
     double frameTransfer = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endFrameTransfer - startFrameTransfer).count();

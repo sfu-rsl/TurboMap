@@ -27,8 +27,8 @@ __device__ double normL1(const uchar* src1, const uchar* src2, int imgWidth, int
     return l1Norm;
 }
 
-__global__ void stereoMatchKernel(const int N, int* vRowIndices, uchar* imagePyramidL, uchar* imagePyramidR, DATA_WRAPPER::CudaKeyPoint *keypointsL, 
-                                  DATA_WRAPPER::CudaKeyPoint *keypointsR, uchar* descriptorsL, uchar* descriptorsR, int origRows, int origCols, 
+__global__ void stereoMatchKernel(const int N, int* vRowIndices, uchar* imagePyramidL, uchar* imagePyramidR, TRACKING_DATA_WRAPPER::CudaKeyPoint *keypointsL, 
+                                  TRACKING_DATA_WRAPPER::CudaKeyPoint *keypointsR, uchar* descriptorsL, uchar* descriptorsR, int origRows, int origCols, 
                                   const int rowPadding, const int vRowIndicesCountInRow, const float scaleFactor, const float minD, const float maxD, 
                                   const int thOrbDist, const int minGlobalDist, const float mbf, int* vDistIdx, float* mvuRight, float* mvDepth) {
 
@@ -41,7 +41,7 @@ __global__ void stereoMatchKernel(const int N, int* vRowIndices, uchar* imagePyr
     mvuRight[idx] = -1.0f;
     vDistIdx[2*idx + 1] = -1;
 
-    const DATA_WRAPPER::CudaKeyPoint &kpL = keypointsL[idx];
+    const TRACKING_DATA_WRAPPER::CudaKeyPoint &kpL = keypointsL[idx];
     const int &levelL = kpL.octave;
     const float &vL = kpL.pty;
     const float &uL = kpL.ptx;
@@ -61,7 +61,7 @@ __global__ void stereoMatchKernel(const int N, int* vRowIndices, uchar* imagePyr
         if (iR == -1)
             break;
 
-        const DATA_WRAPPER::CudaKeyPoint &kpR = keypointsR[iR];
+        const TRACKING_DATA_WRAPPER::CudaKeyPoint &kpR = keypointsR[iR];
 
         if (kpR.octave < levelL-1 || kpR.octave > levelL+1)
             continue;
@@ -148,7 +148,7 @@ __global__ void stereoMatchKernel(const int N, int* vRowIndices, uchar* imagePyr
     }
 }
 
-__global__ void findBestStereoMatchKernel(const int N, int* vRowIndices, DATA_WRAPPER::CudaKeyPoint *keypointsL, DATA_WRAPPER::CudaKeyPoint *keypointsR, 
+__global__ void findBestStereoMatchKernel(const int N, int* vRowIndices, TRACKING_DATA_WRAPPER::CudaKeyPoint *keypointsL, TRACKING_DATA_WRAPPER::CudaKeyPoint *keypointsR, 
                                           uchar* descriptorsL, uchar* descriptorsR, const int vRowIndicesCountInRow, const float minD, const float maxD, 
                                           const int thOrbDist, const int minGlobalDist, int *bestIdxR) {
 
@@ -157,7 +157,7 @@ __global__ void findBestStereoMatchKernel(const int N, int* vRowIndices, DATA_WR
     if (idx >= N)
         return;
 
-    const DATA_WRAPPER::CudaKeyPoint &kpL = keypointsL[idx];
+    const TRACKING_DATA_WRAPPER::CudaKeyPoint &kpL = keypointsL[idx];
     const int &levelL = kpL.octave;
     const float &vL = kpL.pty;
     const float &uL = kpL.ptx;
@@ -177,7 +177,7 @@ __global__ void findBestStereoMatchKernel(const int N, int* vRowIndices, DATA_WR
         if (iR == -1)
             break;
 
-        const DATA_WRAPPER::CudaKeyPoint &kpR = keypointsR[iR];
+        const TRACKING_DATA_WRAPPER::CudaKeyPoint &kpR = keypointsR[iR];
 
         if (kpR.octave < levelL-1 || kpR.octave > levelL+1)
             continue;
@@ -198,14 +198,14 @@ __global__ void findBestStereoMatchKernel(const int N, int* vRowIndices, DATA_WR
         bestIdxR[idx] = -1;
 }
 
-__global__ void refineStereoMatchKernel(int *bestIdxR, uchar* imagePyramidL, uchar* imagePyramidR, DATA_WRAPPER::CudaKeyPoint *keypointsL, 
-                                        DATA_WRAPPER::CudaKeyPoint *keypointsR, const int rowPadding, const int origRows, const int origCols, 
+__global__ void refineStereoMatchKernel(int *bestIdxR, uchar* imagePyramidL, uchar* imagePyramidR, TRACKING_DATA_WRAPPER::CudaKeyPoint *keypointsL, 
+                                        TRACKING_DATA_WRAPPER::CudaKeyPoint *keypointsR, const int rowPadding, const int origRows, const int origCols, 
                                         const float scaleFactor, const float minD, const float maxD, const float mbf, 
                                         int* vDistIdx, float* mvuRight, float* mvDepth) {
     
     int threadIndexInBlock = threadIdx.z * blockDim.y * blockDim.x + threadIdx.y * blockDim.x + threadIdx.x;
     
-    __shared__ DATA_WRAPPER::CudaKeyPoint kpL;
+    __shared__ TRACKING_DATA_WRAPPER::CudaKeyPoint kpL;
     __shared__ int levelL;
     __shared__ float uL, vL;
     __shared__ int currBestIdxR;
@@ -355,7 +355,7 @@ void StereoMatchKernel::launch(std::vector<std::vector<int>> &vRowIndices, uchar
                                const float minD, const float maxD, const int thOrbDist, const float mbf, const bool _mvImagePyramidOnGpu,
                                std::vector<std::pair<int, int>> &vDistIdx, std::vector<float> &mvuRight, std::vector<float> &mvDepth) {
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point startTotal = std::chrono::steady_clock::now();
 #endif
 
@@ -370,14 +370,14 @@ void StereoMatchKernel::launch(std::vector<std::vector<int>> &vRowIndices, uchar
     if (!memory_is_initialized)
         initialize();
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point startCopyObjectCreation = std::chrono::steady_clock::now();
 #endif
 
     int vRowIndicesFlat[nRows * MAX_FEATURES_IN_ROW_SLIDING_WINDOW] = {-1};
     flattenVRowIndices(vRowIndices, vRowIndicesFlat);
 
-    DATA_WRAPPER::CudaKeyPoint gpuKeypointsL[N], gpuKeypointsR[Nr];
+    TRACKING_DATA_WRAPPER::CudaKeyPoint gpuKeypointsL[N], gpuKeypointsR[Nr];
     copyGPUKeypoints(mvKeys, gpuKeypointsL);
     copyGPUKeypoints(mvKeysRight, gpuKeypointsR);
 
@@ -388,14 +388,14 @@ void StereoMatchKernel::launch(std::vector<std::vector<int>> &vRowIndices, uchar
         flattenPyramid(mvImagePyramidRight, origImageSize, imagePyramidRFlat);
     }
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point endCopyObjectCreation = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point startMemcpy = std::chrono::steady_clock::now();
 #endif
 
     checkCudaError(cudaMemcpy(d_rowIndices, vRowIndicesFlat, sizeof(int)*nRows*MAX_FEATURES_IN_ROW_SLIDING_WINDOW, cudaMemcpyHostToDevice), "Failed to copy vector vRowIndicesFlat from host to device");
-    checkCudaError(cudaMemcpy(d_gpuKeypointsL, gpuKeypointsL, sizeof(DATA_WRAPPER::CudaKeyPoint)*N, cudaMemcpyHostToDevice), "Failed to copy vector gpuKeypointsL from host to device");
-    checkCudaError(cudaMemcpy(d_gpuKeypointsR, gpuKeypointsR, sizeof(DATA_WRAPPER::CudaKeyPoint)*Nr, cudaMemcpyHostToDevice), "Failed to copy vector d_gpuKeypointsR from host to device");
+    checkCudaError(cudaMemcpy(d_gpuKeypointsL, gpuKeypointsL, sizeof(TRACKING_DATA_WRAPPER::CudaKeyPoint)*N, cudaMemcpyHostToDevice), "Failed to copy vector gpuKeypointsL from host to device");
+    checkCudaError(cudaMemcpy(d_gpuKeypointsR, gpuKeypointsR, sizeof(TRACKING_DATA_WRAPPER::CudaKeyPoint)*Nr, cudaMemcpyHostToDevice), "Failed to copy vector d_gpuKeypointsR from host to device");
     checkCudaError(cudaMemcpy(d_descriptorsL, mDescriptors.data, sizeof(uchar)*N*DESCRIPTOR_SIZE, cudaMemcpyHostToDevice), "Failed to copy vector mDescriptors from host to device");
     checkCudaError(cudaMemcpy(d_descriptorsR, mDescriptorsRight.data, sizeof(uchar)*Nr*DESCRIPTOR_SIZE, cudaMemcpyHostToDevice), "Failed to copy vector mDescriptorsRight from host to device");
 
@@ -404,7 +404,7 @@ void StereoMatchKernel::launch(std::vector<std::vector<int>> &vRowIndices, uchar
         checkCudaError(cudaMemcpy(d_imagePyramidRCopied, imagePyramidRFlat, sizeof(uchar)*nLevels*origImageSize, cudaMemcpyHostToDevice), "Failed to copy vector d_imagePyramidRCopied from host to device");
     }
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point endMemcpy = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point startStereoMatchKernel = std::chrono::steady_clock::now();
 #endif
@@ -419,7 +419,7 @@ void StereoMatchKernel::launch(std::vector<std::vector<int>> &vRowIndices, uchar
     checkCudaError(cudaGetLastError(), "Failed to launch findBestStereoMatchKernel kernel");
     checkCudaError(cudaDeviceSynchronize(), "cudaDeviceSynchronize returned error code after launching the kernel");
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point endStereoMatchKernel = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point startRefineKernel = std::chrono::steady_clock::now();
 #endif
@@ -443,7 +443,7 @@ void StereoMatchKernel::launch(std::vector<std::vector<int>> &vRowIndices, uchar
     checkCudaError(cudaGetLastError(), "Failed to launch findBestStereoMatchKernel kernel");
     checkCudaError(cudaDeviceSynchronize(), "cudaDeviceSynchronize returned error code after launching the kernel");
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point endRefineKernel = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point startMemcpyToCPU = std::chrono::steady_clock::now();
 #endif
@@ -454,7 +454,7 @@ void StereoMatchKernel::launch(std::vector<std::vector<int>> &vRowIndices, uchar
     checkCudaError(cudaMemcpy(h_mvuRight, d_mvuRight, sizeof(float)*N, cudaMemcpyDeviceToHost), "Failed to copy vector d_mvuRight from device to host");
     checkCudaError(cudaMemcpy(h_mvDepth, d_mvDepth, sizeof(float)*N, cudaMemcpyDeviceToHost), "Failed to copy vector d_mvDepth from device to host");
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point endMemcpyToCPU = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point startPostProcess = std::chrono::steady_clock::now();
 #endif
@@ -463,7 +463,7 @@ void StereoMatchKernel::launch(std::vector<std::vector<int>> &vRowIndices, uchar
     mvuRight = std::vector<float>(h_mvuRight, h_mvuRight + N);
     mvDepth = std::vector<float>(h_mvDepth, h_mvDepth + N);
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point endPostProcess = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point endTotal = std::chrono::steady_clock::now();
 
@@ -493,21 +493,21 @@ void StereoMatchKernel::launch(std::vector<std::vector<int>> &vRowIndices, uchar
 // For fisheye
 void StereoMatchKernel::launch(const int N, const int Nr, cv::Mat mDescriptors, cv::Mat mDescriptorsRight, int *matches) {
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point startTotal = std::chrono::steady_clock::now();
 #endif
 
     if (!memory_is_initialized)
         initialize();
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point startMemcpy = std::chrono::steady_clock::now();
 #endif
 
     checkCudaError(cudaMemcpy(d_descriptorsAll, mDescriptors.data, sizeof(uchar)*N*DESCRIPTOR_SIZE, cudaMemcpyHostToDevice), "Failed to copy vector mDescriptors from host to device");
     checkCudaError(cudaMemcpy(d_descriptorsAll + N*DESCRIPTOR_SIZE, mDescriptorsRight.data, sizeof(uchar)*Nr*DESCRIPTOR_SIZE, cudaMemcpyHostToDevice), "Failed to copy vector mDescriptorsRight from host to device");
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point endMemcpy = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point startKernel = std::chrono::steady_clock::now();
 #endif
@@ -520,14 +520,14 @@ void StereoMatchKernel::launch(const int N, const int Nr, cv::Mat mDescriptors, 
     checkCudaError(cudaGetLastError(), "Failed to launch fisheye stereo match kernel");
     checkCudaError(cudaDeviceSynchronize(), "cudaDeviceSynchronize returned error code after launching the kernel");
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point endKernel = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point startMemcpyToCPU = std::chrono::steady_clock::now();
 #endif
 
     checkCudaError(cudaMemcpy(matches, d_matches, sizeof(int)*N, cudaMemcpyDeviceToHost), "Failed to copy vector d_matches from device to host");
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point endMemcpyToCPU = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point endTotal = std::chrono::steady_clock::now();
 
@@ -562,8 +562,8 @@ void StereoMatchKernel::initialize() {
     }
     else {
         checkCudaError(cudaMalloc((void**)&d_rowIndices, sizeof(int)*nRows*MAX_FEATURES_IN_ROW_SLIDING_WINDOW), "Failed to allocate device vector d_rowIndices");
-        checkCudaError(cudaMalloc((void**)&d_gpuKeypointsL, sizeof(DATA_WRAPPER::CudaKeyPoint)*maxFeatures), "Failed to allocate device vector d_gpuKeypointsL");
-        checkCudaError(cudaMalloc((void**)&d_gpuKeypointsR, sizeof(DATA_WRAPPER::CudaKeyPoint)*maxFeatures), "Failed to allocate device vector d_gpuKeypointsR");
+        checkCudaError(cudaMalloc((void**)&d_gpuKeypointsL, sizeof(TRACKING_DATA_WRAPPER::CudaKeyPoint)*maxFeatures), "Failed to allocate device vector d_gpuKeypointsL");
+        checkCudaError(cudaMalloc((void**)&d_gpuKeypointsR, sizeof(TRACKING_DATA_WRAPPER::CudaKeyPoint)*maxFeatures), "Failed to allocate device vector d_gpuKeypointsR");
         checkCudaError(cudaMalloc((void**)&d_descriptorsL, sizeof(uchar)*maxFeatures*DESCRIPTOR_SIZE), "Failed to allocate device vector d_descriptorsL");
         checkCudaError(cudaMalloc((void**)&d_descriptorsR, sizeof(uchar)*maxFeatures*DESCRIPTOR_SIZE), "Failed to allocate device vector d_descriptorsR");
         checkCudaError(cudaMalloc((void**)&d_vDistIdx, sizeof(int)*2*maxFeatures), "Failed to allocate device vector d_vDistIdx");
@@ -619,9 +619,9 @@ void StereoMatchKernel::flattenVRowIndices(const std::vector<std::vector<int>>& 
         memcpy(flat + i*MAX_FEATURES_IN_ROW_SLIDING_WINDOW, input[i].data(), sizeof(int) * input[i].size());
 }
 
-void StereoMatchKernel::copyGPUKeypoints(const std::vector<cv::KeyPoint> keypoints, DATA_WRAPPER::CudaKeyPoint* out) {
+void StereoMatchKernel::copyGPUKeypoints(const std::vector<cv::KeyPoint> keypoints, TRACKING_DATA_WRAPPER::CudaKeyPoint* out) {
     for (int i = 0; i < keypoints.size(); i++) {
-        // out[i] = DATA_WRAPPER::CudaKeyPoint(keypoints[i].octave, keypoints[i].pt.x, keypoints[i].pt.y);
+        // out[i] = TRACKING_DATA_WRAPPER::CudaKeyPoint(keypoints[i].octave, keypoints[i].pt.x, keypoints[i].pt.y);
         out[i].ptx = keypoints[i].pt.x;
         out[i].pty = keypoints[i].pt.y;
         out[i].octave = keypoints[i].octave;

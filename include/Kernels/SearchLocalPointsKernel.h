@@ -31,11 +31,11 @@ class SearchLocalPointsKernel: public KernelInterface {
         void launch(ORB_SLAM3::Frame &F, const vector<ORB_SLAM3::MapPoint*> &vmp, const float th, const bool bFarPoints, const float thFarPoints,
                                 int* h_bestLevel, int* h_bestLevel2, int* h_bestDist, int* h_bestDist2, int* h_bestIdx,
                                 int* h_bestLevelR, int* h_bestLevelR2, int* h_bestDistR, int* h_bestDistR2, int* h_bestIdxR);
-        void setFrame(DATA_WRAPPER::CudaFrame* cudaFrame);
+        void setFrame(TRACKING_DATA_WRAPPER::CudaFrame* cudaFrame);
     
     private:
         bool memory_is_initialized;
-        DATA_WRAPPER::CudaFrame *d_frame, *h_frame;
+        TRACKING_DATA_WRAPPER::CudaFrame *d_frame, *h_frame;
         int *h_bestLevel, *h_bestLevel2, *h_bestDist, *h_bestDist2, *h_bestIdx;
         int *d_bestLevel, *d_bestLevel2, *d_bestDist, *d_bestDist2, *d_bestIdx;
         int *h_bestLevelR, *h_bestLevelR2, *h_bestDistR, *h_bestDistR2, *h_bestIdxR;

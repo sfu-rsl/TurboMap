@@ -12,7 +12,7 @@
 #include <sophus/se3.hpp>
 #include "../StereoMatchKernel.h"
 
-namespace DATA_WRAPPER {
+namespace TRACKING_DATA_WRAPPER {
 
 #define FRAME_GRID_ROWS 48
 #define FRAME_GRID_COLS 64

@@ -5,9 +5,9 @@ void PoseEstimationKernel::initialize(){
         return;
     }
 
-    checkCudaError(cudaMalloc(&d_currentFrame, sizeof(DATA_WRAPPER::CudaFrame)), "Failed to allocate memory for d_currentFrame");
+    checkCudaError(cudaMalloc(&d_currentFrame, sizeof(TRACKING_DATA_WRAPPER::CudaFrame)), "Failed to allocate memory for d_currentFrame");
 
-    checkCudaError(cudaMalloc(&d_lastFrame, sizeof(DATA_WRAPPER::CudaFrame)), "Failed to allocate memory for d_lastFrame");
+    checkCudaError(cudaMalloc(&d_lastFrame, sizeof(TRACKING_DATA_WRAPPER::CudaFrame)), "Failed to allocate memory for d_lastFrame");
 
     int Nfeatures = CudaUtils::nFeatures_with_th;
     if (!CudaUtils::isMonocular) {
@@ -22,12 +22,12 @@ void PoseEstimationKernel::initialize(){
     memory_is_initialized = true;
 }
 
-void PoseEstimationKernel::setCurrentFrame(DATA_WRAPPER::CudaFrame* cudaFrame) {
-    checkCudaError(cudaMemcpy(d_currentFrame, cudaFrame, sizeof(DATA_WRAPPER::CudaFrame), cudaMemcpyHostToDevice), "Failed to copy Current Frame to device");
+void PoseEstimationKernel::setCurrentFrame(TRACKING_DATA_WRAPPER::CudaFrame* cudaFrame) {
+    checkCudaError(cudaMemcpy(d_currentFrame, cudaFrame, sizeof(TRACKING_DATA_WRAPPER::CudaFrame), cudaMemcpyHostToDevice), "Failed to copy Current Frame to device");
 }
 
-void PoseEstimationKernel::setLastFrame(DATA_WRAPPER::CudaFrame* cudaFrame) {
-    checkCudaError(cudaMemcpy(d_lastFrame, cudaFrame, sizeof(DATA_WRAPPER::CudaFrame), cudaMemcpyHostToDevice), "Failed to copy Last Frame to device");
+void PoseEstimationKernel::setLastFrame(TRACKING_DATA_WRAPPER::CudaFrame* cudaFrame) {
+    checkCudaError(cudaMemcpy(d_lastFrame, cudaFrame, sizeof(TRACKING_DATA_WRAPPER::CudaFrame), cudaMemcpyHostToDevice), "Failed to copy Last Frame to device");
 }
 
 __device__ Eigen::Vector2f cameraProject_KannalaBrandt8(float* mvParameters, const Eigen::Vector3f v3D) {
@@ -58,8 +58,8 @@ __device__ Eigen::Vector2f cameraProject_Pinhole(float* mvParameters, const Eige
     return res;
 }
 
-__global__ void searchByProjectionKernel(DATA_WRAPPER::CudaFrame *d_currentFrame, 
-                                    DATA_WRAPPER::CudaFrame *d_lastFrame,
+__global__ void searchByProjectionKernel(TRACKING_DATA_WRAPPER::CudaFrame *d_currentFrame, 
+                                    TRACKING_DATA_WRAPPER::CudaFrame *d_lastFrame,
                                     float* d_mvScaleFactors, bool cameraIsFisheye,
                                     const float th, bool bForward, bool bBackward, 
                                     Eigen::Matrix4f transform_matrix,
@@ -72,7 +72,7 @@ __global__ void searchByProjectionKernel(DATA_WRAPPER::CudaFrame *d_currentFrame
         d_bestIdx2[idx] = -1;
         d_bestDistR[idx] = 256;
         d_bestIdxR2[idx] = -1;
-        DATA_WRAPPER::CudaMapPoint pMP = d_lastFrame->mvpMapPoints[idx];
+        TRACKING_DATA_WRAPPER::CudaMapPoint pMP = d_lastFrame->mvpMapPoints[idx];
         
         if(!pMP.isEmpty) {
 
@@ -180,7 +180,7 @@ __global__ void searchByProjectionKernel(DATA_WRAPPER::CudaFrame *d_currentFrame
 
                         for(size_t j=0, jend=vCell_size; j<jend; j++)
                         {
-                            const DATA_WRAPPER::CudaKeyPoint &kpUn = (d_currentFrame->Nleft == -1) ? d_currentFrame->mvKeysUn[vCell[j]]
+                            const TRACKING_DATA_WRAPPER::CudaKeyPoint &kpUn = (d_currentFrame->Nleft == -1) ? d_currentFrame->mvKeysUn[vCell[j]]
                                                                     : (!bRight) ? d_currentFrame->mvKeys[vCell[j]]
                                                                                 : d_currentFrame->mvKeysRight[vCell[j]];
 
@@ -305,7 +305,7 @@ __global__ void searchByProjectionKernel(DATA_WRAPPER::CudaFrame *d_currentFrame
 
                             for(size_t j=0, jend=vCell_size; j<jend; j++)
                             {
-                                const DATA_WRAPPER::CudaKeyPoint &kpUn = (d_currentFrame->Nleft == -1) ? d_currentFrame->mvKeysUn[vCell[j]]
+                                const TRACKING_DATA_WRAPPER::CudaKeyPoint &kpUn = (d_currentFrame->Nleft == -1) ? d_currentFrame->mvKeysUn[vCell[j]]
                                                                         : (!bRight) ? d_currentFrame->mvKeys[vCell[j]]
                                                                                     : d_currentFrame->mvKeysRight[vCell[j]];
 
@@ -351,7 +351,7 @@ void PoseEstimationKernel::launch(ORB_SLAM3::Frame &CurrentFrame, const ORB_SLAM
                                 const float th, const bool bForward, const bool bBackward, Eigen::Matrix4f transform_matrix,
                                 int* h_bestDist, int* h_bestIdx2, int* h_bestDistR, int* h_bestIdxR2){
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point startTotal = std::chrono::steady_clock::now();
 #endif
 
@@ -359,7 +359,7 @@ void PoseEstimationKernel::launch(ORB_SLAM3::Frame &CurrentFrame, const ORB_SLAM
         initialize();
     }
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point startKernel = std::chrono::steady_clock::now();
 #endif
     int blockSize = 256;
@@ -369,7 +369,7 @@ void PoseEstimationKernel::launch(ORB_SLAM3::Frame &CurrentFrame, const ORB_SLAM
                                                         th, bForward, bBackward, transform_matrix,
                                                         d_bestDist, d_bestIdx2, d_bestDistR, d_bestIdxR2);
     checkCudaError(cudaDeviceSynchronize(), "[PoseEstimationKernel:] Kernel launch failed"); 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point endKernel = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point startOutputTransfer = std::chrono::steady_clock::now();
 #endif 
@@ -379,7 +379,7 @@ void PoseEstimationKernel::launch(ORB_SLAM3::Frame &CurrentFrame, const ORB_SLAM
     checkCudaError(cudaMemcpy(h_bestDistR, d_bestDistR, LastFrame.N  * sizeof(int), cudaMemcpyDeviceToHost), "Failed to copy d_bestDistR back to host");
     checkCudaError(cudaMemcpy(h_bestIdxR2, d_bestIdxR2, LastFrame.N  * sizeof(int), cudaMemcpyDeviceToHost), "Failed to copy d_bestIdxR2 back to host");
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point endOutputTransfer = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point endTotal = std::chrono::steady_clock::now();
 

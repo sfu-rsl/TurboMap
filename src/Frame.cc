@@ -120,7 +120,7 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
 #ifdef REGISTER_TIMES
     std::chrono::steady_clock::time_point time_StartExtORB = std::chrono::steady_clock::now();
 #endif
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point time_StartExtORB_ = std::chrono::steady_clock::now();
 #endif
 
@@ -129,7 +129,7 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
     threadLeft.join();
     threadRight.join();
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point time_EndExtORB_ = std::chrono::steady_clock::now();
     double mTimeORB_Ext_ = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_EndExtORB_ - time_StartExtORB_).count();
     TrackingStats::getInstance().orbExtraction_time.emplace_back(mnId, mTimeORB_Ext_);
@@ -149,7 +149,7 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
 #ifdef REGISTER_TIMES
     std::chrono::steady_clock::time_point time_StartStereoMatches = std::chrono::steady_clock::now();
 #endif
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point time_StartStereoMatches_ = std::chrono::steady_clock::now();
 #endif
 
@@ -158,7 +158,7 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
     else
         ComputeStereoMatches();
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point time_EndStereoMatches_ = std::chrono::steady_clock::now();
 
     double mTimeStereoMatch_ = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_EndStereoMatches_ - time_StartStereoMatches_).count();
@@ -1137,7 +1137,7 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
 #ifdef REGISTER_TIMES
     std::chrono::steady_clock::time_point time_StartExtORB = std::chrono::steady_clock::now();
 #endif
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point time_StartExtORB_ = std::chrono::steady_clock::now();
 #endif
 
@@ -1146,7 +1146,7 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
     threadLeft.join();
     threadRight.join();
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point time_EndExtORB_ = std::chrono::steady_clock::now();
     double mTimeORB_Ext_ = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_EndExtORB_ - time_StartExtORB_).count();
     TrackingStats::getInstance().orbExtraction_time.emplace_back(mnId, mTimeORB_Ext_);
@@ -1193,7 +1193,7 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
 #ifdef REGISTER_TIMES
     std::chrono::steady_clock::time_point time_StartStereoMatches = std::chrono::steady_clock::now();
 #endif
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point time_StartStereoMatches_ = std::chrono::steady_clock::now();
 #endif
 
@@ -1202,7 +1202,7 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
     else
         ComputeStereoFishEyeMatches();
 
-#ifdef REGISTER_STATS
+#ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point time_EndStereoMatches_ = std::chrono::steady_clock::now();
 
     double mTimeStereoMatch_ = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_EndStereoMatches_ - time_StartStereoMatches_).count();
