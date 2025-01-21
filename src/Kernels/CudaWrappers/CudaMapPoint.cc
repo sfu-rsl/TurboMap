@@ -33,3 +33,22 @@ namespace TRACKING_DATA_WRAPPER
         mWorldPos = mp->GetWorldPos();
     }
 }
+
+
+namespace MAPPING_DATA_WRAPPER
+{
+    CudaMapPoint::CudaMapPoint() {
+        isEmpty = true;
+    }
+
+    CudaMapPoint::CudaMapPoint(ORB_SLAM3::MapPoint* mp) {
+        isEmpty = false;
+        mnId = mp->mnId;
+        mWorldPos = mp->GetWorldPos();
+        mfMaxDistance = mp->GetMaxDistanceInvariance();
+        mfMinDistance = mp->GetMinDistanceInvariance();
+        mNormalVector = mp->GetNormal();
+        const cv::Mat& descriptor = mp->GetDescriptor();
+        std::memcpy(mDescriptor, descriptor.ptr<uint8_t>(0), descriptor.cols * sizeof(uint8_t));
+    }
+}
