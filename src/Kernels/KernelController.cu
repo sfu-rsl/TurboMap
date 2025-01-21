@@ -31,7 +31,7 @@ void KernelController::setCUDADevice(int deviceID) {
     printf("Using device %d: %s\n", deviceID, deviceProp.name);
 }
 
-void KernelController::setGPURunMode(bool orbExtractionStatus, bool stereoMatchStatus, bool searchLocalPointsStatus, bool poseEstimationStatus, bool poseOptimizationStatus, bool FuseStatus=1) {
+void KernelController::setGPURunMode(bool orbExtractionStatus, bool stereoMatchStatus, bool searchLocalPointsStatus, bool poseEstimationStatus, bool poseOptimizationStatus, bool FuseStatus) {
     orbExtractionKernelRunStatus = orbExtractionStatus;
     stereoMatchKernelRunStatus = stereoMatchStatus;
     searchLocalPointsKernelRunStatus = searchLocalPointsStatus;

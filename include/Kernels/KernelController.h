@@ -16,7 +16,7 @@ class KernelController{
 public:
     static void setCUDADevice(int deviceID);
     
-    static void setGPURunMode(bool orbExtractionStatus, bool stereoMatchStatus, bool searchLocalPointsStatus, bool poseEstimationStatus, bool poseOptimizationStatus, bool FuseStatus=1);
+    static void setGPURunMode(bool orbExtractionStatus, bool stereoMatchStatus, bool searchLocalPointsStatus, bool poseEstimationStatus, bool poseOptimizationStatus, bool FuseStatus=true);
 
     static bool orbExtractionKernelRunStatus;
     static bool stereoMatchKernelRunStatus;

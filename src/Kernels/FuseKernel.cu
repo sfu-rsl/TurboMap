@@ -31,13 +31,32 @@ void FuseKernel::setKeyFrame(MAPPING_DATA_WRAPPER::CudaKeyFrame* cudaKeyFrame) {
 }
 
 void FuseKernel::shutdown() {
-    if (memory_is_initialized) {
-    }
+    if (!memory_is_initialized) 
+        return;
+    cudaFree(d_keyframe);
+    cudaFreeHost(h_isEmpty);
+    cudaFreeHost(h_mWorldPos);
+    cudaFreeHost(h_mfMaxDistance);
+    cudaFreeHost(h_mfMinDistance);
+    cudaFreeHost(h_mNormalVector);
+    cudaFreeHost(h_mDescriptor);
+    cudaFree(d_isEmpty);
+    cudaFree(d_mWorldPos);
+    cudaFree(d_mfMaxDistance);
+    cudaFree(d_mfMinDistance);
+    cudaFree(d_mNormalVector);
 }
 
 
-__global__ void fuseKernel()
+__global__ void fuseKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame* d_keyframe,
+                    bool *d_isEmpty,
+                    Eigen::Vector3f *d_mWorldPos,
+                    float *d_mfMaxDistance,
+                    float *d_mfMinDistance,
+                    Eigen::Vector3f *d_mNormalVector,
+                    unit8_t *d_mDescriptor)
 {
+    unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
 
 }
 
@@ -77,6 +96,16 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame &pKF, const vector<ORB_SLAM3::MapPoi
     cudaMemcpy(d_mfMinDistance, h_mfMinDistance, numPoints * sizeof(float), cudaMemcpyHostToDevice); 
     cudaMemcpy(d_mNormalVector, h_mNormalVector, numPoints * sizeof(Eigen::Vector3f), cudaMemcpyHostToDevice); 
     cudaMemcpy(d_mDescriptor, h_mDescriptor, numPoints * DESCRIPTOR_SIZE * sizeof(uint8_t), cudaMemcpyHostToDevice); 
+
+    int blockSize = 256;
+    int numBlocks = (numPoints + blockSize -1) / blockSize;
+    fuseKernel<<<numBlocks, blockSize>>>(d_keyframe,
+                                        d_mWorldPos,
+                                        d_mfMaxDistance,
+                                        d_mfMinDistance,
+                                        d_mNormalVector,
+                                        d_mDescriptor);
+    checkCudaError(cudaDeviceSynchronize(), "[fuseKernel:] Kernel launch failed");  
 
 }
 
