@@ -4,7 +4,9 @@
 #include "SearchLocalPointsKernel.h"
 #include "PoseEstimationKernel.h"
 #include "StereoMatchKernel.h"
+#include "FuseKernel.h"
 #include "CudaWrappers/CudaFrame.h"
+#include "CudaWrappers/CudaKeyFrame.h"
 #include "CudaUtils.h"
 #include "../Stats/TrackingStats.h"
 #include <memory> 
@@ -14,13 +16,14 @@ class KernelController{
 public:
     static void setCUDADevice(int deviceID);
     
-    static void setGPURunMode(bool orbExtractionStatus, bool stereoMatchStatus, bool searchLocalPointsStatus, bool poseEstimationStatus, bool poseOptimizationStatus);
+    static void setGPURunMode(bool orbExtractionStatus, bool stereoMatchStatus, bool searchLocalPointsStatus, bool poseEstimationStatus, bool poseOptimizationStatus, bool FuseStatus=1);
 
     static bool orbExtractionKernelRunStatus;
     static bool stereoMatchKernelRunStatus;
     static bool searchLocalPointsKernelRunStatus;
     static bool poseEstimationKernelRunStatus;
     static bool poseOptimizationRunStatus;
+    static bool FuseKernelRunStatus;
 
     static void initializeKernels();
     
@@ -45,6 +48,9 @@ public:
                                             const float th, const bool bForward, const bool bBackward, Eigen::Matrix4f transform_matrix,
                                             int* h_bestDist, int* h_bestIdx2, int* h_bestDistR, int* h_bestIdxR2);
 
+    static void launchFuseKernel(ORB_SLAM3::KeyFrame &KF, const vector<ORB_SLAM3::MapPoint*> &vpMapPoints,
+                            const float th, const bool bRight);
+
 private:
     static bool memory_is_initialized;
     static bool stereoMatchDataHasMovedForward;
@@ -52,6 +58,8 @@ private:
     static std::unique_ptr<StereoMatchKernel> mpStereoMatchKernel;
     static std::unique_ptr<SearchLocalPointsKernel> mpSearchLocalPointsKernel;
     static std::unique_ptr<PoseEstimationKernel> mpPoseEstimationKernel;
+    static MAPPING_DATA_WRAPPER::CudaKeyFrame *cudaKeyFramePtr;
+    static std::unique_ptr<FuseKernel> mpFuseKernel;
 };
 
 #endif

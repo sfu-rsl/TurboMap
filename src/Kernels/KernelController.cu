@@ -13,13 +13,16 @@ bool KernelController::stereoMatchKernelRunStatus;
 bool KernelController::searchLocalPointsKernelRunStatus;
 bool KernelController::poseEstimationKernelRunStatus;
 bool KernelController::poseOptimizationRunStatus;
+bool KernelController::FuseKernelRunStatus;
 bool KernelController::memory_is_initialized = false;
 bool KernelController::stereoMatchDataHasMovedForward = false;
 std::unique_ptr<SearchLocalPointsKernel> KernelController::mpSearchLocalPointsKernel = std::make_unique<SearchLocalPointsKernel>();
 std::unique_ptr<PoseEstimationKernel> KernelController::mpPoseEstimationKernel = std::make_unique<PoseEstimationKernel>();
 std::unique_ptr<StereoMatchKernel> KernelController::mpStereoMatchKernel = std::make_unique<StereoMatchKernel>();
+std::unique_ptr<FuseKernel> KernelController::mpFuseKernel = std::make_unique<FuseKernel>();
 TRACKING_DATA_WRAPPER::CudaFrame* KernelController::cudaFramePtr;
 TRACKING_DATA_WRAPPER::CudaFrame* KernelController::cudaLastFramePtr;
+MAPPING_DATA_WRAPPER::CudaKeyFrame* KernelController::cudaKeyFramePtr;
 
 void KernelController::setCUDADevice(int deviceID) {
     cudaSetDevice(deviceID);
@@ -28,17 +31,19 @@ void KernelController::setCUDADevice(int deviceID) {
     printf("Using device %d: %s\n", deviceID, deviceProp.name);
 }
 
-void KernelController::setGPURunMode(bool orbExtractionStatus, bool stereoMatchStatus, bool searchLocalPointsStatus, bool poseEstimationStatus, bool poseOptimizationStatus) {
+void KernelController::setGPURunMode(bool orbExtractionStatus, bool stereoMatchStatus, bool searchLocalPointsStatus, bool poseEstimationStatus, bool poseOptimizationStatus, bool FuseStatus=1) {
     orbExtractionKernelRunStatus = orbExtractionStatus;
     stereoMatchKernelRunStatus = stereoMatchStatus;
     searchLocalPointsKernelRunStatus = searchLocalPointsStatus;
     poseEstimationKernelRunStatus = poseEstimationStatus;
     poseOptimizationRunStatus = poseOptimizationStatus;
+    FuseKernelRunStatus = FuseStatus;
 }
 
 void KernelController::initializeKernels(){
     cudaFramePtr = new TRACKING_DATA_WRAPPER::CudaFrame();
     cudaLastFramePtr = new TRACKING_DATA_WRAPPER::CudaFrame();
+    cudaKeyFramePtr = new MAPPING_DATA_WRAPPER::CudaKeyFrame();
 #ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point SM_start = std::chrono::steady_clock::now();
 #endif
@@ -56,6 +61,9 @@ void KernelController::initializeKernels(){
 #endif
     if(poseEstimationKernelRunStatus == 1)
         mpPoseEstimationKernel->initialize();
+
+    if(FuseKernelRunStatus == 1)
+        mpFuseKernel->initialize();
 #ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point PE_end = std::chrono::steady_clock::now();
     TrackingStats::getInstance().stereoMatch_init_time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(SM_end - SM_start).count();
@@ -70,12 +78,16 @@ void KernelController::shutdownKernels(){
     if (memory_is_initialized) {
         cudaFramePtr->freeMemory();
         delete cudaFramePtr;
+        cudaKeyFramePtr->freeMemory();
+        delete cudaKeyFramePtr;
         if(stereoMatchKernelRunStatus == 1)
             mpStereoMatchKernel->shutdown();
         if(searchLocalPointsKernelRunStatus == 1)
             mpSearchLocalPointsKernel->shutdown();
         if(poseEstimationKernelRunStatus == 1)
             mpPoseEstimationKernel->shutdown();
+        if(FuseKernelRunStatus == 1)
+            mpFuseKernel->shutdown();
     }
 }
 
@@ -83,6 +95,7 @@ void KernelController::saveKernelsStats(const std::string &file_path){
     mpStereoMatchKernel->saveStats(file_path);
     mpSearchLocalPointsKernel->saveStats(file_path);
     mpPoseEstimationKernel->saveStats(file_path);
+    mpFuseKernel->saveStats(file_path);
 }
 
 void KernelController::launchStereoMatchKernel(std::vector<std::vector<int>> &vRowIndices, uchar* d_imagePyramidL, uchar* d_imagePyramidR, 
@@ -172,4 +185,13 @@ void KernelController::launchPoseEstimationKernel(ORB_SLAM3::Frame &CurrentFrame
 #endif
 
     mpPoseEstimationKernel->launch(CurrentFrame, LastFrame, th, bForward, bBackward, transform_matrix, h_bestDist, h_bestIdx2, h_bestDistR, h_bestIdxR2);
+}
+
+void KernelController::launchFuseKernel(ORB_SLAM3::KeyFrame &KF, const vector<ORB_SLAM3::MapPoint*> &vpMapPoints,
+                                                    const float th, const bool bRight) {
+
+    cudaKeyFramePtr->setMemory(KF);
+    mpFuseKernel->setKeyFrame(cudaKeyFramePtr);
+    
+    mpFuseKernel->launch(KF, vpMapPoints, th, bRight);
 }
