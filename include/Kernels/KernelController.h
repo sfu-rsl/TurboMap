@@ -45,6 +45,8 @@ public:
                                             const float th, const bool bForward, const bool bBackward, Eigen::Matrix4f transform_matrix,
                                             int* h_bestDist, int* h_bestIdx2, int* h_bestDistR, int* h_bestIdxR2);
 
+    static bool cuda_utils_loaded_setting;
+
 private:
     static bool memory_is_initialized;
     static bool stereoMatchDataHasMovedForward;

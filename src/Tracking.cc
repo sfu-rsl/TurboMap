@@ -627,10 +627,12 @@ void Tracking::newParameterLoader(Settings *settings) {
     if(mSensor==System::STEREO || mSensor==System::IMU_STEREO) {
         mpORBextractorRight = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST, settings->newImSize().width, settings->newImSize().height);
         CudaUtils::loadSetting(nFeatures, nLevels, false, fScaleFactor, settings->newImSize().width, settings->newImSize().height, cameraIsFisheye);
+        KernelController::cuda_utils_loaded_setting = true;
     }
     if(mSensor==System::MONOCULAR || mSensor==System::IMU_MONOCULAR){
         mpIniORBextractor = new ORBextractor(5*nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST, settings->newImSize().width, settings->newImSize().height);
         CudaUtils::loadSetting(5*nFeatures, nLevels, true, fScaleFactor, settings->newImSize().width, settings->newImSize().height, cameraIsFisheye);
+        KernelController::cuda_utils_loaded_setting = true;
     }
     //IMU parameters
     Sophus::SE3f Tbc = settings->Tbc();

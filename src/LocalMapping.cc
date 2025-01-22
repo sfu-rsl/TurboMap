@@ -993,6 +993,7 @@ void LocalMapping::KeyFrameCulling()
     // A keyframe is considered redundant if the 90% of the MapPoints it sees, are seen
     // in at least other 3 keyframes (in the same or finer scale)
     // We only consider close stereo points
+    std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
     const int Nd = 21;
     mpCurrentKeyFrame->UpdateBestCovisibles();
     vector<KeyFrame*> vpLocalKeyFrames = mpCurrentKeyFrame->GetVectorCovisibleKeyFrames();
@@ -1022,8 +1023,13 @@ void LocalMapping::KeyFrameCulling()
         last_ID = aux_KF->mnId;
     }
 
+    double sum = 0;
+    int itr = 0;
+    std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     for(vector<KeyFrame*>::iterator vit=vpLocalKeyFrames.begin(), vend=vpLocalKeyFrames.end(); vit!=vend; vit++)
     {
+
+        std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
 
         count++;
         KeyFrame* pKF = *vit;
@@ -1036,6 +1042,7 @@ void LocalMapping::KeyFrameCulling()
         const int thObs=nObs;
         int nRedundantObservations=0;
         int nMPs=0;
+        std::chrono::steady_clock::time_point t7 = std::chrono::steady_clock::now();
         for(size_t i=0, iend=vpMapPoints.size(); i<iend; i++)
         {
             MapPoint* pMP = vpMapPoints[i];
@@ -1093,6 +1100,8 @@ void LocalMapping::KeyFrameCulling()
                 }
             }
         }
+        std::chrono::steady_clock::time_point t8 = std::chrono::steady_clock::now();
+        double mp_loop = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t8 - t7).count();
 
 
         if(nRedundantObservations>redundant_th*nMPs)
@@ -1138,7 +1147,16 @@ void LocalMapping::KeyFrameCulling()
         {
             break;
         }
+        std::chrono::steady_clock::time_point t6 = std::chrono::steady_clock::now();
+        double kf_loop_body = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t6 - t5).count();
+        sum += (mp_loop / kf_loop_body)*100;
+        itr += 1;
     }
+    std::chrono::steady_clock::time_point t4 = std::chrono::steady_clock::now();
+    double outer_loop = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t4 - t3).count();
+    double total = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t4 - t1).count();
+
+    // cout << "[KFCulling]=> total: " << total << ", update_covisibles: " << update_covisibles << ", kf_loop: " << outer_loop << ", mp_loop_portion: " << sum/itr << ", num_kf:" << vpLocalKeyFrames.size() << endl;
 }
 
 void LocalMapping::RequestReset()

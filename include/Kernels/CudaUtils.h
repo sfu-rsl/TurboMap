@@ -21,6 +21,7 @@
 class CudaUtils {
     public:
         static void loadSetting(int _nFeatures, int _nLevels, bool _isMonocular, float _scaleFactor, int _nCols, int _nRows, bool _cameraIsFisheye);
+        static void shutdown();
 
     public:
         static int nFeatures_with_th;

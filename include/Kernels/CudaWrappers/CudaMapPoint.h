@@ -41,4 +41,35 @@ class CudaMapPoint {
     };
 }
 
+namespace MAPPING_DATA_WRAPPER {
+
+class CudaKeyframe;
+
+struct Observation {
+    CudaKeyframe* d_kf;
+    int leftIndex;
+    int rightIndex;
+
+    Observation(CudaKeyframe* d_kf, int leftIndex, int rightIndex) 
+    : d_kf(d_kf), leftIndex(leftIndex), rightIndex(rightIndex) {}
+};
+
+class CudaMapPoint {
+    public:
+        CudaMapPoint();
+        CudaMapPoint(ORB_SLAM3::MapPoint* mp);
+
+    public:
+        // For creating empty mapPoints instead of using null ptr
+        bool isEmpty;
+
+    public:
+        long unsigned int mnId;
+        bool mbBad;
+        int nObs;
+        int mObservations_size;
+        vector<Observation> mObservations;
+    };
+}
+
 #endif // CUDA_MAPPOINT_H

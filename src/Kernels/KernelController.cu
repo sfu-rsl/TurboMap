@@ -15,6 +15,7 @@ bool KernelController::poseEstimationKernelRunStatus;
 bool KernelController::poseOptimizationRunStatus;
 bool KernelController::memory_is_initialized = false;
 bool KernelController::stereoMatchDataHasMovedForward = false;
+bool KernelController::cuda_utils_loaded_setting = false;
 std::unique_ptr<SearchLocalPointsKernel> KernelController::mpSearchLocalPointsKernel = std::make_unique<SearchLocalPointsKernel>();
 std::unique_ptr<PoseEstimationKernel> KernelController::mpPoseEstimationKernel = std::make_unique<PoseEstimationKernel>();
 std::unique_ptr<StereoMatchKernel> KernelController::mpStereoMatchKernel = std::make_unique<StereoMatchKernel>();
@@ -76,6 +77,9 @@ void KernelController::shutdownKernels(){
             mpSearchLocalPointsKernel->shutdown();
         if(poseEstimationKernelRunStatus == 1)
             mpPoseEstimationKernel->shutdown();
+    }
+    if (cuda_utils_loaded_setting) {
+        CudaUtils::shutdown();
     }
 }
 
