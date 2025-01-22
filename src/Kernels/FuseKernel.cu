@@ -74,16 +74,39 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame &pKF, const vector<ORB_SLAM3::MapPoi
         raise(SIGSEGV);
     }
 
+    GeometricCamera* pCamera;
+    Sophus::SE3f Tcw;
+    Eigen::Vector3f Ow;
+
+    if(bRight){
+        Tcw = pKF->GetRightPose();
+        Ow = pKF->GetRightCameraCenter();
+        pCamera = pKF->mpCamera2;
+    }
+    else{
+        Tcw = pKF->GetPose();
+        Ow = pKF->GetCameraCenter();
+        pCamera = pKF->mpCamera;
+    }
+
     #pragma omp parallel for
     for (int i = 0; i < numPoints; ++i) {
         ORB_SLAM3::MapPoint* pMP = vpMapPoints[i];
-        if((!pMP) || (pMP->IsInKeyFrame(pKF)) || (pMP->isBad())){
+        Eigen::Vector3f p3Dw = pMP->GetWorldPos();
+        Eigen::Vector3f p3Dc = Tcw * p3Dw;
+        const float invz = 1/p3Dc(2);
+        const Eigen::Vector2f uv = pCamera->project(p3Dc);
+
+        if((!pMP) || (pMP->IsInKeyFrame(pKF)) || 
+            (pMP->isBad()) || (p3Dc(2)<0.0f) ||
+            (!pKF->IsInImage(uv(0),uv(1))))
+        {
             h_isEmpty[i] = true;
             continue;
         }
 
         h_isEmpty[i] = false;
-        h_mWorldPos = pMP->GetWorldPos();
+        // h_mWorldPos = pMP->GetWorldPos();
         h_mfMaxDistance = pMP->GetMaxDistanceInvariance();
         h_mfMinDistance = pMP->GetMinDistanceInvariance();
         h_mNormalVector = pMP->GetNormal();
