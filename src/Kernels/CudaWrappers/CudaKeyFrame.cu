@@ -74,7 +74,7 @@ namespace MAPPING_DATA_WRAPPER
         cx = KF.cx;
         cy = KF.cy;
         mbf = KF.mbf;
-        Nleft = F.Nleft;
+        Nleft = KF.NLeft;
 
         mvScaleFactors_size = KF.mvScaleFactors.size();
         mvKeys_size = KF.mvKeys.size();

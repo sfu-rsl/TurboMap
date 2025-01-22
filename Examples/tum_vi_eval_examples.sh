@@ -1,5 +1,5 @@
 #!/bin/bash
-pathDatasetTUM_VI=$HOME/SLAM/Datasets/tumvi #Example, it is necesary to change it by the dataset path
+pathDatasetTUM_VI=$HOME/Desktop/slam3/Datasets/tum-vi/corridor #Example, it is necesary to change it by the dataset path
 
 # "optimized" or "original"
 orbExtractionRunstatus=$1

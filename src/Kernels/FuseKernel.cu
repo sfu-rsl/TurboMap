@@ -54,7 +54,7 @@ __global__ void fuseKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame* d_keyframe,
                     float *d_mfMaxDistance,
                     float *d_mfMinDistance,
                     Eigen::Vector3f *d_mNormalVector,
-                    unit8_t *d_mDescriptor)
+                    uint8_t *d_mDescriptor)
 {
     unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -74,19 +74,19 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame &pKF, const vector<ORB_SLAM3::MapPoi
         raise(SIGSEGV);
     }
 
-    GeometricCamera* pCamera;
+    ORB_SLAM3::GeometricCamera* pCamera;
     Sophus::SE3f Tcw;
     Eigen::Vector3f Ow;
 
     if(bRight){
-        Tcw = pKF->GetRightPose();
-        Ow = pKF->GetRightCameraCenter();
-        pCamera = pKF->mpCamera2;
+        Tcw = pKF.GetRightPose();
+        Ow = pKF.GetRightCameraCenter();
+        pCamera = pKF.mpCamera2;
     }
     else{
-        Tcw = pKF->GetPose();
-        Ow = pKF->GetCameraCenter();
-        pCamera = pKF->mpCamera;
+        Tcw = pKF.GetPose();
+        Ow = pKF.GetCameraCenter();
+        pCamera = pKF.mpCamera;
     }
 
     #pragma omp parallel for
@@ -97,9 +97,9 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame &pKF, const vector<ORB_SLAM3::MapPoi
         const float invz = 1/p3Dc(2);
         const Eigen::Vector2f uv = pCamera->project(p3Dc);
 
-        if((!pMP) || (pMP->IsInKeyFrame(pKF)) || 
+        if((!pMP) || (pMP->IsInKeyFrame(&pKF)) || 
             (pMP->isBad()) || (p3Dc(2)<0.0f) ||
-            (!pKF->IsInImage(uv(0),uv(1))))
+            (!pKF.IsInImage(uv(0),uv(1))))
         {
             h_isEmpty[i] = true;
             continue;
@@ -107,9 +107,15 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame &pKF, const vector<ORB_SLAM3::MapPoi
 
         h_isEmpty[i] = false;
         // h_mWorldPos = pMP->GetWorldPos();
-        h_mfMaxDistance = pMP->GetMaxDistanceInvariance();
-        h_mfMinDistance = pMP->GetMinDistanceInvariance();
-        h_mNormalVector = pMP->GetNormal();
+        float mfMaxDistance = pMP->GetMaxDistanceInvariance();
+        h_mfMaxDistance = &mfMaxDistance;
+
+        float mfMinDistance = pMP->GetMinDistanceInvariance();
+        h_mfMinDistance = &mfMinDistance;
+
+        Eigen::Vector3f normalVector = pMP->GetNormal();
+        h_mNormalVector = &normalVector;
+
         std::memcpy(&h_mDescriptor[i*DESCRIPTOR_SIZE], pMP->GetDescriptor().data, DESCRIPTOR_SIZE * sizeof(uint8_t));
     }
 
@@ -123,6 +129,7 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame &pKF, const vector<ORB_SLAM3::MapPoi
     int blockSize = 256;
     int numBlocks = (numPoints + blockSize -1) / blockSize;
     fuseKernel<<<numBlocks, blockSize>>>(d_keyframe,
+                                        d_isEmpty,
                                         d_mWorldPos,
                                         d_mfMaxDistance,
                                         d_mfMinDistance,

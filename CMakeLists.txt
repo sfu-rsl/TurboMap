@@ -96,10 +96,12 @@ src/Stats/LocalMappingStats.cc
 src/Kernels/CudaUtils.cu
 src/Kernels/CudaWrappers/CudaMapPoint.cc
 src/Kernels/CudaWrappers/CudaFrame.cu
+src/Kernels/CudaWrappers/CudaKeyFrame.cu
 src/Kernels/StereoMatchKernel.cu
 src/Kernels/SearchLocalPointsKernel.cu
 src/Kernels/PoseEstimationKernel.cu
 src/Kernels/KernelController.cu
+src/Kernels/FuseKernel.cu
 include/System.h
 include/Tracking.h
 include/LocalMapping.h
@@ -142,11 +144,13 @@ include/Kernels/CudaUtils.h
 include/Kernels/CudaWrappers/CudaMapPoint.h
 include/Kernels/CudaWrappers/CudaKeyPoint.h
 include/Kernels/CudaWrappers/CudaFrame.h
+include/Kernels/CudaWrappers/CudaKeyFrame.h
 include/Kernels/StereoMatchKernel.h
 include/Kernels/SearchLocalPointsKernel.h
 include/Kernels/PoseEstimationKernel.h
 include/Kernels/KernelInterface.h
 include/Kernels/KernelController.h
+include/Kernels/FuseKernel.h
 )
 
 set_target_properties( ${PROJECT_NAME}

@@ -1,6 +1,6 @@
 #!/bin/bash
 # pathDatasetEuroc='../EuRoC-Dataset' #Example, it is necesary to change it by the dataset path
-pathDatasetEuroc=$HOME/SLAM/Datasets/EuRoc
+pathDatasetEuroc=$HOME/Desktop/slam3/Datasets/EuRoC
 
 orbExtractionRunstatus=$1
 stereoMatchRunstatus=$2

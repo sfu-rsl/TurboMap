@@ -7,6 +7,7 @@
 #include "CudaWrappers/CudaKeyFrame.h"
 #include "CudaUtils.h"
 #include <Eigen/Core>
+#include <csignal> 
 
 
 #define MAX_NUM_MAPPOINTS 25000
