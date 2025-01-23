@@ -9,19 +9,7 @@ void FuseKernel::initialize() {
 
     checkCudaError(cudaMalloc(&d_keyframe, sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame)), "Failed to allocate memory for d_keyframe");
 
-    checkCudaError(cudaMallocHost(&h_isEmpty, MAX_NUM_MAPPOINTS * sizeof(bool)), "Failed to allocate memory for h_isEmpty");
-    checkCudaError(cudaMallocHost(&h_mWorldPos, MAX_NUM_MAPPOINTS * sizeof(Eigen::Vector3f)), "Failed to allocate memory for h_mWorldPos");
-    checkCudaError(cudaMallocHost(&h_mfMaxDistance, MAX_NUM_MAPPOINTS * sizeof(float)), "Failed to allocate memory for h_mfMaxDistance");
-    checkCudaError(cudaMallocHost(&h_mfMinDistance, MAX_NUM_MAPPOINTS * sizeof(float)), "Failed to allocate memory for h_mfMinDistance");
-    checkCudaError(cudaMallocHost(&h_mNormalVector, MAX_NUM_MAPPOINTS * sizeof(Eigen::Vector3f)), "Failed to allocate memory for h_mNormalVector");
-    checkCudaError(cudaMallocHost(&h_mDescriptor, MAX_NUM_MAPPOINTS * DESCRIPTOR_SIZE * sizeof(uint8_t)), "Failed to allocate memory for h_mDescriptor");
-
-    checkCudaError(cudaMalloc((void**)&d_isEmpty, MAX_NUM_MAPPOINTS * sizeof(bool)), "Failed to allocate memory for d_isEmpty");
-    checkCudaError(cudaMalloc((void**)&d_mWorldPos, MAX_NUM_MAPPOINTS * sizeof(Eigen::Vector3f)), "Failed to allocate memory for d_mWorldPos");
-    checkCudaError(cudaMalloc((void**)&d_mfMaxDistance, MAX_NUM_MAPPOINTS * sizeof(float)), "Failed to allocate memory for d_mfMaxDistance");
-    checkCudaError(cudaMalloc((void**)&d_mfMinDistance, MAX_NUM_MAPPOINTS * sizeof(float)), "Failed to allocate memory for d_mfMinDistance");
-    checkCudaError(cudaMalloc((void**)&d_mNormalVector, MAX_NUM_MAPPOINTS * sizeof(Eigen::Vector3f)), "Failed to allocate memory for d_mNormalVector");   
-    checkCudaError(cudaMalloc((void**)&d_mDescriptor, MAX_NUM_MAPPOINTS * DESCRIPTOR_SIZE * sizeof(uint8_t)), "Failed to allocate memory for d_mDescriptor");   
+    checkCudaError(cudaMalloc((void**)&d_mvpMapPoints, MAX_NUM_MAPPOINTS * sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint)), "Failed to allocate memory for d_mvpMapPoints");
 
     memory_is_initialized = true;
 }
@@ -33,59 +21,74 @@ void FuseKernel::setKeyFrame(MAPPING_DATA_WRAPPER::CudaKeyFrame* cudaKeyFrame) {
 void FuseKernel::shutdown() {
     if (!memory_is_initialized) 
         return;
-    cudaFree(d_keyframe);
-    cudaFreeHost(h_isEmpty);
-    cudaFreeHost(h_mWorldPos);
-    cudaFreeHost(h_mfMaxDistance);
-    cudaFreeHost(h_mfMinDistance);
-    cudaFreeHost(h_mNormalVector);
-    cudaFreeHost(h_mDescriptor);
-    cudaFree(d_isEmpty);
-    cudaFree(d_mWorldPos);
-    cudaFree(d_mfMaxDistance);
-    cudaFree(d_mfMinDistance);
-    cudaFree(d_mNormalVector);
+    checkCudaError(cudaFree(d_keyframe), "Failed to free fuse kernel: d_keyframe");
+    checkCudaError(cudaFree(d_mvpMapPoints),"Failed to free fuse kernel memory: d_mvpMapPoints");
 }
 
 
-__device__ void printDeviceData(bool* d_isEmpty, Eigen::Vector3f* d_mWorldPos, float* d_mfMaxDistance, float* d_mfMinDistance, Eigen::Vector3f* d_mNormalVector, uint8_t* d_mDescriptor, int idx) {
-    printf("Device Data at index %d:\n", idx);
+__device__ void printDeviceData(
+    const MAPPING_DATA_WRAPPER::CudaKeyFrame* d_keyframe,
+    const MAPPING_DATA_WRAPPER::CudaMapPoint* d_mvpMapPoints,
+    unsigned int idx
+) {
+    Check if the index is within bounds for the map points array
+    if (idx == 0) {
+        printf("----- KeyFrame Data -----\n");
+        printf("mnId: %lu\n", d_keyframe->mnId);
+        printf("fx: %f, fy: %f, cx: %f, cy: %f\n", d_keyframe->fx, d_keyframe->fy, d_keyframe->cx, d_keyframe->cy);
+        printf("mbf: %f, Nleft: %d\n", d_keyframe->mbf, d_keyframe->Nleft);
 
-    // Print d_isEmpty
-    printf("d_isEmpty: %d\n", d_isEmpty[idx]);
+        // Print mvScaleFactors
+        printf("mvScaleFactors_size: %lu\n", d_keyframe->mvScaleFactors_size);
+        for (size_t i = 0; i < d_keyframe->mvScaleFactors_size; ++i) {
+            printf("mvScaleFactors[%lu]: %f\n", i, d_keyframe->mvScaleFactors[i]);
+        }
 
-    // Print d_mWorldPos
-    printf("d_mWorldPos: ", d_mWorldPos);
-
-    printf("d_mfMaxDistance: %f\n", d_mfMaxDistance[idx]);
-    printf("d_mfMinDistance: %f\n", d_mfMinDistance[idx]);
-
-    // Print d_mNormalVector
-    printf("d_mNormalVector: [%f, %f, %f]\n", d_mNormalVector);
-
-    // Print d_mor
-    printf("d_mDescriptor: ");
-    for (int i = 0; i < DESCRIPTOR_SIZE; ++i) {
-        printf("%d ", d_mDescriptor[idx * DESCRIPTOR_SIZE + i]);
+        // Print mDescriptors (as an example, print the first few bytes)
+        if (d_keyframe->mDescriptors) {
+            printf("mDescriptors (first 10 bytes): ");
+            for (int i = 0; i < min(d_keyframe->mDescriptor_rows, 10); ++i) {
+                printf("%u ", d_keyframe->mDescriptors[i]);
+            }
+            printf("\n");
+        }
     }
-    printf("\n");
+
+    // Check if idx is within bounds of d_mvpMapPoints array
+    printf("----- MapPoint Data (idx: %u) -----\n", idx);
+    if (!d_mvpMapPoints[idx].isEmpty) {
+        printf("mnId: %lu\n", d_mvpMapPoints[idx].mnId);
+        printf("mWorldPos: [%f, %f, %f]\n",
+               d_mvpMapPoints[idx].mWorldPos.x(),
+               d_mvpMapPoints[idx].mWorldPos.y(),
+               d_mvpMapPoints[idx].mWorldPos.z());
+        printf("mfMaxDistance: %f, mfMinDistance: %f\n",
+               d_mvpMapPoints[idx].mfMaxDistance,
+               d_mvpMapPoints[idx].mfMinDistance);
+        printf("mNormalVector: [%f, %f, %f]\n",
+               d_mvpMapPoints[idx].mNormalVector.x(),
+               d_mvpMapPoints[idx].mNormalVector.y(),
+               d_mvpMapPoints[idx].mNormalVector.z());
+        printf("mDescriptor (first 10 bytes): ");
+        for (int i = 0; i < 10; ++i) {
+            printf("%u ", d_mvpMapPoints[idx].mDescriptor[i]);
+        }
+        printf("\n");
+    }
+    else {
+        printf("MapPoint at idx %u is empty.\n", idx);
+    }
 }
+
 
 
 
 __global__ void fuseKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame* d_keyframe,
-                    bool *d_isEmpty,
-                    Eigen::Vector3f *d_mWorldPos,
-                    float *d_mfMaxDistance,
-                    float *d_mfMinDistance,
-                    Eigen::Vector3f *d_mNormalVector,
-                    uint8_t *d_mDescriptor)
+                        MAPPING_DATA_WRAPPER::CudaMapPoint* d_mvpMapPoints)
 {
     unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
 
-    printf("#####################################\n");
-
-    printDeviceData(d_isEmpty, d_mWorldPos, d_mfMaxDistance, d_mfMinDistance, d_mNormalVector, d_mDescriptor, idx);
+    // printDeviceData(d_keyframe, d_mvpMapPoints, idx);
 
 
 }
@@ -121,104 +124,32 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame &pKF, const vector<ORB_SLAM3::MapPoi
 
     std::cout << "Number of Mappoints is: "<< numPoints << ".\n";
 
-    std::vector<MAPPING_DATA_WRAPPER::CudaMapPoint> tmp_mvpMapPoints(mvpMapPoints_size);
-    for (int i = 0; i < mvpMapPoints_size; ++i) {
-            if (F.mvpMapPoints[i]) {
-                CudaMapPoint cuda_mp(F.mvpMapPoints[i]);
-                tmp_mvpMapPoints[i] = cuda_mp;
-            } else {
-                CudaMapPoint cuda_mp;
-                tmp_mvpMapPoints[i] = cuda_mp;            
-            }
-    }
-    checkCudaError(cudaMemcpy(mvpMapPoints, tmp_mvpMapPoints.data(), tmp_mvpMapPoints.size() * sizeof(CudaMapPoint), cudaMemcpyHostToDevice), "CudaFrame:: Failed to copy mvpMapPoints to gpu");
-
-
-    #pragma omp parallel for
+    std::vector<MAPPING_DATA_WRAPPER::CudaMapPoint> h_mvpMapPoints(numPoints);
     for (int i = 0; i < numPoints; ++i) {
 
-        std::cout << i << std::endl;
-
         ORB_SLAM3::MapPoint* pMP = vpMapPoints[i];
-        std::cout << "here0\n";
         if((!pMP) || (pMP->IsInKeyFrame(&pKF)) || (pMP->isBad())){
-            std::cout << "Inside if1\n";
-            h_isEmpty[i] = true;
-            std::cout << "Inside if2\n";
             continue;
         }
-        std::cout << "here1\n";
         Eigen::Vector3f p3Dw = pMP->GetWorldPos();
-        std::cout << "here2\n";
         Eigen::Vector3f p3Dc = Tcw * p3Dw;
-        std::cout << "here3\n";
         const float invz = 1/p3Dc(2);
-        std::cout << "here4\n";
         const Eigen::Vector2f uv = pCamera->project(p3Dc);
-        std::cout << "here5\n";
 
         if((p3Dc(2)<0.0f) || (!pKF.IsInImage(uv(0),uv(1))))
         {
-            h_isEmpty[i] = true;
             continue;
         }
 
-        h_isEmpty[i] = false;
-        // h_mWorldPos = pMP->GetWorldPos();
-        float mfMaxDistance = pMP->GetMaxDistanceInvariance();
-        h_mfMaxDistance = &mfMaxDistance;
-
-        float mfMinDistance = pMP->GetMinDistanceInvariance();
-        h_mfMinDistance = &mfMinDistance;
-
-        Eigen::Vector3f normalVector = pMP->GetNormal();
-        h_mNormalVector = &normalVector;
-
-        std::memcpy(&h_mDescriptor[i*DESCRIPTOR_SIZE], pMP->GetDescriptor().data, DESCRIPTOR_SIZE * sizeof(uint8_t));
+        MAPPING_DATA_WRAPPER::CudaMapPoint cuda_mp(pMP);
+        h_mvpMapPoints[i] = cuda_mp;
     }
-
-
-    std::cout << "Outside for\n";
-
-    assert(h_isEmpty != nullptr);
-    assert(h_mWorldPos != nullptr);
-    assert(h_mfMaxDistance != nullptr);
-    assert(h_mfMinDistance != nullptr);
-    assert(h_mNormalVector != nullptr);
-    assert(h_mDescriptor != nullptr);
-
-    std::cout << "End of asserts\n";
-
-    checkCudaError(cudaMemcpy(d_isEmpty, h_isEmpty, numPoints * sizeof(bool), cudaMemcpyHostToDevice), 
-                "Failed to copy memory for d_isEmpty");
-    std::cout << "me1\n";
-    checkCudaError(cudaMemcpy(d_mWorldPos, h_mWorldPos, numPoints * sizeof(Eigen::Vector3f), cudaMemcpyHostToDevice), 
-                "Failed to copy memory for d_mWorldPos");
-    std::cout << "me2\n";
-    checkCudaError(cudaMemcpy(d_mfMaxDistance, h_mfMaxDistance, numPoints * sizeof(float), cudaMemcpyHostToDevice), 
-                "Failed to copy memory for d_mfMaxDistance");
-    std::cout << "me3\n";
-    checkCudaError(cudaMemcpy(d_mfMinDistance, h_mfMinDistance, numPoints * sizeof(float), cudaMemcpyHostToDevice), 
-                "Failed to copy memory for d_mfMinDistance");
-    std::cout << "me4\n";
-    checkCudaError(cudaMemcpy(d_mNormalVector, h_mNormalVector, numPoints * sizeof(Eigen::Vector3f), cudaMemcpyHostToDevice), 
-                "Failed to copy memory for d_mNormalVector");
-    std::cout << "me5\n";
-    checkCudaError(cudaMemcpy(d_mDescriptor, h_mDescriptor, numPoints * DESCRIPTOR_SIZE * sizeof(uint8_t), cudaMemcpyHostToDevice), 
-                "Failed to copy memory for d_mDescriptor");
-
-    std::cout << "End of memcpy\n";
+    checkCudaError(cudaMemcpy(d_mvpMapPoints, h_mvpMapPoints.data(), numPoints * sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint), cudaMemcpyHostToDevice), "FuseKernel:: Failed to copy mvpMapPoints to gpu");
 
     int blockSize = 256;
     int numBlocks = (numPoints + blockSize -1) / blockSize;
     std::cout << "****************************************************\n";
-    fuseKernel<<<numBlocks, blockSize>>>(d_keyframe,
-                                        d_isEmpty,
-                                        d_mWorldPos,
-                                        d_mfMaxDistance,
-                                        d_mfMinDistance,
-                                        d_mNormalVector,
-                                        d_mDescriptor);
+    fuseKernel<<<numBlocks, blockSize>>>(d_keyframe, d_mvpMapPoints);
     
     std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
 

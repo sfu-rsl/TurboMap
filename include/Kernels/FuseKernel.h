@@ -29,13 +29,7 @@ class FuseKernel: public KernelInterface {
     private:
         bool memory_is_initialized;
         MAPPING_DATA_WRAPPER::CudaKeyFrame *d_keyframe, *h_keyframe;
-        bool *h_isEmpty, *d_isEmpty;
-        Eigen::Vector3f *h_mWorldPos, *d_mWorldPos;
-        float *h_mfMaxDistance, *d_mfMaxDistance;
-        float *h_mfMinDistance, *d_mfMinDistance;
-        Eigen::Vector3f *h_mNormalVector, *d_mNormalVector;
-        uint8_t *h_mDescriptor, *d_mDescriptor;
-
+        MAPPING_DATA_WRAPPER::CudaMapPoint *d_mvpMapPoints, *h_mvpMapPoints;
 
     public:
 
