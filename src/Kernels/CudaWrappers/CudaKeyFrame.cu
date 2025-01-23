@@ -131,7 +131,7 @@ namespace MAPPING_DATA_WRAPPER
     void CudaKeyFrame::freeMemory(){
         DEBUG_PRINT("Freeing GPU Memory For KeyFrame...");
         checkCudaError(cudaFree(mvScaleFactors),"Failed to free keyframe memory: mvScaleFactors");
-        checkCudaError(cudaFree(mvuRight),"Failed to free keyframe memory: mvInvLevelSigma2");
+        checkCudaError(cudaFree(mvInvLevelSigma2),"Failed to free keyframe memory: mvInvLevelSigma2");
         checkCudaError(cudaFree(mvuRight),"Failed to free keyframe memory: mvuRight");
         if (!mDescriptorsIsOnGpu)
             checkCudaError(cudaFree((void*) mDescriptors),"Failed to free keyframe memory: mDescriptors");

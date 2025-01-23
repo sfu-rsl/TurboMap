@@ -13,7 +13,7 @@ bool KernelController::stereoMatchKernelRunStatus;
 bool KernelController::searchLocalPointsKernelRunStatus;
 bool KernelController::poseEstimationKernelRunStatus;
 bool KernelController::poseOptimizationRunStatus;
-bool KernelController::FuseKernelRunStatus;
+bool KernelController::fuseKernelRunStatus;
 bool KernelController::memory_is_initialized = false;
 bool KernelController::stereoMatchDataHasMovedForward = false;
 std::unique_ptr<SearchLocalPointsKernel> KernelController::mpSearchLocalPointsKernel = std::make_unique<SearchLocalPointsKernel>();
@@ -37,7 +37,7 @@ void KernelController::setGPURunMode(bool orbExtractionStatus, bool stereoMatchS
     searchLocalPointsKernelRunStatus = searchLocalPointsStatus;
     poseEstimationKernelRunStatus = poseEstimationStatus;
     poseOptimizationRunStatus = poseOptimizationStatus;
-    FuseKernelRunStatus = FuseStatus;
+    fuseKernelRunStatus = FuseStatus;
 }
 
 void KernelController::initializeKernels(){
@@ -62,7 +62,7 @@ void KernelController::initializeKernels(){
     if(poseEstimationKernelRunStatus == 1)
         mpPoseEstimationKernel->initialize();
 
-    if(FuseKernelRunStatus == 1)
+    if(fuseKernelRunStatus == 1)
         mpFuseKernel->initialize();
 #ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point PE_end = std::chrono::steady_clock::now();
@@ -86,7 +86,7 @@ void KernelController::shutdownKernels(){
             mpSearchLocalPointsKernel->shutdown();
         if(poseEstimationKernelRunStatus == 1)
             mpPoseEstimationKernel->shutdown();
-        if(FuseKernelRunStatus == 1)
+        if(fuseKernelRunStatus == 1)
             mpFuseKernel->shutdown();
     }
 }

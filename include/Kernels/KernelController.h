@@ -23,7 +23,7 @@ public:
     static bool searchLocalPointsKernelRunStatus;
     static bool poseEstimationKernelRunStatus;
     static bool poseOptimizationRunStatus;
-    static bool FuseKernelRunStatus;
+    static bool fuseKernelRunStatus;
 
     static void initializeKernels();
     

@@ -48,6 +48,31 @@ void FuseKernel::shutdown() {
 }
 
 
+__device__ void printDeviceData(bool* d_isEmpty, Eigen::Vector3f* d_mWorldPos, float* d_mfMaxDistance, float* d_mfMinDistance, Eigen::Vector3f* d_mNormalVector, uint8_t* d_mDescriptor, int idx) {
+    printf("Device Data at index %d:\n", idx);
+
+    // Print d_isEmpty
+    printf("d_isEmpty: %d\n", d_isEmpty[idx]);
+
+    // Print d_mWorldPos
+    printf("d_mWorldPos: ", d_mWorldPos);
+
+    printf("d_mfMaxDistance: %f\n", d_mfMaxDistance[idx]);
+    printf("d_mfMinDistance: %f\n", d_mfMinDistance[idx]);
+
+    // Print d_mNormalVector
+    printf("d_mNormalVector: [%f, %f, %f]\n", d_mNormalVector);
+
+    // Print d_mor
+    printf("d_mDescriptor: ");
+    for (int i = 0; i < DESCRIPTOR_SIZE; ++i) {
+        printf("%d ", d_mDescriptor[idx * DESCRIPTOR_SIZE + i]);
+    }
+    printf("\n");
+}
+
+
+
 __global__ void fuseKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame* d_keyframe,
                     bool *d_isEmpty,
                     Eigen::Vector3f *d_mWorldPos,
@@ -57,6 +82,11 @@ __global__ void fuseKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame* d_keyframe,
                     uint8_t *d_mDescriptor)
 {
     unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
+
+    printf("#####################################\n");
+
+    printDeviceData(d_isEmpty, d_mWorldPos, d_mfMaxDistance, d_mfMinDistance, d_mNormalVector, d_mDescriptor, idx);
+
 
 }
 
@@ -89,17 +119,45 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame &pKF, const vector<ORB_SLAM3::MapPoi
         pCamera = pKF.mpCamera;
     }
 
+    std::cout << "Number of Mappoints is: "<< numPoints << ".\n";
+
+    std::vector<MAPPING_DATA_WRAPPER::CudaMapPoint> tmp_mvpMapPoints(mvpMapPoints_size);
+    for (int i = 0; i < mvpMapPoints_size; ++i) {
+            if (F.mvpMapPoints[i]) {
+                CudaMapPoint cuda_mp(F.mvpMapPoints[i]);
+                tmp_mvpMapPoints[i] = cuda_mp;
+            } else {
+                CudaMapPoint cuda_mp;
+                tmp_mvpMapPoints[i] = cuda_mp;            
+            }
+    }
+    checkCudaError(cudaMemcpy(mvpMapPoints, tmp_mvpMapPoints.data(), tmp_mvpMapPoints.size() * sizeof(CudaMapPoint), cudaMemcpyHostToDevice), "CudaFrame:: Failed to copy mvpMapPoints to gpu");
+
+
     #pragma omp parallel for
     for (int i = 0; i < numPoints; ++i) {
-        ORB_SLAM3::MapPoint* pMP = vpMapPoints[i];
-        Eigen::Vector3f p3Dw = pMP->GetWorldPos();
-        Eigen::Vector3f p3Dc = Tcw * p3Dw;
-        const float invz = 1/p3Dc(2);
-        const Eigen::Vector2f uv = pCamera->project(p3Dc);
 
-        if((!pMP) || (pMP->IsInKeyFrame(&pKF)) || 
-            (pMP->isBad()) || (p3Dc(2)<0.0f) ||
-            (!pKF.IsInImage(uv(0),uv(1))))
+        std::cout << i << std::endl;
+
+        ORB_SLAM3::MapPoint* pMP = vpMapPoints[i];
+        std::cout << "here0\n";
+        if((!pMP) || (pMP->IsInKeyFrame(&pKF)) || (pMP->isBad())){
+            std::cout << "Inside if1\n";
+            h_isEmpty[i] = true;
+            std::cout << "Inside if2\n";
+            continue;
+        }
+        std::cout << "here1\n";
+        Eigen::Vector3f p3Dw = pMP->GetWorldPos();
+        std::cout << "here2\n";
+        Eigen::Vector3f p3Dc = Tcw * p3Dw;
+        std::cout << "here3\n";
+        const float invz = 1/p3Dc(2);
+        std::cout << "here4\n";
+        const Eigen::Vector2f uv = pCamera->project(p3Dc);
+        std::cout << "here5\n";
+
+        if((p3Dc(2)<0.0f) || (!pKF.IsInImage(uv(0),uv(1))))
         {
             h_isEmpty[i] = true;
             continue;
@@ -119,15 +177,41 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame &pKF, const vector<ORB_SLAM3::MapPoi
         std::memcpy(&h_mDescriptor[i*DESCRIPTOR_SIZE], pMP->GetDescriptor().data, DESCRIPTOR_SIZE * sizeof(uint8_t));
     }
 
-    cudaMemcpy(d_isEmpty, h_isEmpty, numPoints * sizeof(bool), cudaMemcpyHostToDevice); 
-    cudaMemcpy(d_mWorldPos, h_mWorldPos, numPoints * sizeof(Eigen::Vector3f), cudaMemcpyHostToDevice); 
-    cudaMemcpy(d_mfMaxDistance, h_mfMaxDistance, numPoints * sizeof(float), cudaMemcpyHostToDevice); 
-    cudaMemcpy(d_mfMinDistance, h_mfMinDistance, numPoints * sizeof(float), cudaMemcpyHostToDevice); 
-    cudaMemcpy(d_mNormalVector, h_mNormalVector, numPoints * sizeof(Eigen::Vector3f), cudaMemcpyHostToDevice); 
-    cudaMemcpy(d_mDescriptor, h_mDescriptor, numPoints * DESCRIPTOR_SIZE * sizeof(uint8_t), cudaMemcpyHostToDevice); 
+
+    std::cout << "Outside for\n";
+
+    assert(h_isEmpty != nullptr);
+    assert(h_mWorldPos != nullptr);
+    assert(h_mfMaxDistance != nullptr);
+    assert(h_mfMinDistance != nullptr);
+    assert(h_mNormalVector != nullptr);
+    assert(h_mDescriptor != nullptr);
+
+    std::cout << "End of asserts\n";
+
+    checkCudaError(cudaMemcpy(d_isEmpty, h_isEmpty, numPoints * sizeof(bool), cudaMemcpyHostToDevice), 
+                "Failed to copy memory for d_isEmpty");
+    std::cout << "me1\n";
+    checkCudaError(cudaMemcpy(d_mWorldPos, h_mWorldPos, numPoints * sizeof(Eigen::Vector3f), cudaMemcpyHostToDevice), 
+                "Failed to copy memory for d_mWorldPos");
+    std::cout << "me2\n";
+    checkCudaError(cudaMemcpy(d_mfMaxDistance, h_mfMaxDistance, numPoints * sizeof(float), cudaMemcpyHostToDevice), 
+                "Failed to copy memory for d_mfMaxDistance");
+    std::cout << "me3\n";
+    checkCudaError(cudaMemcpy(d_mfMinDistance, h_mfMinDistance, numPoints * sizeof(float), cudaMemcpyHostToDevice), 
+                "Failed to copy memory for d_mfMinDistance");
+    std::cout << "me4\n";
+    checkCudaError(cudaMemcpy(d_mNormalVector, h_mNormalVector, numPoints * sizeof(Eigen::Vector3f), cudaMemcpyHostToDevice), 
+                "Failed to copy memory for d_mNormalVector");
+    std::cout << "me5\n";
+    checkCudaError(cudaMemcpy(d_mDescriptor, h_mDescriptor, numPoints * DESCRIPTOR_SIZE * sizeof(uint8_t), cudaMemcpyHostToDevice), 
+                "Failed to copy memory for d_mDescriptor");
+
+    std::cout << "End of memcpy\n";
 
     int blockSize = 256;
     int numBlocks = (numPoints + blockSize -1) / blockSize;
+    std::cout << "****************************************************\n";
     fuseKernel<<<numBlocks, blockSize>>>(d_keyframe,
                                         d_isEmpty,
                                         d_mWorldPos,
@@ -135,6 +219,9 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame &pKF, const vector<ORB_SLAM3::MapPoi
                                         d_mfMinDistance,
                                         d_mNormalVector,
                                         d_mDescriptor);
+    
+    std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+
     checkCudaError(cudaDeviceSynchronize(), "[fuseKernel:] Kernel launch failed");  
 
 }
