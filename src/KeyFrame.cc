@@ -1156,4 +1156,9 @@ void KeyFrame::SetKeyFrameDatabase(KeyFrameDatabase* pKFDB)
     mpKeyFrameDB = pKFDB;
 }
 
+const std::vector<std::vector<std::vector<size_t>>>& KeyFrame::getMGrid() const
+{
+    return mGrid;
+}
+
 } //namespace ORB_SLAM

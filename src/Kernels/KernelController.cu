@@ -188,10 +188,11 @@ void KernelController::launchPoseEstimationKernel(ORB_SLAM3::Frame &CurrentFrame
 }
 
 void KernelController::launchFuseKernel(ORB_SLAM3::KeyFrame &KF, const vector<ORB_SLAM3::MapPoint*> &vpMapPoints,
-                                                    const float th, const bool bRight) {
+                                                    const float th, const bool bRight, int* h_bestDist, int* h_bestIdx,
+                                                    ORB_SLAM3::GeometricCamera* pCamera, Sophus::SE3f Tcw, Eigen::Vector3f Ow) {
 
     cudaKeyFramePtr->setMemory(KF);
     mpFuseKernel->setKeyFrame(cudaKeyFramePtr);
     
-    mpFuseKernel->launch(KF, vpMapPoints, th, bRight);
+    mpFuseKernel->launch(KF, vpMapPoints, th, bRight, h_bestDist, h_bestIdx, pCamera, Tcw, Ow);
 }

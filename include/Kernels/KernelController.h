@@ -8,6 +8,7 @@
 #include "CudaWrappers/CudaFrame.h"
 #include "CudaWrappers/CudaKeyFrame.h"
 #include "CudaUtils.h"
+#include "CameraModels/GeometricCamera.h"
 #include "../Stats/TrackingStats.h"
 #include <memory> 
 using namespace std; 
@@ -49,7 +50,8 @@ public:
                                             int* h_bestDist, int* h_bestIdx2, int* h_bestDistR, int* h_bestIdxR2);
 
     static void launchFuseKernel(ORB_SLAM3::KeyFrame &KF, const vector<ORB_SLAM3::MapPoint*> &vpMapPoints,
-                            const float th, const bool bRight);
+                            const float th, const bool bRight, int* h_bestDist, int* h_bestIdx,
+                            ORB_SLAM3::GeometricCamera* pCamera, Sophus::SE3f Tcw, Eigen::Vector3f Ow);
 
 private:
     static bool memory_is_initialized;

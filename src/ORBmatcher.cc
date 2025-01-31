@@ -1271,10 +1271,11 @@ namespace ORB_SLAM3
 
         const int nMPs = vpMapPoints.size();
         
-        if ( KernelController::fuseKernelRunStatus == 0 ) {
+        if (KernelController::fuseKernelRunStatus == 0) {
 
             // For debbuging
             int count_notMP = 0, count_bad=0, count_isinKF = 0, count_negdepth = 0, count_notinim = 0, count_dist = 0, count_normal=0, count_notidx = 0, count_thcheck = 0;
+
             for(int i=0; i<nMPs; i++)
             {
                 MapPoint* pMP = vpMapPoints[i];
@@ -1290,6 +1291,7 @@ namespace ORB_SLAM3
                     count_bad++;
                     continue;
                 }
+
                 else if(pMP->IsInKeyFrame(pKF))
                 {
                     count_isinKF++;
@@ -1367,8 +1369,9 @@ namespace ORB_SLAM3
 
                     const int &kpLevel= kp.octave;
 
-                    if(kpLevel<nPredictedLevel-1 || kpLevel>nPredictedLevel)
+                    if(kpLevel<nPredictedLevel-1 || kpLevel>nPredictedLevel){
                         continue;
+                    }
 
                     if(pKF->mvuRight[idx]>=0)
                     {
@@ -1381,8 +1384,9 @@ namespace ORB_SLAM3
                         const float er = ur-kpr;
                         const float e2 = ex*ex+ey*ey+er*er;
 
-                        if(e2*pKF->mvInvLevelSigma2[kpLevel]>7.8)
+                        if(e2*pKF->mvInvLevelSigma2[kpLevel]>7.8){
                             continue;
+                        }
                     }
                     else
                     {
@@ -1392,8 +1396,9 @@ namespace ORB_SLAM3
                         const float ey = uv(1)-kpy;
                         const float e2 = ex*ex+ey*ey;
 
-                        if(e2*pKF->mvInvLevelSigma2[kpLevel]>5.99)
+                        if(e2*pKF->mvInvLevelSigma2[kpLevel]>5.99){
                             continue;
+                        }
                     }
 
                     if(bRight) idx += pKF->NLeft;
@@ -1417,10 +1422,12 @@ namespace ORB_SLAM3
                     {
                         if(!pMPinKF->isBad())
                         {
-                            if(pMPinKF->Observations()>pMP->Observations())
+                            if(pMPinKF->Observations()>pMP->Observations()){
                                 pMP->Replace(pMPinKF);
-                            else
+                            }
+                            else{
                                 pMPinKF->Replace(pMP);
+                            }
                         }
                     }
                     else
@@ -1430,22 +1437,126 @@ namespace ORB_SLAM3
                     }
                     nFused++;
                 }
-                else
+                else{
                     count_thcheck++;
-
+                }
             }
         }
         
-        else if ( KernelController::fuseKernelRunStatus == 1 ){
+        else if (KernelController::fuseKernelRunStatus == 1){
             int numPoints = vpMapPoints.size();
-            // int h_bestLevel[numPoints], h_bestLevelR[numPoints];
-            // int h_bestLevel2[numPoints], h_bestLevelR2[numPoints];
-            // int h_bestDist[numPoints], h_bestDistR[numPoints];
-            // int h_bestDist2[numPoints], h_bestDistR2[numPoints];
-            // int h_bestIdx[numPoints], h_bestIdxR[numPoints];
+            int h_bestDist[numPoints];
+            int h_bestIdx[numPoints];
+            int count_notMP = 0, count_bad=0, count_notidx=0, count_isinKF = 0, count_thcheck = 0, count_negdepth = 0, count_notinim = 0, count_dist = 0, count_normal=0;
 
-            KernelController::launchFuseKernel(*pKF, vpMapPoints, th,  bRight);
+            KernelController::launchFuseKernel(*pKF, vpMapPoints, th,  bRight, h_bestDist, h_bestIdx, pCamera, Tcw, Ow);
 
+            for(size_t iMP=0; iMP<numPoints; iMP++) {
+
+                MapPoint* pMP = vpMapPoints[iMP];
+                int bestDist = h_bestDist[iMP];
+                int bestIdx = h_bestIdx[iMP];
+
+                if(!pMP)
+                {
+                    count_notMP++;
+                    continue;
+                }
+
+                if(pMP->isBad())
+                {
+                    count_bad++;
+                    continue;
+                }
+
+                else if(pMP->IsInKeyFrame(pKF))
+                {
+                    count_isinKF++;
+                    continue;
+                }
+
+                Eigen::Vector3f p3Dw = pMP->GetWorldPos();
+                Eigen::Vector3f p3Dc = Tcw * p3Dw;
+
+                // Depth must be positive
+                if(p3Dc(2)<0.0f)
+                {
+                    count_negdepth++;
+                    continue;
+                }
+
+                const float invz = 1/p3Dc(2);
+
+                const Eigen::Vector2f uv = pCamera->project(p3Dc);
+
+                // Point must be inside the image
+                if(!pKF->IsInImage(uv(0),uv(1)))
+                {
+                    count_notinim++;
+                    continue;
+                }
+
+                const float ur = uv(0)-bf*invz;
+
+                const float maxDistance = pMP->GetMaxDistanceInvariance();
+                const float minDistance = pMP->GetMinDistanceInvariance();
+                Eigen::Vector3f PO = p3Dw-Ow;
+                const float dist3D = PO.norm();
+
+                // Depth must be inside the scale pyramid of the image
+                if(dist3D<minDistance || dist3D>maxDistance) {
+                    count_dist++;
+                    continue;
+                }
+
+                // Viewing angle must be less than 60 deg
+                Eigen::Vector3f Pn = pMP->GetNormal();
+
+                if(PO.dot(Pn)<0.5*dist3D)
+                {
+                    count_normal++;
+                    continue;
+                }
+                int nPredictedLevel = pMP->PredictScale(dist3D,pKF);
+
+                const float radius = th*pKF->mvScaleFactors[nPredictedLevel];
+
+                const vector<size_t> vIndices = pKF->GetFeaturesInArea(uv(0),uv(1),radius,bRight);
+
+                if(vIndices.empty())
+                {
+                    count_notidx++;
+                    continue;
+                }
+
+                if (bestDist<=TH_LOW)
+                {
+                    MapPoint* pMPinKF = pKF->GetMapPoint(bestIdx);
+
+                    if(pMPinKF)
+                    {
+                        if(!pMPinKF->isBad())
+                        {
+                            if(pMPinKF->Observations()>pMP->Observations()){
+                                pMP->Replace(pMPinKF);
+                            }
+                            else{
+                                pMPinKF->Replace(pMP);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        pMP->AddObservation(pKF,bestIdx);
+                        pKF->AddMapPoint(pMP,bestIdx);
+                    }
+                    
+                    nFused++;
+                }
+                else{
+                    count_thcheck++;
+                }                
+            }
         }
 
         return nFused;

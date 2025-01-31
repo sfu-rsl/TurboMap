@@ -69,12 +69,16 @@ namespace MAPPING_DATA_WRAPPER
         DEBUG_PRINT("Filling CudaKeyFrame Memory With KeyFrame Data...");
 
         mnId = KF.mnId;
-        fx = KF.fx;
-        fy = KF.fy;
-        cx = KF.cx;
-        cy = KF.cy;
-        mbf = KF.mbf;
         Nleft = KF.NLeft;
+        mfLogScaleFactor = KF.mfLogScaleFactor;
+        mnScaleLevels = KF.mnScaleLevels;
+        mnMinX = KF.mnMinX;
+        mnMinY = KF.mnMinY;
+        mfGridElementWidthInv = KF.mfGridElementWidthInv;
+        mfGridElementHeightInv = KF.mfGridElementHeightInv;
+        mnGridCols = KF.mnGridCols;
+        mnGridRows = KF.mnGridRows;
+
 
         mvScaleFactors_size = KF.mvScaleFactors.size();
         mvKeys_size = KF.mvKeys.size();
@@ -122,6 +126,29 @@ namespace MAPPING_DATA_WRAPPER
         }
         checkCudaError(cudaMemcpy(mvKeysUn, tmp_mvKeysUn.data(), mvKeysUn_size * sizeof(CudaKeyPoint), cudaMemcpyHostToDevice), "CudaKeyFrame:: Failed to copy mvKeysUn to gpu");
 
+        int keypoints_per_cell = CudaUtils::keypointsPerCell;
+        for (int i = 0; i < mnGridCols; ++i) {
+            for (int j = 0; j < mnGridRows; ++j) {
+                size_t num_keypoints = KF.getMGrid()[i][j].size();
+                if (num_keypoints > 0) {
+                    std::memcpy(&flatMGrid[(i * mnGridRows + j) * keypoints_per_cell], KF.getMGrid()[i][j].data(), num_keypoints * sizeof(std::size_t));
+                }
+                flatMGrid_size[i * mnGridRows + j] = num_keypoints;
+            }
+        }
+
+        if (!KF.mGridRight.empty()) {
+            for (int i = 0; i < mnGridCols; ++i) {
+                for (int j = 0; j < mnGridRows; ++j) {
+                    size_t num_keypoints = KF.mGridRight[i][j].size();
+                    if (num_keypoints > 0) {
+                        std::memcpy(&flatMGridRight[(i * mnGridRows + j) * KEYPOINTS_PER_CELL], KF.mGridRight[i][j].data(), num_keypoints * sizeof(std::size_t));
+                    }
+                    flatMGridRight_size[i * mnGridRows + j] = num_keypoints;
+                }
+            }
+        }
+        
         // std::memcpy(mpCamera_mvParameters, KF.mpCamera->getParameters().data(), F.mpCamera->getParameters().size() * sizeof(float));
         
         checkCudaError(cudaDeviceSynchronize(), "[cudaKeyFrame:] failed to set memory");  

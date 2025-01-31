@@ -14,6 +14,8 @@
 
 namespace MAPPING_DATA_WRAPPER {
 
+#define KEYPOINTS_PER_CELL 20
+
 // CudaKeyFrameMemorySpace
 class CudaKeyFrame {
     private:
@@ -33,12 +35,15 @@ class CudaKeyFrame {
     
     public:
         long unsigned int mnId;
-        float fx;
-        float fy;
-        float cx;
-        float cy;
-        float mbf;
         int Nleft;
+        float mfLogScaleFactor;
+        int mnScaleLevels;
+        float mnMinX;
+        float mnMinY;
+        float mfGridElementWidthInv;
+        float mfGridElementHeightInv;
+        int mnGridCols;
+        int mnGridRows;
 
         size_t mvScaleFactors_size;
         float* mvScaleFactors;
@@ -55,6 +60,13 @@ class CudaKeyFrame {
 
         int mDescriptor_rows;
         const uint8_t* mDescriptors;
+
+        size_t flatMGrid_size[FRAME_GRID_COLS * FRAME_GRID_ROWS];
+        std::size_t flatMGrid[FRAME_GRID_COLS * FRAME_GRID_ROWS * KEYPOINTS_PER_CELL];        
+        
+        size_t flatMGridRight_size[FRAME_GRID_COLS * FRAME_GRID_ROWS];
+        std::size_t flatMGridRight[FRAME_GRID_COLS * FRAME_GRID_ROWS * KEYPOINTS_PER_CELL];
+
         
         // float mpCamera_mvParameters[8];
         

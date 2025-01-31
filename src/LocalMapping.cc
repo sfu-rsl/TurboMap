@@ -844,22 +844,32 @@ void LocalMapping::SearchInNeighbors()
     // Search matches by projection from current KF in target KFs
     ORBmatcher matcher;
     vector<MapPoint*> vpMapPointMatches = mpCurrentKeyFrame->GetMapPointMatches();
+    auto start5 = std::chrono::high_resolution_clock::now();
+    double first_fuse = 0;
+    double second_fuse = 0;
 
-#ifdef REGISTER_LOCAL_MAPPING_STATS
-    std::chrono::steady_clock::time_point time_StartFuse = std::chrono::steady_clock::now();
-#endif
     for(vector<KeyFrame*>::iterator vit=vpTargetKFs.begin(), vend=vpTargetKFs.end(); vit!=vend; vit++)
     {
         KeyFrame* pKFi = *vit;
 
+        auto start12 = std::chrono::high_resolution_clock::now();
         matcher.Fuse(pKFi,vpMapPointMatches);
+        auto end12 = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double, std::milli> elapsed12 = end12 - start12;
+        first_fuse += elapsed12.count();
+
+        auto start13 = std::chrono::high_resolution_clock::now();
         if(pKFi->NLeft != -1) matcher.Fuse(pKFi,vpMapPointMatches,true);
+        auto end13 = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double, std::milli> elapsed13 = end13 - start13;
+        second_fuse += elapsed13.count();
     }
-#ifdef REGISTER_LOCAL_MAPPING_STATS
-    std::chrono::steady_clock::time_point time_EndFuse = std::chrono::steady_clock::now();
-    double timeFuse = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_EndFuse - time_StartFuse).count();
-    LocalMappingStats::getInstance().fuse_time.push_back(timeFuse);
-#endif
+
+    auto end5 = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> elapsed5 = end5 - start5;
+    std::cout << "Part 5 execution time: " << elapsed5.count() << " ms" << std::endl;
+    std::cout << "First fuse execution time: " << first_fuse << " ms" << std::endl;
+    std::cout << "Second fuse execution time: " << second_fuse << " ms" << std::endl;
 
 
     if (mbAbortBA)
@@ -887,8 +897,8 @@ void LocalMapping::SearchInNeighbors()
         }
     }
 
-    matcher.Fuse(mpCurrentKeyFrame,vpFuseCandidates);
-    if(mpCurrentKeyFrame->NLeft != -1) matcher.Fuse(mpCurrentKeyFrame,vpFuseCandidates,true);
+    // matcher.Fuse(mpCurrentKeyFrame,vpFuseCandidates);
+    // if(mpCurrentKeyFrame->NLeft != -1) matcher.Fuse(mpCurrentKeyFrame,vpFuseCandidates,true);
 
 
     // Update points
