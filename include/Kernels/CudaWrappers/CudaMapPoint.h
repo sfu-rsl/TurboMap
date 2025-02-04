@@ -45,19 +45,28 @@ namespace MAPPING_DATA_WRAPPER {
 
 class CudaKeyframe;
 
-struct Observation {
-    CudaKeyframe* d_kf;
-    int leftIndex;
-    int rightIndex;
+// struct Observation {
+//     CudaKeyframe* d_kf;
+//     int leftIndex;
+//     int rightIndex;
 
-    Observation(CudaKeyframe* d_kf, int leftIndex, int rightIndex) 
-    : d_kf(d_kf), leftIndex(leftIndex), rightIndex(rightIndex) {}
-};
+//     Observation() {}
+
+//     Observation(CudaKeyframe* d_kf, int leftIndex, int rightIndex) 
+//     : d_kf(d_kf), leftIndex(leftIndex), rightIndex(rightIndex) {}
+// };
 
 class CudaMapPoint {
     public:
         CudaMapPoint();
         CudaMapPoint(ORB_SLAM3::MapPoint* mp);
+        CudaMapPoint(ORB_SLAM3::MapPoint* mp, long unsigned int _observerId, CudaKeyframe* d_kf);
+        
+        // void setMbBad(bool _mbBad) {mbBad = _mbBad;};
+        // void setNObs(int _nObs) {nObs = _nObs;}; 
+        // void setObserver(long unsigned int _observerId, CudaKeyframe* d_kf) {observerId = _observerId; observer = d_kf;};
+
+        void setObservations(ORB_SLAM3::MapPoint* mp);
 
     public:
         // For creating empty mapPoints instead of using null ptr
@@ -68,7 +77,12 @@ class CudaMapPoint {
         bool mbBad;
         int nObs;
         int mObservations_size;
-        vector<Observation> mObservations;
+        CudaKeyframe* mObservations_dkf[200];
+        int mObservations_leftIdx[200];
+        int mObservations_rightIdx[200];
+        // Observation mObservations[200];
+        CudaKeyframe* observer;
+        long unsigned int observerId;
     };
 }
 

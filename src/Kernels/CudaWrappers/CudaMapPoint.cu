@@ -48,19 +48,45 @@ namespace MAPPING_DATA_WRAPPER
         isEmpty = false;
         mnId = mp->mnId;
         mbBad = mp->isBad();
+        observerId = -1;
+        setObservations(mp);
+    }
+
+    CudaMapPoint::CudaMapPoint(ORB_SLAM3::MapPoint* mp, long unsigned int _observerId, CudaKeyframe* d_kf) {
+        isEmpty = false;
+        mnId = mp->mnId;
+        mbBad = mp->isBad();
+        observerId = _observerId; 
+        observer = d_kf;
+        setObservations(mp);
+    }
+
+    __global__ void validateKFInput_GPU(long unsigned int mnId, MAPPING_DATA_WRAPPER::CudaKeyframe* KF) {
+        printf("[CudaMapPoint::setObservations::] mp: %lu, pKFi mnId: %lu\n", mnId, KF->mnId);
+    }
+
+    void CudaMapPoint::setObservations(ORB_SLAM3::MapPoint* mp) {
         nObs = mp->Observations();
-        const map<ORB_SLAM3::KeyFrame*, tuple<int,int>> observations = mp->GetObservations();
+        map<ORB_SLAM3::KeyFrame*, tuple<int,int>> observations = mp->GetObservations();
         mObservations_size = observations.size();
+        int itr = 0;
         for (const auto& pair : observations) {
             ORB_SLAM3::KeyFrame* key = pair.first;
-            const std::tuple<int, int>& value = pair.second;  
+            const std::tuple<int, int>& value = pair.second; 
+            mObservations_leftIdx[itr] = std::get<0>(value);
+            mObservations_rightIdx[itr] = std::get<1>(value);
 
-            CudaKeyframe* d_kf = CudaKeyframeDrawer::getCudaKeyframe(key->mnId);
-            if (d_kf == nullptr) {
-                d_kf = CudaKeyframeDrawer::addCudaKeyframe(key);
+            if(key->mnId == observerId) {
+                mObservations_dkf[itr] = observer;
+            } else {
+                CudaKeyframe* d_kf = CudaKeyframeDrawer::getCudaKeyframe(key->mnId);
+                if (d_kf != nullptr) {
+                    mObservations_dkf[itr] = d_kf;
+                } else {
+                    cout << "MapPoint Error: KF " << key->mnId << " is not in the drawer.\n";
+                }
             }
-            Observation obs = Observation(d_kf, std::get<0>(value), std::get<1>(value));
-            mObservations.push_back(obs);
-        }
+            itr++;
+        }        
     }
 }

@@ -29,8 +29,12 @@
 
 #include <chrono>
 
-#include "Kernels/KernelController.h"
+#include "Kernels/TrackingKernelController.h"
+#include "Kernels/MappingKernelController.h"
 #include "Stats/TrackingStats.h"
+#include "Stats/LocalMappingStats.h"
+#include "Kernels/CudaMapPointStorage.h"
+#include "Kernels/CudaKeyframeDrawer.h"
 
 using namespace std;
 
@@ -53,7 +57,7 @@ namespace ORB_SLAM3
 
         int nmatches=0, left = 0, right = 0;
 
-        if ( KernelController::searchLocalPointsKernelRunStatus == 0 ) {
+        if ( TrackingKernelController::searchLocalPointsKernelRunStatus == 0 ) {
             const bool bFactor = th!=1.0;
 
             for(size_t iMP=0; iMP<vpMapPoints.size(); iMP++)
@@ -224,7 +228,7 @@ namespace ORB_SLAM3
             }
         }
 
-        else if ( KernelController::searchLocalPointsKernelRunStatus == 1 ){
+        else if ( TrackingKernelController::searchLocalPointsKernelRunStatus == 1 ){
             // ### GPU ACCELERATED IMPLEMENTATION ### ///
 
             int numPoints = vpMapPoints.size();
@@ -234,7 +238,7 @@ namespace ORB_SLAM3
             int h_bestDist2[numPoints], h_bestDistR2[numPoints];
             int h_bestIdx[numPoints], h_bestIdxR[numPoints];
 
-            KernelController::launchSearchLocalPointsKernel(F, vpMapPoints, th,  bFarPoints, thFarPoints,
+            TrackingKernelController::launchSearchLocalPointsKernel(F, vpMapPoints, th,  bFarPoints, thFarPoints,
                                                             h_bestLevel, h_bestLevel2, h_bestDist, h_bestDist2, h_bestIdx,
                                                             h_bestLevelR, h_bestLevelR2, h_bestDistR, h_bestDistR2, h_bestIdxR);
 
@@ -1415,16 +1419,22 @@ namespace ORB_SLAM3
                 {
                     if(!pMPinKF->isBad())
                     {
-                        if(pMPinKF->Observations()>pMP->Observations())
+                        if(pMPinKF->Observations()>pMP->Observations()) {
                             pMP->Replace(pMPinKF);
-                        else
+                        }
+                        else {
                             pMPinKF->Replace(pMP);
+                        }   
                     }
                 }
                 else
                 {
                     pMP->AddObservation(pKF,bestIdx);
                     pKF->AddMapPoint(pMP,bestIdx);
+                    if (MappingKernelController::is_active) {
+                        CudaMapPointStorage::modifyCudaMapPoint(pMP->mnId, pMP);
+                        CudaKeyframeDrawer::updateCudaKeyframeMapPoints(pKF);
+                    }
                 }
                 nFused++;
             }
@@ -1545,6 +1555,10 @@ namespace ORB_SLAM3
                 {
                     pMP->AddObservation(pKF,bestIdx);
                     pKF->AddMapPoint(pMP,bestIdx);
+                    if (MappingKernelController::is_active) {
+                        CudaMapPointStorage::modifyCudaMapPoint(pMP->mnId, pMP);
+                        CudaKeyframeDrawer::updateCudaKeyframeMapPoints(pKF);
+                    }
                 }
                 nFused++;
             }
@@ -1777,7 +1791,7 @@ namespace ORB_SLAM3
 
         int nmatches = 0;
 
-        if ( KernelController::poseEstimationKernelRunStatus == 0) {
+        if ( TrackingKernelController::poseEstimationKernelRunStatus == 0) {
             // Rotation Histogram (to check rotation consistency)
             vector<int> rotHist[HISTO_LENGTH];
             for(int i=0;i<HISTO_LENGTH;i++)
@@ -1989,7 +2003,7 @@ namespace ORB_SLAM3
             }
         }
 
-        else if ( KernelController::poseEstimationKernelRunStatus == 1 ){
+        else if ( TrackingKernelController::poseEstimationKernelRunStatus == 1 ){
             vector<int> rotHist[HISTO_LENGTH];
             for(int i=0;i<HISTO_LENGTH;i++)
                 rotHist[i].reserve(500);
@@ -2007,7 +2021,7 @@ namespace ORB_SLAM3
 
             int h_bestDist[LastFrame.N], h_bestIdx2[LastFrame.N];
             int h_bestDistR[LastFrame.N], h_bestIdxR2[LastFrame.N];
-            KernelController::launchPoseEstimationKernel(CurrentFrame, LastFrame, th, bForward, bBackward, transform_matrix,
+            TrackingKernelController::launchPoseEstimationKernel(CurrentFrame, LastFrame, th, bForward, bBackward, transform_matrix,
                                                         h_bestDist, h_bestIdx2, h_bestDistR, h_bestIdxR2);
 
             for (int i=0; i<LastFrame.N; i++) {

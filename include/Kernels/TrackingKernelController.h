@@ -1,5 +1,5 @@
-#ifndef KERNEL_CONTROLLER_H
-#define KERNEL_CONTROLLER_H
+#ifndef TRACKING_KERNEL_CONTROLLER_H
+#define TRACKING_KERNEL_CONTROLLER_H
 
 #include "SearchLocalPointsKernel.h"
 #include "PoseEstimationKernel.h"
@@ -10,9 +10,13 @@
 #include <memory> 
 using namespace std; 
 
-class KernelController{
+class TrackingKernelController{
 public:
     static void setCUDADevice(int deviceID);
+
+    static bool is_active;
+
+    static void activate();
     
     static void setGPURunMode(bool orbExtractionStatus, bool stereoMatchStatus, bool searchLocalPointsStatus, bool poseEstimationStatus, bool poseOptimizationStatus);
 
@@ -44,8 +48,6 @@ public:
     static void launchPoseEstimationKernel(ORB_SLAM3::Frame &CurrentFrame, const ORB_SLAM3::Frame &LastFrame, 
                                             const float th, const bool bForward, const bool bBackward, Eigen::Matrix4f transform_matrix,
                                             int* h_bestDist, int* h_bestIdx2, int* h_bestDistR, int* h_bestIdxR2);
-
-    static bool cuda_utils_loaded_setting;
 
 private:
     static bool memory_is_initialized;

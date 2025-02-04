@@ -22,11 +22,15 @@ class KFCullingKernel: public KernelInterface {
         void shutdown() override;
         void saveStats(const std::string &file_path) override {};
         void launch() override { std::cout << "[KFCullingKernel:] provide input for kernel launch.\n"; };
-        void launch(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames);
+        void launch(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int* h_kf_count, long unsigned int* h_indices,
+                                                                            int* h_nMPs, int* h_nRedundantObservations);
     
     private:
         bool memory_is_initialized;
-        MAPPING_DATA_WRAPPER::CudaKeyframe *d_keyframes, *h_keyframes;
+        MAPPING_DATA_WRAPPER::CudaKeyframe **d_keyframes, **h_keyframes;
+        // MAPPING_DATA_WRAPPER::CudaMapPoint *d_mapPoints, *h_mapPoints;
+        int *d_nMPs, *d_nRedundantObservations;
+        int *empty_array[MAX_NUM_KEYFRAMES];
 };
 
 #endif

@@ -28,6 +28,8 @@
 #include<System.h>
 #include<Stats/TrackingStats.h>
 #include<Stats/LocalMappingStats.h>
+#include "Kernels/TrackingKernelController.h"
+#include "Kernels/MappingKernelController.h"
 #include "ImuTypes.h"
 
 using namespace std;
@@ -40,29 +42,52 @@ void LoadIMU(const string &strImuPath, vector<double> &vTimeStamps, vector<cv::P
 double ttrack_tot = 0;
 int main(int argc, char **argv)
 {
-    int min_num_argc = 7 + 6;
+    // int min_num_argc = 7 + 6;
 
+    // if(argc < min_num_argc) {
+    //     cerr << endl << "Usage: ./stereo_inertial_tum_vi path_to_vocabulary path_to_settings path_to_image_folder_1 path_to_image_folder_2 path_to_times_file path_to_imu_data (trajectory_file_name)" 
+    //                 << "strStatsFile OrbExtractionRunStatus StereoMatchRunStatus SearchLocalPointsRunStatus PoseEstimationRunStatus PoseOptimizationRunStatus"  << endl;
+    //     return 1;
+    // }
+
+    // bool RunPoseOptimization = (strcmp(argv[argc-1], "1") == 0);
+    // bool RunPoseEstimationOnGPU = (strcmp(argv[argc-2], "1") == 0);
+    // bool RunSearchLocalPointsOnGPU = (strcmp(argv[argc-3], "1") == 0);
+    // bool RunStereoMatchOnGPU = (strcmp(argv[argc-4], "1") == 0);
+    // bool RunOrbExtractionOnGPU = (strcmp(argv[argc-5], "1") == 0);
+    // string strStatsFile = argv[argc-6];
+    // argc-=6;
+
+    // cout << "[Kernels Run Status::] ORB Extraction: " << RunOrbExtractionOnGPU <<
+    //         " Stereo Match: " << RunStereoMatchOnGPU <<
+    //         " Search Local Points: " << RunSearchLocalPointsOnGPU <<
+    //         " Pose Estimation: " << RunPoseEstimationOnGPU <<
+    //         " Pose Optimization: " << RunPoseOptimization << endl;
+
+    // TrackingKernelController::setGPURunMode(RunOrbExtractionOnGPU, RunStereoMatchOnGPU, RunSearchLocalPointsOnGPU, RunPoseEstimationOnGPU, RunPoseOptimization);
+    
+    int min_num_argc = 7 + 2;
     if(argc < min_num_argc) {
         cerr << endl << "Usage: ./stereo_inertial_tum_vi path_to_vocabulary path_to_settings path_to_image_folder_1 path_to_image_folder_2 path_to_times_file path_to_imu_data (trajectory_file_name)" 
-                    << "strStatsFile OrbExtractionRunStatus StereoMatchRunStatus SearchLocalPointsRunStatus PoseEstimationRunStatus PoseOptimizationRunStatus"  << endl;
+                    << "strStatsFile <[0] for ORB-SLAM3, [1] for FastTrack, [2] for FastMap>"  << endl;
         return 1;
     }
 
-    bool RunPoseOptimization = (strcmp(argv[argc-1], "1") == 0);
-    bool RunPoseEstimationOnGPU = (strcmp(argv[argc-2], "1") == 0);
-    bool RunSearchLocalPointsOnGPU = (strcmp(argv[argc-3], "1") == 0);
-    bool RunStereoMatchOnGPU = (strcmp(argv[argc-4], "1") == 0);
-    bool RunOrbExtractionOnGPU = (strcmp(argv[argc-5], "1") == 0);
-    string strStatsFile = argv[argc-6];
-    argc-=6;
+    bool ORBSLAM_mode = (strcmp(argv[argc-1], "0") == 0);
+    bool FastTrack_mode = (strcmp(argv[argc-1], "1") == 0);
+    bool FastMap_mode = (strcmp(argv[argc-1], "2") == 0);
+    string strStatsFile = argv[argc-2];
+    argc-=2;
 
-    cout << "[Kernels Run Status::] ORB Extraction: " << RunOrbExtractionOnGPU <<
-            " Stereo Match: " << RunStereoMatchOnGPU <<
-            " Search Local Points: " << RunSearchLocalPointsOnGPU <<
-            " Pose Estimation: " << RunPoseEstimationOnGPU <<
-            " Pose Optimization: " << RunPoseOptimization << endl;
+    if (FastTrack_mode) {
+        TrackingKernelController::activate();
+        // TrackingKernelController::setGPURunMode(1,1,1,1,0);
+    }
 
-    KernelController::setGPURunMode(RunOrbExtractionOnGPU, RunStereoMatchOnGPU, RunSearchLocalPointsOnGPU, RunPoseEstimationOnGPU, RunPoseOptimization);
+    if (FastMap_mode) {
+        MappingKernelController::activate();
+        MappingKernelController::setGPURunMode(1);
+    }
 
     const int num_seq = (argc-3)/4;
     cout << "num_seq = " << num_seq << endl;

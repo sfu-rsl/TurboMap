@@ -15,6 +15,7 @@
 
 #define REGISTER_LOCAL_MAPPING_STATS
 
+// #define DEBUG
 #define N_FEATURES_TH 20
 #define DESCRIPTOR_SIZE 32
 

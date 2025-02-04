@@ -33,7 +33,7 @@
 
 #include <iostream>
 
-#include "Kernels/KernelController.h"
+#include "Kernels/TrackingKernelController.h"
 #include <mutex>
 #include <chrono>
 #include <csignal>
@@ -52,7 +52,8 @@ void Tracking::signalHandler(int signum) {
     std::cout << "[Tracking::] Interrupt signal (" << signum << ") received.\n";
 
     // Release resources here
-    KernelController::shutdownKernels();
+    TrackingKernelController::shutdownKernels();
+    CudaUtils::shutdown();
     if (mpORBextractorLeft) {
         delete mpORBextractorLeft;
     }
@@ -143,8 +144,9 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
         }
     }
 
-    std::cout << "Tracking Thread:: Initializing Kernels" << std::endl;
-    KernelController::initializeKernels();
+    if(TrackingKernelController::is_active) {
+        TrackingKernelController::initializeKernels();
+    }
 
 
 #ifdef REGISTER_TIMES
@@ -627,12 +629,10 @@ void Tracking::newParameterLoader(Settings *settings) {
     if(mSensor==System::STEREO || mSensor==System::IMU_STEREO) {
         mpORBextractorRight = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST, settings->newImSize().width, settings->newImSize().height);
         CudaUtils::loadSetting(nFeatures, nLevels, false, fScaleFactor, settings->newImSize().width, settings->newImSize().height, cameraIsFisheye);
-        KernelController::cuda_utils_loaded_setting = true;
     }
     if(mSensor==System::MONOCULAR || mSensor==System::IMU_MONOCULAR){
         mpIniORBextractor = new ORBextractor(5*nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST, settings->newImSize().width, settings->newImSize().height);
         CudaUtils::loadSetting(5*nFeatures, nLevels, true, fScaleFactor, settings->newImSize().width, settings->newImSize().height, cameraIsFisheye);
-        KernelController::cuda_utils_loaded_setting = true;
     }
     //IMU parameters
     Sophus::SE3f Tbc = settings->Tbc();
@@ -3079,7 +3079,7 @@ bool Tracking::TrackLocalMap()
     std::chrono::steady_clock::time_point PO_start = std::chrono::steady_clock::now(); 
 #endif
 
-    if (KernelController::poseOptimizationRunStatus == 1) {
+    if (TrackingKernelController::poseOptimizationRunStatus == 1) {
         int inliers;
         if (!mpAtlas->isImuInitialized())
             Optimizer::PoseOptimization(&mCurrentFrame);
