@@ -1,4 +1,5 @@
 #include "Kernels/CudaWrappers/CudaKeyFrame.h"
+#include "Kernels/CudaMapPointStorage.h"
 #include <cstdio>
 #include <vector>
 
@@ -6,15 +7,9 @@
 // #define TIME_MEASURMENT
 
 #ifdef DEBUG
-#define DEBUG_PRINT(msg) std::cout << "Debug [CudaFrame]: " << msg << std::endl
+#define DEBUG_PRINT(msg) std::cout << "Debug [CudaKeyFrame]: " << msg << std::endl
 #else
 #define DEBUG_PRINT(msg) do {} while (0)
-#endif
-
-#ifdef TIME_MEASURMENT
-#define TIMESTAMP_PRINT(msg) std::cout << "TimeStamp [CudaFrame]: " << msg << std::endl
-#else
-#define TIMESTAMP_PRINT(msg) do {} while (0)
 #endif
 
 
@@ -26,6 +21,18 @@ namespace MAPPING_DATA_WRAPPER
         int nFeatures = CudaUtils::nFeatures_with_th;
                 
         bool cameraIsFisheye = CudaUtils::cameraIsFisheye;
+
+        if (cameraIsFisheye) {
+            checkCudaError(cudaMalloc((void**)&mvpMapPoints, 2 * nFeatures * sizeof(CudaMapPoint*)), "CudaKeyFrame::failed to allocate memory for mvpMapPoints");
+        } else {
+            checkCudaError(cudaMalloc((void**)&mvpMapPoints, nFeatures * sizeof(CudaMapPoint*)), "CudaKeyFrame::failed to allocate memory for mvpMapPoints");
+        }
+
+        if (cameraIsFisheye) {
+            checkCudaError(cudaMalloc((void**)&mvDepth, 2 * nFeatures * sizeof(float)), "Frame::failed to allocate memory for mvDepth");
+        } else {
+            checkCudaError(cudaMalloc((void**)&mvDepth, nFeatures * sizeof(float)), "Frame::failed to allocate memory for mvDepth");
+        }
 
         checkCudaError(cudaMalloc((void**)&mvScaleFactors, nFeatures * sizeof(float)), "KeyFrame::failed to allocate memory for mvScaleFactors");
 
@@ -50,6 +57,10 @@ namespace MAPPING_DATA_WRAPPER
         initializeMemory();
     }
 
+    void CudaKeyFrame::setGPUAddress(CudaKeyFrame* ptr) {
+        gpuAddr = ptr;
+    }
+
     void CudaKeyFrame::setMvKeys(CudaKeyPoint* const &_mvKeys) {
          mvKeys = _mvKeys; 
          mvKeysIsOnGpu = true;
@@ -65,11 +76,12 @@ namespace MAPPING_DATA_WRAPPER
         mDescriptorsIsOnGpu = true;
     }
 
-    void CudaKeyFrame::setMemory(const ORB_SLAM3::KeyFrame &KF) {
+    void CudaKeyFrame::setMemory(ORB_SLAM3::KeyFrame &KF) {
         DEBUG_PRINT("Filling CudaKeyFrame Memory With KeyFrame Data...");
 
         mnId = KF.mnId;
         Nleft = KF.NLeft;
+        mThDepth = KF.mThDepth;
         mfLogScaleFactor = KF.mfLogScaleFactor;
         mnScaleLevels = KF.mnScaleLevels;
         mnMinX = KF.mnMinX;
@@ -87,6 +99,8 @@ namespace MAPPING_DATA_WRAPPER
         mvuRight_size = KF.mvuRight.size();
         mvInvLevelSigma2_size = KF.mvInvLevelSigma2.size();
         mDescriptor_rows = KF.mDescriptors.rows;
+
+        checkCudaError(cudaMemcpy(mvDepth, KF.mvDepth.data(), KF.mvDepth.size() * sizeof(float), cudaMemcpyHostToDevice), "CudaKeyFrame:: Failed to copy mvDepth to gpu");
 
         checkCudaError(cudaMemcpy(mvScaleFactors, KF.mvScaleFactors.data(), mvScaleFactors_size * sizeof(float), cudaMemcpyHostToDevice), "CudaKeyFrame:: Failed to copy mvScaleFactors to gpu");
 
@@ -151,12 +165,50 @@ namespace MAPPING_DATA_WRAPPER
         
         // std::memcpy(mpCamera_mvParameters, KF.mpCamera->getParameters().data(), F.mpCamera->getParameters().size() * sizeof(float));
         
-        checkCudaError(cudaDeviceSynchronize(), "[cudaKeyFrame:] failed to set memory");  
+        vector<ORB_SLAM3::MapPoint*> h_mapPoints = KF.GetMapPointMatches();
+        mvpMapPoints_size = h_mapPoints.size();
+        std::vector<CudaMapPoint*> tmp_mvpMapPoints(mvpMapPoints_size);
+        for (int i = 0; i < mvpMapPoints_size; ++i) {
+                if (h_mapPoints[i]) {
+                    CudaMapPoint* d_mp = CudaMapPointStorage::getCudaMapPoint(h_mapPoints[i]->mnId);
+                    if (d_mp == nullptr) {
+                        MAPPING_DATA_WRAPPER::CudaMapPoint cuda_mp(h_mapPoints[i], mnId, gpuAddr);
+                        d_mp = CudaMapPointStorage::keepCudaMapPoint(cuda_mp);
+                    }
+                    tmp_mvpMapPoints[i] = d_mp;
+                } else {
+                    CudaMapPoint* d_mp = nullptr;
+                    tmp_mvpMapPoints[i] = d_mp;            
+                }
+        }
+        checkCudaError(cudaMemcpy(mvpMapPoints, tmp_mvpMapPoints.data(), tmp_mvpMapPoints.size() * sizeof(CudaMapPoint*), cudaMemcpyHostToDevice), "CudaKeyFrame:: Failed to copy mvpMapPoints to gpu");
 
+        checkCudaError(cudaDeviceSynchronize(), "[CudaKeyFrame:] failed to set memory");  
+
+    }
+
+    void CudaKeyFrame::updateMapPoints(vector<ORB_SLAM3::MapPoint*> new_mvpMapPoints) {
+        mvpMapPoints_size = new_mvpMapPoints.size();
+        std::vector<CudaMapPoint*> tmp_mvpMapPoints(mvpMapPoints_size);
+        for (int i = 0; i < mvpMapPoints_size; ++i) {
+                if (new_mvpMapPoints[i]) {
+                    CudaMapPoint* d_mp = CudaMapPointStorage::getCudaMapPoint(new_mvpMapPoints[i]->mnId);
+                    if (d_mp == nullptr) {
+                        MAPPING_DATA_WRAPPER::CudaMapPoint cuda_mp(new_mvpMapPoints[i], mnId, gpuAddr);
+                        d_mp = CudaMapPointStorage::keepCudaMapPoint(cuda_mp);
+                    }
+                    tmp_mvpMapPoints[i] = d_mp;
+                } else {
+                    CudaMapPoint* d_mp = nullptr;
+                    tmp_mvpMapPoints[i] = d_mp;            
+                }
+        }
+        checkCudaError(cudaMemcpy(mvpMapPoints, tmp_mvpMapPoints.data(), tmp_mvpMapPoints.size() * sizeof(CudaMapPoint*), cudaMemcpyHostToDevice), "CudaKeyFrame:: Failed to copy mvpMapPoints to gpu");
     }
 
     void CudaKeyFrame::freeMemory(){
         DEBUG_PRINT("Freeing GPU Memory For KeyFrame...");
+        checkCudaError(cudaFree(mvpMapPoints),"[CudaKeyFrame::] Failed to free memory: mvpMapPoints");
         checkCudaError(cudaFree(mvScaleFactors),"Failed to free keyframe memory: mvScaleFactors");
         checkCudaError(cudaFree(mvInvLevelSigma2),"Failed to free keyframe memory: mvInvLevelSigma2");
         checkCudaError(cudaFree(mvuRight),"Failed to free keyframe memory: mvuRight");

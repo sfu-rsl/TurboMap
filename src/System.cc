@@ -37,7 +37,9 @@
 #include <csignal>
 #include <iostream>
 #include <cstdlib> // For std::exit
-#include "Kernels/KernelController.h"
+#include "Kernels/TrackingKernelController.h"
+#include "Kernels/MappingKernelController.h"
+#include "Kernels/CudaUtils.h"
 
 namespace ORB_SLAM3
 {
@@ -48,7 +50,7 @@ Verbose::eLevel Verbose::th = Verbose::VERBOSITY_NORMAL;
 //     std::cout << "Interrupt signal (" << signum << ") received.\n";
 
 //     // Release resources here
-//     KernelController::shutdownKernels();
+//     TrackingKernelController::shutdownKernels();
     
 //     // Exit the program
 //     std::exit(signum);
@@ -543,7 +545,13 @@ void System::Shutdown()
 
     mpLocalMapper->RequestFinish();
     mpLoopCloser->RequestFinish();
-    KernelController::shutdownKernels();
+    if (TrackingKernelController::is_active) {
+        TrackingKernelController::shutdownKernels();
+    }
+    if (MappingKernelController::is_active) {
+        MappingKernelController::shutdownKernels();
+    }
+    CudaUtils::shutdown();
 
     /*if(mpViewer)
     {

@@ -25,8 +25,8 @@ void FuseKernel::initialize() {
     memory_is_initialized = true;
 }
 
-void FuseKernel::setKeyFrame(MAPPING_DATA_WRAPPER::CudaKeyFrame* cudaKeyFrame) {
-    checkCudaError(cudaMemcpy(d_keyframe, cudaKeyFrame, sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame), cudaMemcpyHostToDevice), "Failed to copy KeyFrame to device");
+void FuseKernel::setKeyFrame(MAPPING_DATA_WRAPPER::CudaKeyFrame* CudaKeyFrame) {
+    checkCudaError(cudaMemcpy(d_keyframe, CudaKeyFrame, sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame), cudaMemcpyHostToDevice), "Failed to copy KeyFrame to device");
 }
 
 void FuseKernel::shutdown() {

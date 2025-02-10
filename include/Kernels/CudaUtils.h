@@ -15,12 +15,14 @@
 
 #define REGISTER_LOCAL_MAPPING_STATS
 
+// #define DEBUG
 #define N_FEATURES_TH 20
 #define DESCRIPTOR_SIZE 32
 
 class CudaUtils {
     public:
         static void loadSetting(int _nFeatures, int _nLevels, bool _isMonocular, float _scaleFactor, int _nCols, int _nRows, bool _cameraIsFisheye);
+        static void shutdown();
 
     public:
         static int nFeatures_with_th;

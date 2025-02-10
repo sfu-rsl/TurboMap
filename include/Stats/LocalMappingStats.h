@@ -9,7 +9,7 @@
 #include <sys/types.h>
 #include "Stats/StatsInterface.h"
 #include "Kernels/CudaUtils.h"
-#include "Kernels/KernelController.h"
+#include "Kernels/TrackingKernelController.h"
 
 using namespace std;
 

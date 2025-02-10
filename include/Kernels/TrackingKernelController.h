@@ -1,10 +1,9 @@
-#ifndef KERNEL_CONTROLLER_H
-#define KERNEL_CONTROLLER_H
+#ifndef TRACKING_KERNEL_CONTROLLER_H
+#define TRACKING_KERNEL_CONTROLLER_H
 
 #include "SearchLocalPointsKernel.h"
 #include "PoseEstimationKernel.h"
 #include "StereoMatchKernel.h"
-#include "FuseKernel.h"
 #include "CudaWrappers/CudaFrame.h"
 #include "CudaWrappers/CudaKeyFrame.h"
 #include "CudaUtils.h"
@@ -13,18 +12,21 @@
 #include <memory> 
 using namespace std; 
 
-class KernelController{
+class TrackingKernelController{
 public:
     static void setCUDADevice(int deviceID);
+
+    static bool is_active;
+
+    static void activate();
     
-    static void setGPURunMode(bool orbExtractionStatus, bool stereoMatchStatus, bool searchLocalPointsStatus, bool poseEstimationStatus, bool poseOptimizationStatus, bool FuseStatus=true);
+    static void setGPURunMode(bool orbExtractionStatus, bool stereoMatchStatus, bool searchLocalPointsStatus, bool poseEstimationStatus, bool poseOptimizationStatus);
 
     static bool orbExtractionKernelRunStatus;
     static bool stereoMatchKernelRunStatus;
     static bool searchLocalPointsKernelRunStatus;
     static bool poseEstimationKernelRunStatus;
     static bool poseOptimizationRunStatus;
-    static bool fuseKernelRunStatus;
 
     static void initializeKernels();
     
@@ -49,10 +51,6 @@ public:
                                             const float th, const bool bForward, const bool bBackward, Eigen::Matrix4f transform_matrix,
                                             int* h_bestDist, int* h_bestIdx2, int* h_bestDistR, int* h_bestIdxR2);
 
-    static void launchFuseKernel(ORB_SLAM3::KeyFrame &KF, const vector<ORB_SLAM3::MapPoint*> &vpMapPoints,
-                            const float th, const bool bRight, int* h_bestDist, int* h_bestIdx,
-                            ORB_SLAM3::GeometricCamera* pCamera, Sophus::SE3f Tcw, Eigen::Vector3f Ow);
-
 private:
     static bool memory_is_initialized;
     static bool stereoMatchDataHasMovedForward;
@@ -60,8 +58,6 @@ private:
     static std::unique_ptr<StereoMatchKernel> mpStereoMatchKernel;
     static std::unique_ptr<SearchLocalPointsKernel> mpSearchLocalPointsKernel;
     static std::unique_ptr<PoseEstimationKernel> mpPoseEstimationKernel;
-    static MAPPING_DATA_WRAPPER::CudaKeyFrame *cudaKeyFramePtr;
-    static std::unique_ptr<FuseKernel> mpFuseKernel;
 };
 
 #endif

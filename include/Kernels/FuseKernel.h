@@ -27,7 +27,7 @@ class FuseKernel: public KernelInterface {
         void launch(ORB_SLAM3::KeyFrame &pKF, const vector<ORB_SLAM3::MapPoint *> &vpMapPoints, const float th, const bool bRight,
                     int* h_bestDist, int* h_bestIdx, ORB_SLAM3::GeometricCamera* pCamera,
                     Sophus::SE3f Tcw, Eigen::Vector3f Ow);
-        void setKeyFrame(MAPPING_DATA_WRAPPER::CudaKeyFrame* cudaKeyFrame);
+        void setKeyFrame(MAPPING_DATA_WRAPPER::CudaKeyFrame* CudaKeyFrame);
         void saveStats(const string &file_path) override;
 
     private:

@@ -39,6 +39,10 @@ void CudaUtils::loadSetting(int _nFeatures, int _nLevels, bool _isMonocular, flo
     checkCudaError(cudaMemcpy(d_mvScaleFactors, h_mvScaleFactors.data(), h_mvScaleFactors.size() * sizeof(float), cudaMemcpyHostToDevice),"CudaUtils:: Failed to initialize d_mvScaleFactors"); 
 }
 
+void CudaUtils::shutdown(){
+    checkCudaError(cudaFree(d_mvScaleFactors),"[CudaUtils::] Failed to free frame memory: d_mvScaleFactors");
+}
+
 __device__ int DescriptorDistance(const uint8_t *a, const uint8_t *b) {
     const int32_t *pa = reinterpret_cast<const int32_t*>(a);
     const int32_t *pb = reinterpret_cast<const int32_t*>(b);

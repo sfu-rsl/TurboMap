@@ -26,11 +26,13 @@ class CudaKeyFrame {
     
     public:
         CudaKeyFrame();
-        void setMemory(const ORB_SLAM3::KeyFrame &KF);
+        void setMemory(ORB_SLAM3::KeyFrame &KF);
         void setMvKeys(CudaKeyPoint* const &_mvKeys);
         void setMvKeysRight(CudaKeyPoint* const &_mvKeysRight);
         void setMDescriptors(uint8_t* const &_mDescriptors);
         const uint8_t* getMDescriptors() const { return mDescriptors; };
+        void setGPUAddress(CudaKeyFrame* ptr);
+        void updateMapPoints(vector<ORB_SLAM3::MapPoint*> mvpMapPoints);
         void freeMemory();
     
     public:
@@ -44,6 +46,13 @@ class CudaKeyFrame {
         float mfGridElementHeightInv;
         int mnGridCols;
         int mnGridRows;
+        float mThDepth;
+        float* mvDepth;
+
+        size_t mvpMapPoints_size;
+        CudaMapPoint** mvpMapPoints;
+
+        CudaKeyFrame* gpuAddr;
 
         size_t mvScaleFactors_size;
         float* mvScaleFactors;

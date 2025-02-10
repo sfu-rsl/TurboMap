@@ -131,6 +131,8 @@ public:
 #endif
 protected:
 
+    static void signalHandler(int signum);
+    
     bool CheckNewKeyFrames();
     void ProcessNewKeyFrame();
     void CreateNewMapPoints();
