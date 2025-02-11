@@ -4,6 +4,7 @@
 #include "SearchLocalPointsKernel.h"
 #include "PoseEstimationKernel.h"
 #include "StereoMatchKernel.h"
+#include "SearchForTriangulationKernel.h"
 #include "CudaWrappers/CudaFrame.h"
 #include "CudaUtils.h"
 #include "../Stats/TrackingStats.h"
@@ -14,13 +15,14 @@ class KernelController{
 public:
     static void setCUDADevice(int deviceID);
     
-    static void setGPURunMode(bool orbExtractionStatus, bool stereoMatchStatus, bool searchLocalPointsStatus, bool poseEstimationStatus, bool poseOptimizationStatus);
+    static void setGPURunMode(bool orbExtractionStatus, bool stereoMatchStatus, bool searchLocalPointsStatus, bool poseEstimationStatus, bool poseOptimizationStatus, bool searchForTriangulationStatus);
 
     static bool orbExtractionKernelRunStatus;
     static bool stereoMatchKernelRunStatus;
     static bool searchLocalPointsKernelRunStatus;
     static bool poseEstimationKernelRunStatus;
     static bool poseOptimizationRunStatus;
+    static bool searchForTriangulationRunStatus;
 
     static void initializeKernels();
     
@@ -45,6 +47,10 @@ public:
                                             const float th, const bool bForward, const bool bBackward, Eigen::Matrix4f transform_matrix,
                                             int* h_bestDist, int* h_bestIdx2, int* h_bestDistR, int* h_bestIdxR2);
 
+    static void launchSearchForTriangulationKernel(ORB_SLAM3::KeyFrame* mpCurrentKeyFrame, std::vector<ORB_SLAM3::KeyFrame*> vpNeighKFs, 
+                                                   bool mbMonocular, bool mbInertial, bool recentlyLost, bool mbIMU_BA2, 
+                                                   std::vector<std::vector<std::pair<size_t,size_t>>> &allvMatchedIndices, std::vector<size_t> &vpNeighKFsIndexes);
+
 private:
     static bool memory_is_initialized;
     static bool stereoMatchDataHasMovedForward;
@@ -52,6 +58,7 @@ private:
     static std::unique_ptr<StereoMatchKernel> mpStereoMatchKernel;
     static std::unique_ptr<SearchLocalPointsKernel> mpSearchLocalPointsKernel;
     static std::unique_ptr<PoseEstimationKernel> mpPoseEstimationKernel;
+    static std::unique_ptr<SearchForTriangulationKernel> mpSearchForTriangulationKernel;
 };
 
 #endif

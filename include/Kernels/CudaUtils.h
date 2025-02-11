@@ -12,8 +12,7 @@
 
 // Flag to activate the measurement of time in each kernel.
 // #define REGISTER_TRACKING_STATS
-
-#define REGISTER_LOCAL_MAPPING_STATS
+// #define REGISTER_LOCAL_MAPPING_STATS
 
 #define N_FEATURES_TH 20
 #define DESCRIPTOR_SIZE 32

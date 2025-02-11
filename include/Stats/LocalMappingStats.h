@@ -33,6 +33,8 @@ class LocalMappingStats: public StatsInterface {
         std::vector<double> fuse_time;
         std::vector<int> createdMappoints_num;
 
+        double searchForTriangulation_init_time;
+
     private:
         LocalMappingStats() = default; // Private constructor
 };

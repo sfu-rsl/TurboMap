@@ -1,11 +1,21 @@
 #!/bin/bash
 
 if [ $# -lt 2 ]; then
-    echo "Usage: $0 <dataset_name> <[0] for ORB-SLAM3, [1] for FastTrack> <save_stream>"
+    echo "Usage: $0 <dataset_name> <[0] for ORB-SLAM3, [1] for FastTrack, [2] for FastMap> <save_stream>"
     exit 1
 fi
 
 dataset_name=$1
+
+if [ "$2" -eq 2 ]; then
+    orbExtractionRunstatus=0
+    stereoMatchRunstatus=0
+    searchLocalPointsRunstatus=0
+    poseEstimationRunstatus=0
+    poseOptimizationRunstatus=1
+    SearchForTriangulationRunStatus=1
+    version='FastMap'
+fi
 
 if [ "$2" -eq 1 ]; then
     orbExtractionRunstatus=1
@@ -13,6 +23,7 @@ if [ "$2" -eq 1 ]; then
     searchLocalPointsRunstatus=1
     poseEstimationRunstatus=1
     poseOptimizationRunstatus=0
+    SearchForTriangulationRunStatus=0
     version='FastTrack'
 fi
 
@@ -22,6 +33,7 @@ if [ "$2" -eq 0 ]; then
     searchLocalPointsRunstatus=0
     poseEstimationRunstatus=0
     poseOptimizationRunstatus=1
+    SearchForTriangulationRunStatus=0
     version='ORB-SLAM3'
 fi
 
@@ -54,10 +66,10 @@ done
 if [ "$save_ostream" -eq 0 ]; then
     if $found_in_euroc; then
         cd Examples/
-        ./euroc_eval_examples.sh "$orbExtractionRunstatus" "$stereoMatchRunstatus" "$searchLocalPointsRunstatus" "$poseEstimationRunstatus" "$poseOptimizationRunstatus" "$dataset_name" "$version" 
+        ./euroc_eval_examples.sh "$orbExtractionRunstatus" "$stereoMatchRunstatus" "$searchLocalPointsRunstatus" "$poseEstimationRunstatus" "$poseOptimizationRunstatus" "$SearchForTriangulationRunStatus" "$dataset_name" "$version" 
     elif $found_in_tumvi; then
         cd Examples/
-        ./tum_vi_eval_examples.sh "$orbExtractionRunstatus" "$stereoMatchRunstatus" "$searchLocalPointsRunstatus" "$poseEstimationRunstatus" "$poseOptimizationRunstatus" "$dataset_name" "$version" 
+        ./tum_vi_eval_examples.sh "$orbExtractionRunstatus" "$stereoMatchRunstatus" "$searchLocalPointsRunstatus" "$poseEstimationRunstatus" "$poseOptimizationRunstatus" "$SearchForTriangulationRunStatus" "$dataset_name" "$version" 
     else
         echo "Invalid dataset: $dataset_name"
         exit 1
@@ -70,10 +82,10 @@ else
     fi
     if $found_in_euroc; then
         cd Examples/
-        ./euroc_eval_examples.sh "$orbExtractionRunstatus" "$stereoMatchRunstatus" "$searchLocalPointsRunstatus" "$poseEstimationRunstatus" "$poseOptimizationRunstatus" "$dataset_name" "$version" > "../${statsDir}/ostream.txt" 
+        ./euroc_eval_examples.sh "$orbExtractionRunstatus" "$stereoMatchRunstatus" "$searchLocalPointsRunstatus" "$poseEstimationRunstatus" "$poseOptimizationRunstatus" "$SearchForTriangulationRunStatus" "$dataset_name" "$version" > "../${statsDir}/ostream.txt" 
     elif $found_in_tumvi; then
         cd Examples/
-        ./tum_vi_eval_examples.sh "$orbExtractionRunstatus" "$stereoMatchRunstatus" "$searchLocalPointsRunstatus" "$poseEstimationRunstatus" "$poseOptimizationRunstatus" "$dataset_name" "$version" > "../${statsDir}/ostream.txt" 
+        ./tum_vi_eval_examples.sh "$orbExtractionRunstatus" "$stereoMatchRunstatus" "$searchLocalPointsRunstatus" "$poseEstimationRunstatus" "$poseOptimizationRunstatus" "$SearchForTriangulationRunStatus" "$dataset_name" "$version" > "../${statsDir}/ostream.txt" 
     else
         echo "Invalid dataset: $dataset_name"
         exit 1

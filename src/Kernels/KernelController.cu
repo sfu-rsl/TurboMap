@@ -13,11 +13,13 @@ bool KernelController::stereoMatchKernelRunStatus;
 bool KernelController::searchLocalPointsKernelRunStatus;
 bool KernelController::poseEstimationKernelRunStatus;
 bool KernelController::poseOptimizationRunStatus;
+bool KernelController::searchForTriangulationRunStatus;
 bool KernelController::memory_is_initialized = false;
 bool KernelController::stereoMatchDataHasMovedForward = false;
 std::unique_ptr<SearchLocalPointsKernel> KernelController::mpSearchLocalPointsKernel = std::make_unique<SearchLocalPointsKernel>();
 std::unique_ptr<PoseEstimationKernel> KernelController::mpPoseEstimationKernel = std::make_unique<PoseEstimationKernel>();
 std::unique_ptr<StereoMatchKernel> KernelController::mpStereoMatchKernel = std::make_unique<StereoMatchKernel>();
+std::unique_ptr<SearchForTriangulationKernel> KernelController::mpSearchForTriangulationKernel = std::make_unique<SearchForTriangulationKernel>();
 TRACKING_DATA_WRAPPER::CudaFrame* KernelController::cudaFramePtr;
 TRACKING_DATA_WRAPPER::CudaFrame* KernelController::cudaLastFramePtr;
 
@@ -28,12 +30,13 @@ void KernelController::setCUDADevice(int deviceID) {
     printf("Using device %d: %s\n", deviceID, deviceProp.name);
 }
 
-void KernelController::setGPURunMode(bool orbExtractionStatus, bool stereoMatchStatus, bool searchLocalPointsStatus, bool poseEstimationStatus, bool poseOptimizationStatus) {
+void KernelController::setGPURunMode(bool orbExtractionStatus, bool stereoMatchStatus, bool searchLocalPointsStatus, bool poseEstimationStatus, bool poseOptimizationStatus, bool searchForTriangulationStatus) {
     orbExtractionKernelRunStatus = orbExtractionStatus;
     stereoMatchKernelRunStatus = stereoMatchStatus;
     searchLocalPointsKernelRunStatus = searchLocalPointsStatus;
     poseEstimationKernelRunStatus = poseEstimationStatus;
     poseOptimizationRunStatus = poseOptimizationStatus;
+    searchForTriangulationRunStatus = searchForTriangulationStatus;
 }
 
 void KernelController::initializeKernels(){
@@ -58,6 +61,19 @@ void KernelController::initializeKernels(){
         mpPoseEstimationKernel->initialize();
 #ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point PE_end = std::chrono::steady_clock::now();
+#endif
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point SFT_start = std::chrono::steady_clock::now();
+#endif    
+    if(searchForTriangulationRunStatus == 1)
+        mpSearchForTriangulationKernel->initialize();
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point SFT_end = std::chrono::steady_clock::now();    
+    LocalMappingStats::getInstance().searchForTriangulation_init_time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(SFT_end - SFT_start).count();
+#endif    
+
+#ifdef REGISTER_TRACKING_STATS
+    std::chrono::steady_clock::time_point PE_end = std::chrono::steady_clock::now();
     TrackingStats::getInstance().stereoMatch_init_time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(SM_end - SM_start).count();
     TrackingStats::getInstance().searchLocalPoints_init_time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(SLP_end - SLP_start).count();
     TrackingStats::getInstance().poseEstimation_init_time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(PE_end - PE_start).count();
@@ -76,6 +92,8 @@ void KernelController::shutdownKernels(){
             mpSearchLocalPointsKernel->shutdown();
         if(poseEstimationKernelRunStatus == 1)
             mpPoseEstimationKernel->shutdown();
+        if(searchForTriangulationRunStatus == 1)
+            mpSearchForTriangulationKernel->shutdown();
     }
 }
 
@@ -83,6 +101,7 @@ void KernelController::saveKernelsStats(const std::string &file_path){
     mpStereoMatchKernel->saveStats(file_path);
     mpSearchLocalPointsKernel->saveStats(file_path);
     mpPoseEstimationKernel->saveStats(file_path);
+    mpSearchForTriangulationKernel->saveStats(file_path);
 }
 
 void KernelController::launchStereoMatchKernel(std::vector<std::vector<int>> &vRowIndices, uchar* d_imagePyramidL, uchar* d_imagePyramidR, 
@@ -172,4 +191,14 @@ void KernelController::launchPoseEstimationKernel(ORB_SLAM3::Frame &CurrentFrame
 #endif
 
     mpPoseEstimationKernel->launch(CurrentFrame, LastFrame, th, bForward, bBackward, transform_matrix, h_bestDist, h_bestIdx2, h_bestDistR, h_bestIdxR2);
+}
+
+void KernelController::launchSearchForTriangulationKernel(ORB_SLAM3::KeyFrame* mpCurrentKeyFrame, std::vector<ORB_SLAM3::KeyFrame*> vpNeighKFs, 
+                                                          bool mbMonocular, bool mbInertial, bool recentlyLost, bool mbIMU_BA2, 
+                                                          std::vector<std::vector<std::pair<size_t,size_t>>> &allvMatchedIndices, 
+                                                          std::vector<size_t> &vpNeighKFsIndexes) {
+
+    DEBUG_PRINT("launching SearchForTriangulation Kernel"); 
+    cout << "MID current - Frame ID: " << mpCurrentKeyFrame->mnFrameId << ", mbf: " << mpCurrentKeyFrame->mbf << ", mb: " << mpCurrentKeyFrame->mb << endl;
+    mpSearchForTriangulationKernel->launch(mpCurrentKeyFrame, vpNeighKFs, mbMonocular, mbInertial, recentlyLost, mbIMU_BA2, allvMatchedIndices, vpNeighKFsIndexes);
 }

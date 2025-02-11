@@ -7,8 +7,9 @@ stereoMatchRunstatus=$2
 searchLocalPointsRunstatus=$3
 poseEstimationRunstatus=$4
 poseOptimizationRunstatus=$5
-dataset_name=$6
-version=$7
+searchForTriangulationRunStatus=$6
+dataset_name=$7
+version=$8
 
 # if [ "$poseOptimizationRunstatus" -eq 1 ]; then
 #     statsDir="../Results/poseOptimization_on/${orbExtractionRunstatus}${stereoMatchRunstatus}${searchLocalPointsRunstatus}${poseEstimationRunstatus}/${dataset_name}/${version}"
@@ -53,7 +54,7 @@ file_name="dataset-${dataset_name}_stereoi"
 # EXECUTABLE=./Stereo-Inertial/stereo_inertial_euroc
 # ARGS="../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${orbExtractionRunstatus} ${stereoMatchRunstatus} ${searchLocalPointsRunstatus} ${poseEstimationRunstatus}"
 # gdb -ex "set args $ARGS" -ex "run" $EXECUTABLE
-./Stereo-Inertial/stereo_inertial_euroc ../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${orbExtractionRunstatus} ${stereoMatchRunstatus} ${searchLocalPointsRunstatus} ${poseEstimationRunstatus} ${poseOptimizationRunstatus}
+./Stereo-Inertial/stereo_inertial_euroc ../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${orbExtractionRunstatus} ${stereoMatchRunstatus} ${searchLocalPointsRunstatus} ${poseEstimationRunstatus} ${poseOptimizationRunstatus} ${searchForTriangulationRunStatus}
 
 # EXECUTABLE=./Stereo/stereo_euroc 
 # ARGS="../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${orbExtractionRunstatus} ${stereoMatchRunstatus} ${searchLocalPointsRunstatus} ${poseEstimationRunstatus}"

@@ -27,6 +27,8 @@
 #include<mutex>
 #include<chrono>
 
+#include "Kernels/KernelController.h"
+
 namespace ORB_SLAM3
 {
 
@@ -494,15 +496,79 @@ void LocalMapping::CreateNewMapPoints()
     int countStereoGoodProj = 0;
     int countStereoAttempt = 0;
     int totalStereoPts = 0;
-    // Search matches with epipolar restriction and triangulate
-    double total_triangulation_time = 0.0;
     int num_created_mappoints = 0;
-    for(size_t i=0; i<vpNeighKFs.size(); i++)
+
+    vector<vector<pair<size_t,size_t>>> allvMatchedIndices;
+    vector<size_t> vpNeighKFsIndexes;
+
+    // cout << "CPU current - Frame ID: " << mpCurrentKeyFrame->mnFrameId << ", mbf: " << mpCurrentKeyFrame->mbf << ", mb: " << mpCurrentKeyFrame->mb << endl;
+
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point time_StartTriangulation = std::chrono::steady_clock::now();
+#endif
+
+    if (KernelController::searchForTriangulationRunStatus == 1) {
+        if (CheckNewKeyFrames())
+            return;
+        KernelController::launchSearchForTriangulationKernel(
+            mpCurrentKeyFrame, vpNeighKFs, mbMonocular, mbInertial, Tracking::RECENTLY_LOST, mpCurrentKeyFrame->GetMap()->GetIniertialBA2(), 
+            allvMatchedIndices, vpNeighKFsIndexes
+        );
+    }
+    else if (KernelController::searchForTriangulationRunStatus == 0) {
+        for(size_t i=0; i<vpNeighKFs.size(); i++) {
+
+            if(i>0 && CheckNewKeyFrames())
+                return;
+
+            KeyFrame* pKF2 = vpNeighKFs[i];
+
+            // Check first that baseline is not too short
+            Eigen::Vector3f Ow2 = pKF2->GetCameraCenter();
+            Eigen::Vector3f vBaseline = Ow2-Ow1;
+            const float baseline = vBaseline.norm();
+
+            if(!mbMonocular)
+            {
+                // cout << "CPU - Frame ID: " << pKF2->mnFrameId << ", mbf: " << pKF2->mbf << ", baseline: " << baseline << ", mb: " << pKF2->mb << endl;
+                if(baseline<pKF2->mb)
+                    continue;
+            }
+            else
+            {
+                const float medianDepthKF2 = pKF2->ComputeSceneMedianDepth(2);
+                const float ratioBaselineDepth = baseline/medianDepthKF2;
+
+                if(ratioBaselineDepth<0.01)
+                    continue;
+            }
+
+            // Search matches that fullfil epipolar constraint
+            vector<pair<size_t,size_t> > vMatchedIndices;
+            bool bCoarse = mbInertial && mpTracker->mState==Tracking::RECENTLY_LOST && mpCurrentKeyFrame->GetMap()->GetIniertialBA2();
+            matcher.SearchForTriangulation(mpCurrentKeyFrame,pKF2,vMatchedIndices,false,bCoarse);
+            allvMatchedIndices.push_back(vMatchedIndices);
+            vpNeighKFsIndexes.push_back(i);
+        }
+    }
+
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point time_EndTriangulation = std::chrono::steady_clock::now();
+    double timeTriangulation = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_EndTriangulation - time_StartTriangulation).count();
+    LocalMappingStats::getInstance().searchForTriangulation_time.push_back(timeTriangulation);
+#endif
+
+    // if (vpNeighKFs.size() == 11)
+    //     exit(0);
+
+    // Search matches with epipolar restriction and triangulate
+    for(size_t i=0; i<vpNeighKFsIndexes.size(); i++)
     {
         if(i>0 && CheckNewKeyFrames())
             return;
 
-        KeyFrame* pKF2 = vpNeighKFs[i];
+        KeyFrame* pKF2 = vpNeighKFs[vpNeighKFsIndexes[i]];
+
 
         GeometricCamera* pCamera1 = mpCurrentKeyFrame->mpCamera, *pCamera2 = pKF2->mpCamera;
 
@@ -510,33 +576,6 @@ void LocalMapping::CreateNewMapPoints()
         Eigen::Vector3f Ow2 = pKF2->GetCameraCenter();
         Eigen::Vector3f vBaseline = Ow2-Ow1;
         const float baseline = vBaseline.norm();
-
-        if(!mbMonocular)
-        {
-            if(baseline<pKF2->mb)
-                continue;
-        }
-        else
-        {
-            const float medianDepthKF2 = pKF2->ComputeSceneMedianDepth(2);
-            const float ratioBaselineDepth = baseline/medianDepthKF2;
-
-            if(ratioBaselineDepth<0.01)
-                continue;
-        }
-
-        // Search matches that fullfil epipolar constraint
-        vector<pair<size_t,size_t> > vMatchedIndices;
-        bool bCoarse = mbInertial && mpTracker->mState==Tracking::RECENTLY_LOST && mpCurrentKeyFrame->GetMap()->GetIniertialBA2();
-#ifdef REGISTER_LOCAL_MAPPING_STATS
-            std::chrono::steady_clock::time_point time_StartTriangulation = std::chrono::steady_clock::now();
-#endif
-        matcher.SearchForTriangulation(mpCurrentKeyFrame,pKF2,vMatchedIndices,false,bCoarse);
-#ifdef REGISTER_LOCAL_MAPPING_STATS
-            std::chrono::steady_clock::time_point time_EndTriangulation = std::chrono::steady_clock::now();
-            double timeTriangulation = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_EndTriangulation - time_StartTriangulation).count();
-            total_triangulation_time += timeTriangulation;
-#endif
 
         Sophus::SE3<float> sophTcw2 = pKF2->GetPose();
         Eigen::Matrix<float,3,4> eigTcw2 = sophTcw2.matrix3x4();
@@ -552,11 +591,18 @@ void LocalMapping::CreateNewMapPoints()
         const float &invfy2 = pKF2->invfy;
 
         // Triangulate each match
-        const int nmatches = vMatchedIndices.size();
+        const int nmatches = allvMatchedIndices[i].size();
+        unordered_set<size_t> currentKeyframeMatchedKeypoints;
+
         for(int ikp=0; ikp<nmatches; ikp++)
         {
-            const int &idx1 = vMatchedIndices[ikp].first;
-            const int &idx2 = vMatchedIndices[ikp].second;
+            const int &idx1 = allvMatchedIndices[i][ikp].first;
+            const int &idx2 = allvMatchedIndices[i][ikp].second;
+
+            if (currentKeyframeMatchedKeypoints.find(idx1) != currentKeyframeMatchedKeypoints.end())
+                continue;
+
+            currentKeyframeMatchedKeypoints.insert(idx1);
 
             const cv::KeyPoint &kp1 = (mpCurrentKeyFrame -> NLeft == -1) ? mpCurrentKeyFrame->mvKeysUn[idx1]
                                                                          : (idx1 < mpCurrentKeyFrame -> NLeft) ? mpCurrentKeyFrame -> mvKeys[idx1]
@@ -785,7 +831,6 @@ void LocalMapping::CreateNewMapPoints()
         }
     }    
 #ifdef REGISTER_LOCAL_MAPPING_STATS
-    LocalMappingStats::getInstance().searchForTriangulation_time.push_back(total_triangulation_time);
     LocalMappingStats::getInstance().createdMappoints_num.push_back(num_created_mappoints);
 #endif
 }
