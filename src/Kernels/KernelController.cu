@@ -199,6 +199,5 @@ void KernelController::launchSearchForTriangulationKernel(ORB_SLAM3::KeyFrame* m
                                                           std::vector<size_t> &vpNeighKFsIndexes) {
 
     DEBUG_PRINT("launching SearchForTriangulation Kernel"); 
-    cout << "MID current - Frame ID: " << mpCurrentKeyFrame->mnFrameId << ", mbf: " << mpCurrentKeyFrame->mbf << ", mb: " << mpCurrentKeyFrame->mb << endl;
     mpSearchForTriangulationKernel->launch(mpCurrentKeyFrame, vpNeighKFs, mbMonocular, mbInertial, recentlyLost, mbIMU_BA2, allvMatchedIndices, vpNeighKFsIndexes);
 }

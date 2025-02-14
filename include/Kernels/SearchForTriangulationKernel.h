@@ -44,12 +44,16 @@ public:
 private:
     void copyGPUKeypoints(TRACKING_DATA_WRAPPER::CudaKeyPoint* out, const std::vector<cv::KeyPoint> keypoints);
     void copyGPUCamera(MAPPING_DATA_WRAPPER::CudaCamera *out, ORB_SLAM3::GeometricCamera *camera);
-    void copyFrameFeatVec(ORB_SLAM3::KeyFrame* kf, size_t* outFeatureVec, size_t* outFeatureVecIdxs, 
+    void copyFrameFeatVec(ORB_SLAM3::KeyFrame* kf, unsigned int* outFeatureVec, size_t* outFeatureVecIdxs, 
                           size_t* outFeatureVecLastIdx, size_t* outFeatureVecIdxsLastIdx);
-    std::vector<std::vector<std::pair<size_t,size_t>>> convertToVectorOfPairs(
-        size_t* gpuMatchedIdxs, std::vector<size_t> vpNeighKFsIndexes, int featVecSize, 
-        std::vector<std::vector<std::pair<size_t,size_t>>> &allvMatchedIndices
-    );
+    void convertToVectorOfPairs(size_t* gpuMatchedIdxs, std::vector<size_t> vpNeighKFsIndexes, int featVecSize, 
+                                std::vector<std::vector<std::pair<size_t,size_t>>> &allvMatchedIndices);
+    void origCreateNewMapPoints(ORB_SLAM3::KeyFrame* mpCurrentKeyFrame, std::vector<ORB_SLAM3::KeyFrame*> vpNeighKFs, 
+                                bool mbMonocular, bool mbInertial, bool recentlyLost, bool mbIMU_BA2);
+    void origSearchForTriangulation(ORB_SLAM3::KeyFrame* pKF1, ORB_SLAM3::KeyFrame* pKF2, 
+                                    std::vector<std::pair<size_t,size_t>> vMatchedPairs, 
+                                    const bool bOnlyStereo, const bool bCoarse);
+    int origDescriptorDistance(const cv::Mat &a, const cv::Mat &b);
 
 
 private:
@@ -67,8 +71,8 @@ public:
 
 private:
     bool memory_is_initialized;
-    size_t *d_currFrameFeatVec, *d_currFrameFeatVecIdxs;
-    size_t *d_neighFramesfeatVec, *d_neighFramesfeatVecIdxs, *d_neighFramesFeatVecStartIdxs;
+    unsigned int *d_currFrameFeatVec, *d_neighFramesfeatVec;
+    size_t *d_currFrameFeatVecIdxs, *d_neighFramesfeatVecIdxs, *d_neighFramesFeatVecStartIdxs;
     size_t *d_currFrameFeatVecIdxCorrespondences, *d_neighFramesFeatVecIdxCorrespondences;
     size_t *d_neighFramesNLeft;
     Eigen::Matrix3f *d_Rll, *d_Rlr, *d_Rrl, *d_Rrr;

@@ -501,8 +501,6 @@ void LocalMapping::CreateNewMapPoints()
     vector<vector<pair<size_t,size_t>>> allvMatchedIndices;
     vector<size_t> vpNeighKFsIndexes;
 
-    // cout << "CPU current - Frame ID: " << mpCurrentKeyFrame->mnFrameId << ", mbf: " << mpCurrentKeyFrame->mbf << ", mb: " << mpCurrentKeyFrame->mb << endl;
-
 #ifdef REGISTER_LOCAL_MAPPING_STATS
     std::chrono::steady_clock::time_point time_StartTriangulation = std::chrono::steady_clock::now();
 #endif
@@ -530,7 +528,6 @@ void LocalMapping::CreateNewMapPoints()
 
             if(!mbMonocular)
             {
-                // cout << "CPU - Frame ID: " << pKF2->mnFrameId << ", mbf: " << pKF2->mbf << ", baseline: " << baseline << ", mb: " << pKF2->mb << endl;
                 if(baseline<pKF2->mb)
                     continue;
             }
@@ -558,8 +555,10 @@ void LocalMapping::CreateNewMapPoints()
     LocalMappingStats::getInstance().searchForTriangulation_time.push_back(timeTriangulation);
 #endif
 
-    // if (vpNeighKFs.size() == 11)
-    //     exit(0);
+    if (vpNeighKFs.size() == 11)
+        exit(0);
+
+    cout << "vpNeighKFsIndexes: " << vpNeighKFsIndexes.size() << ", allvMatchedIndices: " << allvMatchedIndices.size() << endl;
 
     // Search matches with epipolar restriction and triangulate
     for(size_t i=0; i<vpNeighKFsIndexes.size(); i++)

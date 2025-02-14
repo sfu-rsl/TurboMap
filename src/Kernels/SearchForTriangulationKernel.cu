@@ -306,9 +306,11 @@ __device__ bool fisheyeEpipolarConstrain(MAPPING_DATA_WRAPPER::CudaCamera camera
 }
 
 __global__ void searchForTriangulationKernel(
-    size_t featVecSize, size_t keyFrameMapPointCount, size_t keyFrameMaxFeatureCount, const float scaleFactor, const float camPrecision, const bool bCoarse,
+    size_t featVecSize, size_t keyFrameMapPointCount, size_t keyFrameMaxFeatureCount, 
+    const float scaleFactor, const float camPrecision, const bool bCoarse,
     size_t *currFrameFeatVecIdxCorrespondences, size_t *neighFramesFeatVecIdxCorrespondences,
-    size_t *currFrameFeatVec, size_t *currFrameFeatVecIdxs, size_t *neighFramesfeatVec, size_t *neighFramesfeatVecIdxs, size_t *neighFramesFeatVecStartIdxs,
+    unsigned int *currFrameFeatVec, size_t *currFrameFeatVecIdxs, unsigned int *neighFramesfeatVec, 
+    size_t *neighFramesfeatVecIdxs, size_t *neighFramesFeatVecStartIdxs,
     size_t currFrameNLeft, size_t *neighFramesNLeft,
     Eigen::Matrix3f *Rll, Eigen::Matrix3f *Rlr, Eigen::Matrix3f *Rrl, Eigen::Matrix3f *Rrr, 
     Eigen::Vector3f *tll, Eigen::Vector3f *tlr, Eigen::Vector3f *trl, Eigen::Vector3f *trr, 
@@ -325,17 +327,43 @@ __global__ void searchForTriangulationKernel(
     ) {
 
     int neighborIdx = blockIdx.x;
-    int correspondingFeatVecIdx = blockIdx.y;
+    int correspondingFeatVecIdx = threadIdx.x;
+
+    if (correspondingFeatVecIdx != 50)
+        return;
 
     Eigen::Matrix3f R12;
     Eigen::Vector3f t12;
 
     int currFrameFeatVecCorrespondenceIdx = currFrameFeatVecIdxCorrespondences[neighborIdx*featVecSize + correspondingFeatVecIdx];
+
+    printf("currFrameFeatVecCorrespondenceIdx: %d\n", currFrameFeatVecCorrespondenceIdx);
+
     int neighFrameFeatVecCorrespondenceIdx = neighFramesFeatVecIdxCorrespondences[neighborIdx*featVecSize + correspondingFeatVecIdx];
+
+    printf("neighFrameFeatVecCorrespondenceIdx: %d\n", neighFrameFeatVecCorrespondenceIdx);
+
+    if (currFrameFeatVecCorrespondenceIdx == -1)
+        return;
 
     size_t currFeatVecCount = (currFrameFeatVecCorrespondenceIdx == 0) ? currFrameFeatVecIdxs[currFrameFeatVecCorrespondenceIdx] 
                                                : currFrameFeatVecIdxs[currFrameFeatVecCorrespondenceIdx] - currFrameFeatVecIdxs[currFrameFeatVecCorrespondenceIdx - 1];
     int currFeatStartIdx = (currFrameFeatVecCorrespondenceIdx == 0) ? 0 : currFrameFeatVecIdxs[currFrameFeatVecCorrespondenceIdx - 1];
+
+    size_t neighFeatVecCount = (neighFrameFeatVecCorrespondenceIdx == 0) ? neighFramesfeatVecIdxs[neighborIdx*featVecSize + neighFrameFeatVecCorrespondenceIdx] : 
+        neighFramesfeatVecIdxs[neighborIdx*featVecSize + neighFrameFeatVecCorrespondenceIdx] - neighFramesfeatVecIdxs[neighborIdx*featVecSize + neighFrameFeatVecCorrespondenceIdx - 1];       
+    int neighFeatStartIdx = (neighFrameFeatVecCorrespondenceIdx == 0) ? neighFramesFeatVecStartIdxs[neighborIdx] : 
+        neighFramesFeatVecStartIdxs[neighborIdx] + neighFramesfeatVecIdxs[neighFrameFeatVecCorrespondenceIdx - 1];
+    
+    printf("Match: %d, sizes: %u, %u, first_element: %u, %u, second_element: %u, %u\n",
+        correspondingFeatVecIdx,
+        (unsigned int) currFeatVecCount,
+        (unsigned int) neighFeatVecCount,
+        (unsigned int) currFrameFeatVec[currFeatStartIdx],
+        (unsigned int) neighFramesfeatVec[neighFeatStartIdx],
+        (unsigned int) currFrameFeatVec[currFeatStartIdx + 1],
+        (unsigned int) neighFramesfeatVec[neighFeatStartIdx + 1]
+    );
 
     for (size_t i1 = 0; i1 < currFeatVecCount; i1++) {
 
@@ -351,39 +379,54 @@ __global__ void searchForTriangulationKernel(
                                                                        : (idx1 < currFrameNLeft) ? currFrameMvKeys[idx1]
                                                                                                  : currFrameMvKeysRight[idx1 - currFrameNLeft];
 
+        printf("1\n");
+
         const bool bRight1 = (currFrameNLeft == -1 || idx1 < currFrameNLeft) ? false : true;
 
-        const uint8_t *d1 = &currFrameDescriptors[idx1];
+        const uint8_t *d1 = (uint8_t*) &currFrameDescriptors[idx1*DESCRIPTOR_SIZE];
 
         int bestDist = MATCH_TH_LOW;
         int bestIdx2 = -1;
 
-        size_t neighFeatVecCount = (neighFrameFeatVecCorrespondenceIdx == 0) ? neighFramesfeatVecIdxs[neighborIdx*featVecSize + neighFrameFeatVecCorrespondenceIdx] : 
-                                    neighFramesfeatVecIdxs[neighborIdx*featVecSize + neighFrameFeatVecCorrespondenceIdx] - neighFramesfeatVecIdxs[neighborIdx*featVecSize + neighFrameFeatVecCorrespondenceIdx - 1];
-                                               
-        int neighFeatStartIdx = (neighFrameFeatVecCorrespondenceIdx == 0) ? neighFramesFeatVecStartIdxs[neighborIdx] : 
-                                 neighFramesFeatVecStartIdxs[neighborIdx] + neighFramesfeatVecIdxs[neighFrameFeatVecCorrespondenceIdx - 1];
-
         for (size_t i2 = 0; i2 < neighFeatVecCount; i2++) {
 
             size_t idx2 = neighFramesfeatVec[neighFeatStartIdx + i2];
+            
+            printf("2\n");
 
             if (neighFramesMapPointExists[neighborIdx*keyFrameMapPointCount + idx2])
                 continue;
 
             const bool bStereo2 = (!neighFramesCamera2[neighborIdx].isAvailable &&  neighFramesMvuRight[neighborIdx*keyFrameMaxFeatureCount + idx2]>=0);
 
-            const uint8_t *d2 = &neighFramesDescriptors[neighborIdx*keyFrameMaxFeatureCount + idx2];
+            printf("2.1\n");
+
+            const uint8_t *d2 = (uint8_t*) &neighFramesDescriptors[(neighborIdx*keyFrameMaxFeatureCount + idx2)*DESCRIPTOR_SIZE];
+
+            for (int i = 0; i < 32; i++) {
+                printf("%u, %u\n", (unsigned int) d1[i], (unsigned int) d2[i]);
+            }
+
+            printf("2.2\n");
 
             const int dist = DescriptorDistance(d1, d2);
 
             if (dist > MATCH_TH_LOW || dist > bestDist)
                 continue;
+ 
+            printf("2.3\n");
+
+            printf("neighFramesNLeft: %u\n", (unsigned int)neighFramesNLeft[neighborIdx]);
+            // printf("neighFramesNLeft: %u\n", (unsigned int)neighFramesNLeft[neighborIdx]);
+            // printf("neighFramesNLeft: %u\n", (unsigned int)neighFramesNLeft[neighborIdx]);
+            // printf("neighFramesNLeft: %u\n", (unsigned int)neighFramesNLeft[neighborIdx]);
 
             const TRACKING_DATA_WRAPPER::CudaKeyPoint &kp2 = 
                 (neighFramesNLeft[neighborIdx] == -1) ? neighFramesMvKeysUn[neighborIdx*keyFrameMaxFeatureCount + idx2]
                                                       : (idx2 < neighFramesNLeft[neighborIdx]) ? neighFramesMvKeys[neighborIdx*keyFrameMaxFeatureCount + idx2]
                                                                                                : neighFramesMvKeysRight[neighborIdx*keyFrameMaxFeatureCount + idx2 - neighFramesNLeft[neighborIdx]];
+
+            printf("3\n");
 
             const bool bRight2 = (neighFramesNLeft[neighborIdx] == -1 || idx2 < neighFramesNLeft[neighborIdx]) ? false : true;
 
@@ -394,6 +437,8 @@ __global__ void searchForTriangulationKernel(
                     continue;
             }
 
+            printf("4\n");
+
             MAPPING_DATA_WRAPPER::CudaCamera camera1, camera2;
 
             if (currFrameCamera2.isAvailable && neighFramesCamera2[neighborIdx].isAvailable) {
@@ -402,38 +447,40 @@ __global__ void searchForTriangulationKernel(
                     t12 = trr[neighborIdx];
 
                     camera1.toK = currFrameCamera2.toK;
-                    camera1.mvParameters = currFrameCamera2.mvParameters;
+                    memcpy(camera1.mvParameters, currFrameCamera2.mvParameters, sizeof(float)*8);
                     camera2.toK = neighFramesCamera2[neighborIdx].toK;
-                    camera2.mvParameters = neighFramesCamera2[neighborIdx].mvParameters;
+                    memcpy(camera2.mvParameters, neighFramesCamera2[neighborIdx].mvParameters, sizeof(float)*8);
                 }
                 else if (bRight1 && !bRight2) {
                     R12 = Rrl[neighborIdx];
                     t12 = trl[neighborIdx];
 
                     camera1.toK = currFrameCamera2.toK;
-                    camera1.mvParameters = currFrameCamera2.mvParameters;
+                    memcpy(camera1.mvParameters, currFrameCamera2.mvParameters, sizeof(float)*8);
                     camera2.toK = neighFramesCamera1[neighborIdx].toK;
-                    camera2.mvParameters = neighFramesCamera1[neighborIdx].mvParameters;
+                    memcpy(camera2.mvParameters, neighFramesCamera1[neighborIdx].mvParameters, sizeof(float)*8);
                 }
                 else if (!bRight1 && bRight2) {
                     R12 = Rlr[neighborIdx];
                     t12 = tlr[neighborIdx];
 
                     camera1.toK = currFrameCamera1.toK;
-                    camera1.mvParameters = currFrameCamera1.mvParameters;
+                    memcpy(camera1.mvParameters, currFrameCamera1.mvParameters, sizeof(float)*8);
                     camera2.toK = neighFramesCamera2[neighborIdx].toK;
-                    camera2.mvParameters = neighFramesCamera2[neighborIdx].mvParameters;
+                    memcpy(camera2.mvParameters, neighFramesCamera2[neighborIdx].mvParameters, sizeof(float)*8);
                 }
                 else {
                     R12 = Rll[neighborIdx];
                     t12 = tll[neighborIdx];
 
                     camera1.toK = currFrameCamera1.toK;
-                    camera1.mvParameters = currFrameCamera1.mvParameters;
+                    memcpy(camera1.mvParameters, currFrameCamera1.mvParameters, sizeof(float)*8);
                     camera2.toK = neighFramesCamera1[neighborIdx].toK;
-                    camera2.mvParameters = neighFramesCamera1[neighborIdx].mvParameters;
+                    memcpy(camera2.mvParameters, neighFramesCamera1[neighborIdx].mvParameters, sizeof(float)*8);
                 }
             }
+
+            printf("5\n");
 
             bool epipolarConstrainIsMet;
             float kp1mvLevelSigma2 = pow(scaleFactor, kp1.octave) * pow(scaleFactor, kp1.octave);
@@ -443,16 +490,21 @@ __global__ void searchForTriangulationKernel(
                 epipolarConstrainIsMet = pinholeEpipolarConstrain(camera1, camera2, kp1, kp2, R12, t12, kp1mvLevelSigma2, kp2mvLevelSigma2);
             else
                 epipolarConstrainIsMet = fisheyeEpipolarConstrain(camera1, camera2, kp1, kp2, R12, t12, kp1mvLevelSigma2, kp2mvLevelSigma2, camPrecision);
+                
+            printf("6\n");
 
             if (bCoarse || epipolarConstrainIsMet) {
                 bestIdx2 = idx2;
                 bestDist = dist;
             }
+
         }
 
         if (bestIdx2 >= 0)
             matchedPairIndexes[neighborIdx*featVecSize + idx1] = bestIdx2;
     }
+
+    printf("Finishhhhhh\n");
 }
 
 void SearchForTriangulationKernel::launch(ORB_SLAM3::KeyFrame* mpCurrentKeyFrame, std::vector<ORB_SLAM3::KeyFrame*> vpNeighKFs, 
@@ -463,13 +515,11 @@ void SearchForTriangulationKernel::launch(ORB_SLAM3::KeyFrame* mpCurrentKeyFrame
     size_t featVecSize = FEAT_VEC_MAX_SIZE;
     Eigen::Vector3f Ow1 = mpCurrentKeyFrame->GetCameraCenter();
 
-    // cout << vpNeighKFs.size() << std::endl;    
-    cout << "GPU current - Frame ID: " << mpCurrentKeyFrame->mnFrameId << ", mbf: " << mpCurrentKeyFrame->mbf << ", mb: " << mpCurrentKeyFrame->mb << endl << endl;
+    cout << "Orig neighbour size is: " << vpNeighKFs.size() << std::endl;    
     
-    // cout << "Finding good neighbours...\n";
+    cout << "Finding good neighbours...\n";
     for (size_t i = 0; i < vpNeighKFs.size(); i++) {
-        // cout << "For iteration\n";
-
+        
         ORB_SLAM3::KeyFrame* pKF2 = vpNeighKFs[i];
 
         // Check first that baseline is not too short
@@ -478,42 +528,36 @@ void SearchForTriangulationKernel::launch(ORB_SLAM3::KeyFrame* mpCurrentKeyFrame
         const float baseline = vBaseline.norm();
 
         if (!mbMonocular) {
-            // cout << "GPU - Frame ID: " << pKF2->mnFrameId << ", mbf: " << pKF2->mbf << ", baseline: " << baseline << ", mb: " << pKF2->mb << endl;
-            if (baseline < pKF2->mb) {
-                // cout << "Continue 1\n";
+            if (baseline < pKF2->mb) 
                 continue;
-            }
         }
         else {
             const float medianDepthKF2 = pKF2->ComputeSceneMedianDepth(2);
             const float ratioBaselineDepth = baseline / medianDepthKF2;
 
-            if (ratioBaselineDepth < 0.01) {
-                // cout << "Continue 2\n";
+            if (ratioBaselineDepth < 0.01)
                 continue;
-            }
         }
-        // cout << "1\n";
         vpNeighKFsIndexes.push_back(i);
-        cout << "2\n";
     }
 
-    // cout << "Good neighbours found!\n";
-
-    if (vpNeighKFsIndexes.size() == 0)
-        return;
+    cout << "Good neighbours found!\n";
 
     size_t nn = vpNeighKFsIndexes.size();
 
-    size_t currFrameFeatVecIdxCorrespondences[nn*featVecSize] = {-1};
+    if (nn == 0)
+        return;
+    
+    size_t currFrameFeatVecIdxCorrespondences[nn*featVecSize];
     size_t neighFramesFeatVecIdxCorrespondences[nn*featVecSize];
+    std::fill_n(currFrameFeatVecIdxCorrespondences, nn*featVecSize, -1);
     size_t correspondeceCount = 0;
 
-    size_t currFrameFeatVec[featVecSize*MAX_FEATURES_IN_WORD];
+    unsigned int currFrameFeatVec[featVecSize*MAX_FEATURES_IN_WORD];
     size_t currFrameFeatVecIdxs[featVecSize];
     size_t currFrameFeatVecSize = 0, currFrameFeatVecIdxsSize = 0;
 
-    size_t neighFramesfeatVec[featVecSize*MAX_FEATURES_IN_WORD*nn];
+    unsigned int neighFramesfeatVec[featVecSize*MAX_FEATURES_IN_WORD*nn];
     size_t neighFramesfeatVecIdxs[featVecSize*nn];
     size_t neighFramesFeatVecStartIdxs[nn];
     size_t neighFramesfeatVecSize = 0, neighFramesfeatVecIdxsSize = 0;
@@ -530,7 +574,6 @@ void SearchForTriangulationKernel::launch(ORB_SLAM3::KeyFrame* mpCurrentKeyFrame
 
         ORB_SLAM3::KeyFrame* pKF2 = vpNeighKFs[vpNeighKFsIndexes[i]];
 
-        // TODO: should change grid size if continued here
         neighFramesFeatVecStartIdxs[i] = neighFramesfeatVecSize;
         copyFrameFeatVec(pKF2, neighFramesfeatVec + neighFramesfeatVecSize, neighFramesfeatVecIdxs + neighFramesfeatVecIdxsSize,
                          &neighFramesfeatVecSize, &neighFramesfeatVecIdxsSize);
@@ -646,7 +689,7 @@ void SearchForTriangulationKernel::launch(ORB_SLAM3::KeyFrame* mpCurrentKeyFrame
     cout << "Creating descripors!\n";
 
     for (size_t i = 0; i < nn; i++)
-        memcpy(neighFramesDescriptors + i*maxFeatures, vpNeighKFs[i]->mDescriptors.data, sizeof(uchar)*maxFeatures);
+        memcpy(neighFramesDescriptors + i*maxFeatures, vpNeighKFs[i]->mDescriptors.data, sizeof(uchar)*maxFeatures*DESCRIPTOR_SIZE);
 
     cout << "Creating keypoints!\n";
 
@@ -679,9 +722,9 @@ void SearchForTriangulationKernel::launch(ORB_SLAM3::KeyFrame* mpCurrentKeyFrame
     cout << "Data trasnfer to gpu started...\n";
 
     // Transfer data to GPU
-    checkCudaError(cudaMemcpy(d_currFrameFeatVec, currFrameFeatVec, sizeof(size_t)*featVecSize*MAX_FEATURES_IN_WORD, cudaMemcpyHostToDevice), "Failed to copy vector currFrameFeatVec from host to device");
+    checkCudaError(cudaMemcpy(d_currFrameFeatVec, currFrameFeatVec, sizeof(unsigned int)*featVecSize*MAX_FEATURES_IN_WORD, cudaMemcpyHostToDevice), "Failed to copy vector currFrameFeatVec from host to device");
     checkCudaError(cudaMemcpy(d_currFrameFeatVecIdxs, currFrameFeatVecIdxs, sizeof(size_t)*featVecSize, cudaMemcpyHostToDevice), "Failed to copy vector currFrameFeatVecIdxs from host to device");
-    checkCudaError(cudaMemcpy(d_neighFramesfeatVec, neighFramesfeatVec, sizeof(size_t)*featVecSize*MAX_FEATURES_IN_WORD*nn, cudaMemcpyHostToDevice), "Failed to copy vector neighFramesfeatVec from host to device");
+    checkCudaError(cudaMemcpy(d_neighFramesfeatVec, neighFramesfeatVec, sizeof(unsigned int)*featVecSize*MAX_FEATURES_IN_WORD*nn, cudaMemcpyHostToDevice), "Failed to copy vector neighFramesfeatVec from host to device");
     checkCudaError(cudaMemcpy(d_neighFramesfeatVecIdxs, neighFramesfeatVecIdxs, sizeof(size_t)*featVecSize*nn, cudaMemcpyHostToDevice), "Failed to copy vector neighFramesfeatVecIdxs from host to device");
     checkCudaError(cudaMemcpy(d_neighFramesFeatVecStartIdxs, neighFramesFeatVecStartIdxs, sizeof(size_t)*nn, cudaMemcpyHostToDevice), "Failed to copy vector neighFramesFeatVecStartIdxs from host to device");
 
@@ -702,8 +745,8 @@ void SearchForTriangulationKernel::launch(ORB_SLAM3::KeyFrame* mpCurrentKeyFrame
     checkCudaError(cudaMemcpy(d_currFrameMapPointExists, currFrameMapPointExists, sizeof(currFrameMapPointExists), cudaMemcpyHostToDevice), "Failed to copy vector currFrameMapPointExists from host to device");
     checkCudaError(cudaMemcpy(d_neighFramesMapPointExists, neighFramesMapPointExists, sizeof(neighFramesMapPointExists), cudaMemcpyHostToDevice), "Failed to copy vector neighFramesMapPointExists from host to device");
 
-    checkCudaError(cudaMemcpy(d_currFrameDescriptors, mpCurrentKeyFrame->mDescriptors.data, sizeof(uchar)*maxFeatures, cudaMemcpyHostToDevice), "Failed to copy vector currFrameDescriptors from host to device");
-    checkCudaError(cudaMemcpy(d_neighFramesDescriptors, neighFramesDescriptors, sizeof(uchar)*maxFeatures*nn, cudaMemcpyHostToDevice), "Failed to copy vector neighFramesDescriptors from host to device");
+    checkCudaError(cudaMemcpy(d_currFrameDescriptors, mpCurrentKeyFrame->mDescriptors.data, sizeof(uchar)*maxFeatures*DESCRIPTOR_SIZE, cudaMemcpyHostToDevice), "Failed to copy vector currFrameDescriptors from host to device");
+    checkCudaError(cudaMemcpy(d_neighFramesDescriptors, neighFramesDescriptors, sizeof(uchar)*maxFeatures*nn*DESCRIPTOR_SIZE, cudaMemcpyHostToDevice), "Failed to copy vector neighFramesDescriptors from host to device");
     
     checkCudaError(cudaMemcpy(d_currFrameMvuRight, mpCurrentKeyFrame->mvuRight.data(), sizeof(float)*mpCurrentKeyFrame->mvuRight.size(), cudaMemcpyHostToDevice), "Failed to copy vector currFrameMvuRight from host to device");
     checkCudaError(cudaMemcpy(d_neighFramesMvuRight, neighFramesMvuRight, sizeof(float)*maxFeatures*nn, cudaMemcpyHostToDevice), "Failed to copy vector neighFramesMvuRight from host to device");
@@ -733,6 +776,8 @@ void SearchForTriangulationKernel::launch(ORB_SLAM3::KeyFrame* mpCurrentKeyFrame
         camPrecision = pKBCam->GetPrecision();
     }
 
+    origCreateNewMapPoints(mpCurrentKeyFrame, vpNeighKFs, mbMonocular, mbInertial, recentlyLost, mbIMU_BA2);
+
     cout << "Entering kernel...\n";
 
     // Run the Kernel
@@ -753,11 +798,288 @@ void SearchForTriangulationKernel::launch(ORB_SLAM3::KeyFrame* mpCurrentKeyFrame
     checkCudaError(cudaDeviceSynchronize(), "cudaDeviceSynchronize returned error code after launching the kernel");
 
     cout << "Kernel finished!\n";
+
+    cout << "GPU output size: " << featVecSize*nn << std::endl;
     
     size_t h_matchedPairIndexes[featVecSize*nn];
     checkCudaError(cudaMemcpy(h_matchedPairIndexes, d_matchedPairIndexes, sizeof(size_t)*featVecSize*nn, cudaMemcpyDeviceToHost), "Failed to copy vector d_matchedPairIndexes from device to host");
+    
+    cout << "cudaMemcpy from GPU to CPU finished!\n";
 
     convertToVectorOfPairs(h_matchedPairIndexes, vpNeighKFsIndexes, featVecSize, allvMatchedIndices);
+    cout << "ConvertToVectorOfPairs finished!\n";
+}
+
+void SearchForTriangulationKernel::origCreateNewMapPoints(ORB_SLAM3::KeyFrame* mpCurrentKeyFrame, std::vector<ORB_SLAM3::KeyFrame*> vpNeighKFs, 
+                                                          bool mbMonocular, bool mbInertial, bool recentlyLost, bool mbIMU_BA2) {
+
+    Eigen::Vector3f Ow1 = mpCurrentKeyFrame->GetCameraCenter();
+    std::vector<std::vector<std::pair<size_t,size_t>>> allvMatchedIndices;
+    std::vector<size_t> vpNeighKFsIndexes;
+    
+    for(size_t i=0; i<vpNeighKFs.size(); i++) {
+
+        ORB_SLAM3::KeyFrame* pKF2 = vpNeighKFs[i];
+
+        // Check first that baseline is not too short
+        Eigen::Vector3f Ow2 = pKF2->GetCameraCenter();
+        Eigen::Vector3f vBaseline = Ow2-Ow1;
+        const float baseline = vBaseline.norm();
+
+        if(!mbMonocular)
+        {
+            if(baseline<pKF2->mb)
+                continue;
+        }
+        else
+        {
+            const float medianDepthKF2 = pKF2->ComputeSceneMedianDepth(2);
+            const float ratioBaselineDepth = baseline/medianDepthKF2;
+
+            if(ratioBaselineDepth<0.01)
+                continue;
+        }
+
+        // Search matches that fullfil epipolar constraint
+        std::vector<std::pair<size_t,size_t>> vMatchedIndices;
+        bool bCoarse = mbInertial && recentlyLost && mpCurrentKeyFrame->GetMap()->GetIniertialBA2();
+        origSearchForTriangulation(mpCurrentKeyFrame,pKF2,vMatchedIndices,false,bCoarse);
+        allvMatchedIndices.push_back(vMatchedIndices);
+        vpNeighKFsIndexes.push_back(i);
+    }
+}
+
+void SearchForTriangulationKernel::origSearchForTriangulation(ORB_SLAM3::KeyFrame* pKF1, ORB_SLAM3::KeyFrame* pKF2, 
+                                                              std::vector<std::pair<size_t,size_t>> vMatchedPairs, 
+                                                              const bool bOnlyStereo, const bool bCoarse) {
+    const DBoW2::FeatureVector &vFeatVec1 = pKF1->mFeatVec;
+    const DBoW2::FeatureVector &vFeatVec2 = pKF2->mFeatVec;
+
+    //Compute epipole in second image
+    Sophus::SE3f T1w = pKF1->GetPose();
+    Sophus::SE3f T2w = pKF2->GetPose();
+    Sophus::SE3f Tw2 = pKF2->GetPoseInverse(); // for convenience
+    Eigen::Vector3f Cw = pKF1->GetCameraCenter();
+    Eigen::Vector3f C2 = T2w * Cw;
+
+    Eigen::Vector2f ep = pKF2->mpCamera->project(C2);
+    Sophus::SE3f T12;
+    Sophus::SE3f Tll, Tlr, Trl, Trr;
+    Eigen::Matrix3f R12; // for fastest computation
+    Eigen::Vector3f t12; // for fastest computation
+
+    ORB_SLAM3::GeometricCamera* pCamera1 = pKF1->mpCamera, *pCamera2 = pKF2->mpCamera;
+
+    if(!pKF1->mpCamera2 && !pKF2->mpCamera2){
+        T12 = T1w * Tw2;
+        R12 = T12.rotationMatrix();
+        t12 = T12.translation();
+        cout << "T_T\n";
+    }
+    else{
+        Sophus::SE3f Tr1w = pKF1->GetRightPose();
+        Sophus::SE3f Twr2 = pKF2->GetRightPoseInverse();
+        Tll = T1w * Tw2;
+        Tlr = T1w * Twr2;
+        Trl = Tr1w * Tw2;
+        Trr = Tr1w * Twr2;
+    }
+
+    Eigen::Matrix3f Rll = Tll.rotationMatrix(), Rlr  = Tlr.rotationMatrix(), Rrl  = Trl.rotationMatrix(), Rrr  = Trr.rotationMatrix();
+    Eigen::Vector3f tll = Tll.translation(), tlr = Tlr.translation(), trl = Trl.translation(), trr = Trr.translation();
+
+    // Find matches between not tracked keypoints
+    // Matching speed-up by ORB Vocabulary
+    // Compare only ORB that share the same node
+    int nmatches=0;
+    vector<bool> vbMatched2(pKF2->N,false);
+    vector<int> vMatches12(pKF1->N,-1);
+
+    DBoW2::FeatureVector::const_iterator f1it = vFeatVec1.begin();
+    DBoW2::FeatureVector::const_iterator f2it = vFeatVec2.begin();
+    DBoW2::FeatureVector::const_iterator f1end = vFeatVec1.end();
+    DBoW2::FeatureVector::const_iterator f2end = vFeatVec2.end();
+
+    int counter = 0;
+
+    while(f1it!=f1end && f2it!=f2end)
+    {
+        if(f1it->first == f2it->first)
+        {
+            // printf("Match: %d, sizes: %u, %u, first_element: %u, %u, second_element: %u, %u\n",
+            //     counter,
+            //     (unsigned int) f1it->second.size(),
+            //     (unsigned int) f2it->second.size(),
+            //     (unsigned int) f1it->second.data()[0],
+            //     (unsigned int) f2it->second.data()[0],
+            //     (unsigned int) f1it->second.data()[1],
+            //     (unsigned int) f2it->second.data()[1]
+            // );
+            // counter++;
+            
+            for(size_t i1=0, iend1=f1it->second.size(); i1<iend1; i1++)
+            {
+
+
+                const size_t idx1 = f1it->second[i1];
+
+                ORB_SLAM3::MapPoint* pMP1 = pKF1->GetMapPoint(idx1);
+
+                // If there is already a MapPoint skip
+                if(pMP1)
+                {
+                    continue;
+                }
+
+                const bool bStereo1 = (!pKF1->mpCamera2 && pKF1->mvuRight[idx1]>=0);
+
+                if(bOnlyStereo)
+                    if(!bStereo1)
+                        continue;
+
+                const cv::KeyPoint &kp1 = (pKF1 -> NLeft == -1) ? pKF1->mvKeysUn[idx1]
+                                                                : (idx1 < pKF1 -> NLeft) ? pKF1 -> mvKeys[idx1]
+                                                                                            : pKF1 -> mvKeysRight[idx1 - pKF1 -> NLeft];
+
+                const bool bRight1 = (pKF1 -> NLeft == -1 || idx1 < pKF1 -> NLeft) ? false
+                                                                                    : true;
+
+                const cv::Mat &d1 = pKF1->mDescriptors.row(idx1);
+
+                int bestDist = 50;
+                int bestIdx2 = -1;
+
+                for(size_t i2=0, iend2=f2it->second.size(); i2<iend2; i2++)
+                {
+                    size_t idx2 = f2it->second[i2];
+
+                    ORB_SLAM3::MapPoint* pMP2 = pKF2->GetMapPoint(idx2);
+
+                    // If we have already matched or there is a MapPoint skip
+                    if(vbMatched2[idx2] || pMP2)
+                        continue;
+
+                    const bool bStereo2 = (!pKF2->mpCamera2 &&  pKF2->mvuRight[idx2]>=0);
+
+                    if(bOnlyStereo)
+                        if(!bStereo2)
+                            continue;
+
+                    const cv::Mat &d2 = pKF2->mDescriptors.row(idx2);
+
+                    const int dist = origDescriptorDistance(d1,d2);
+
+                    if(dist>50 || dist>bestDist)
+                        continue;
+
+                    const cv::KeyPoint &kp2 = (pKF2 -> NLeft == -1) ? pKF2->mvKeysUn[idx2]
+                                                                    : (idx2 < pKF2 -> NLeft) ? pKF2 -> mvKeys[idx2]
+                                                                                                : pKF2 -> mvKeysRight[idx2 - pKF2 -> NLeft];
+                    const bool bRight2 = (pKF2 -> NLeft == -1 || idx2 < pKF2 -> NLeft) ? false
+                                                                                        : true;
+
+                    if(!bStereo1 && !bStereo2 && !pKF1->mpCamera2)
+                    {
+                        const float distex = ep(0)-kp2.pt.x;
+                        const float distey = ep(1)-kp2.pt.y;
+                        if(distex*distex+distey*distey<100*pKF2->mvScaleFactors[kp2.octave])
+                        {
+                            continue;
+                        }
+                    }
+
+                    if(pKF1->mpCamera2 && pKF2->mpCamera2){
+                        if(bRight1 && bRight2){
+                            R12 = Rrr;
+                            t12 = trr;
+                            T12 = Trr;
+
+                            pCamera1 = pKF1->mpCamera2;
+                            pCamera2 = pKF2->mpCamera2;
+                        }
+                        else if(bRight1 && !bRight2){
+                            R12 = Rrl;
+                            t12 = trl;
+                            T12 = Trl;
+
+                            pCamera1 = pKF1->mpCamera2;
+                            pCamera2 = pKF2->mpCamera;
+                        }
+                        else if(!bRight1 && bRight2){
+                            R12 = Rlr;
+                            t12 = tlr;
+                            T12 = Tlr;
+
+                            pCamera1 = pKF1->mpCamera;
+                            pCamera2 = pKF2->mpCamera2;
+                        }
+                        else{
+                            R12 = Rll;
+                            t12 = tll;
+                            T12 = Tll;
+
+                            pCamera1 = pKF1->mpCamera;
+                            pCamera2 = pKF2->mpCamera;
+                        }
+
+                    }
+
+                    if(bCoarse || pCamera1->epipolarConstrain(pCamera2,kp1,kp2,R12,t12,pKF1->mvLevelSigma2[kp1.octave],pKF2->mvLevelSigma2[kp2.octave])) // MODIFICATION_2
+                    {
+                        bestIdx2 = idx2;
+                        bestDist = dist;
+                    }
+                }
+
+                if(bestIdx2>=0)
+                {
+                    const cv::KeyPoint &kp2 = (pKF2 -> NLeft == -1) ? pKF2->mvKeysUn[bestIdx2]
+                                                                    : (bestIdx2 < pKF2 -> NLeft) ? pKF2 -> mvKeys[bestIdx2]
+                                                                                                    : pKF2 -> mvKeysRight[bestIdx2 - pKF2 -> NLeft];
+                    vMatches12[idx1]=bestIdx2;
+                    nmatches++;
+                }
+            }
+
+            f1it++;
+            f2it++;
+        }
+        else if(f1it->first < f2it->first)
+        {
+            f1it = vFeatVec1.lower_bound(f2it->first);
+        }
+        else
+        {
+            f2it = vFeatVec2.lower_bound(f1it->first);
+        }
+    }
+
+    vMatchedPairs.clear();
+    vMatchedPairs.reserve(nmatches);
+
+    for(size_t i=0, iend=vMatches12.size(); i<iend; i++)
+    {
+        if(vMatches12[i]<0)
+            continue;
+        vMatchedPairs.push_back(make_pair(i,vMatches12[i]));
+    }
+}
+
+int SearchForTriangulationKernel::origDescriptorDistance(const cv::Mat &a, const cv::Mat &b) {
+    const int *pa = a.ptr<int32_t>();
+    const int *pb = b.ptr<int32_t>();
+
+    int dist=0;
+
+    for(int i=0; i<8; i++, pa++, pb++)
+    {
+        unsigned  int v = *pa ^ *pb;
+        v = v - ((v >> 1) & 0x55555555);
+        v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
+        dist += (((v + (v >> 4)) & 0xF0F0F0F) * 0x1010101) >> 24;
+    }
+
+    return dist;
 }
 
 void SearchForTriangulationKernel::copyGPUKeypoints(TRACKING_DATA_WRAPPER::CudaKeyPoint* out, const std::vector<cv::KeyPoint> keypoints) {
@@ -770,11 +1092,14 @@ void SearchForTriangulationKernel::copyGPUKeypoints(TRACKING_DATA_WRAPPER::CudaK
 
 void SearchForTriangulationKernel::copyGPUCamera(MAPPING_DATA_WRAPPER::CudaCamera *out, ORB_SLAM3::GeometricCamera *camera) {
     out->isAvailable = (bool) camera;
+    if (!out->isAvailable)
+        return;
+
     memcpy(out->mvParameters, camera->getParameters().data(), sizeof(float)*camera->getParameters().size());
     out->toK = camera->toK_();
 }
 
-void SearchForTriangulationKernel::copyFrameFeatVec(ORB_SLAM3::KeyFrame* kf, size_t* outFeatureVec, size_t* outFeatureVecIdxs, 
+void SearchForTriangulationKernel::copyFrameFeatVec(ORB_SLAM3::KeyFrame* kf, unsigned int* outFeatureVec, size_t* outFeatureVecIdxs, 
                                                     size_t* outFeatureVecLastIdx, size_t* outFeatureVecIdxsLastIdx) {
                                             
     DBoW2::FeatureVector::const_iterator frameIt = kf->mFeatVec.begin();
@@ -782,9 +1107,10 @@ void SearchForTriangulationKernel::copyFrameFeatVec(ORB_SLAM3::KeyFrame* kf, siz
     size_t outFeatureVecSize = 0, counter = 0;
 
     while (frameIt != frameEnd) {
-        outFeatureVecSize += frameIt->second.size();
 
-        memcpy(outFeatureVec + outFeatureVecSize, frameIt->second.data(), sizeof(size_t) * frameIt->second.size());
+        memcpy(outFeatureVec + outFeatureVecSize, frameIt->second.data(), sizeof(unsigned int) * frameIt->second.size());
+
+        outFeatureVecSize += frameIt->second.size();
         outFeatureVecIdxs[counter] = outFeatureVecSize;
         
         counter++;
@@ -795,9 +1121,9 @@ void SearchForTriangulationKernel::copyFrameFeatVec(ORB_SLAM3::KeyFrame* kf, siz
     *outFeatureVecIdxsLastIdx += counter;
 }
 
-std::vector<std::vector<std::pair<size_t,size_t>>> SearchForTriangulationKernel::convertToVectorOfPairs(
-    size_t* gpuMatchedIdxs, std::vector<size_t> vpNeighKFsIndexes, int featVecSize, std::vector<std::vector<std::pair<size_t,size_t>>> &allvMatchedIndices
-) {
+void SearchForTriangulationKernel::convertToVectorOfPairs(size_t* gpuMatchedIdxs, std::vector<size_t> vpNeighKFsIndexes, int featVecSize, 
+                                                          std::vector<std::vector<std::pair<size_t,size_t>>> &allvMatchedIndices) {
+
     for (size_t i = 0; i < vpNeighKFsIndexes.size(); i++) {
         std::vector<std::pair<size_t,size_t>> tmp;
         for (size_t j = 0; j < featVecSize; j++) {
@@ -825,13 +1151,24 @@ void SearchForTriangulationKernel::initialize() {
         mapPointVecSize = maxFeatures;
 
 
-    checkCudaError(cudaMalloc((void**)&d_currFrameFeatVec, sizeof(size_t)*featVecSize*MAX_FEATURES_IN_WORD), "Failed to allocate device vector d_currFrameFeatVec");
+    checkCudaError(cudaMalloc((void**)&d_currFrameFeatVec, sizeof(unsigned int)*featVecSize*MAX_FEATURES_IN_WORD), "Failed to allocate device vector d_currFrameFeatVec");
     checkCudaError(cudaMalloc((void**)&d_currFrameFeatVecIdxs, sizeof(size_t)*featVecSize), "Failed to allocate device vector d_currFrameFeatVecIdxs");
-    checkCudaError(cudaMalloc((void**)&d_neighFramesfeatVec, sizeof(size_t)*featVecSize*MAX_FEATURES_IN_WORD*maxNeighborCount), "Failed to allocate device vector d_neighFramesfeatVec");
+    checkCudaError(cudaMalloc((void**)&d_neighFramesfeatVec, sizeof(unsigned int)*featVecSize*MAX_FEATURES_IN_WORD*maxNeighborCount), "Failed to allocate device vector d_neighFramesfeatVec");
     checkCudaError(cudaMalloc((void**)&d_neighFramesfeatVecIdxs, sizeof(size_t)*featVecSize*maxNeighborCount), "Failed to allocate device vector d_neighFramesfeatVecIdxs");
     checkCudaError(cudaMalloc((void**)&d_neighFramesFeatVecStartIdxs, sizeof(size_t)*maxNeighborCount), "Failed to allocate device vector d_neighFramesFeatVecStartIdxs");
     checkCudaError(cudaMalloc((void**)&d_currFrameFeatVecIdxCorrespondences, sizeof(size_t)*featVecSize*maxNeighborCount), "Failed to allocate device vector d_currFrameFeatVecIdxCorrespondences");
     checkCudaError(cudaMalloc((void**)&d_neighFramesFeatVecIdxCorrespondences, sizeof(size_t)*featVecSize*maxNeighborCount), "Failed to allocate device vector d_neighFramesFeatVecIdxCorrespondences");
+    checkCudaError(cudaMalloc((void**)&d_neighFramesNLeft, sizeof(size_t)*maxNeighborCount), "Failed to allocate device vector d_neighFramesNLeft");
+    
+    checkCudaError(cudaMalloc((void**)&d_Rll, sizeof(Eigen::Matrix3f)*maxNeighborCount), "Failed to allocate device vector d_Rll");
+    checkCudaError(cudaMalloc((void**)&d_Rlr, sizeof(Eigen::Matrix3f)*maxNeighborCount), "Failed to allocate device vector d_Rlr");
+    checkCudaError(cudaMalloc((void**)&d_Rrl, sizeof(Eigen::Matrix3f)*maxNeighborCount), "Failed to allocate device vector d_Rrl");
+    checkCudaError(cudaMalloc((void**)&d_Rrr, sizeof(Eigen::Matrix3f)*maxNeighborCount), "Failed to allocate device vector d_Rrr");
+    checkCudaError(cudaMalloc((void**)&d_tll, sizeof(Eigen::Vector3f)*maxNeighborCount), "Failed to allocate device vector d_tll");
+    checkCudaError(cudaMalloc((void**)&d_tlr, sizeof(Eigen::Vector3f)*maxNeighborCount), "Failed to allocate device vector d_tlr");
+    checkCudaError(cudaMalloc((void**)&d_trl, sizeof(Eigen::Vector3f)*maxNeighborCount), "Failed to allocate device vector d_trl");
+    checkCudaError(cudaMalloc((void**)&d_trr, sizeof(Eigen::Vector3f)*maxNeighborCount), "Failed to allocate device vector d_trr");
+    
     checkCudaError(cudaMalloc((void**)&d_currFrameMapPointExists, sizeof(bool)*mapPointVecSize), "Failed to allocate device vector d_currFrameMapPointExists");
     checkCudaError(cudaMalloc((void**)&d_neighFramesMapPointExists, sizeof(bool)*mapPointVecSize*maxNeighborCount), "Failed to allocate device vector d_neighFramesMapPointExists");
     checkCudaError(cudaMalloc((void**)&d_currFrameDescriptors, sizeof(uchar)*maxFeatures*DESCRIPTOR_SIZE), "Failed to allocate device vector d_currFrameDescriptors");
@@ -856,8 +1193,6 @@ void SearchForTriangulationKernel::initialize() {
     checkCudaError(cudaMalloc((void**)&d_matchedPairIndexes, sizeof(size_t)*featVecSize*maxNeighborCount), "Failed to allocate device vector d_matchedPairIndexes");
 
     memory_is_initialized = true;
-
-    cout << "GPU memory init ended!\n";
 }
 
 void SearchForTriangulationKernel::shutdown() {

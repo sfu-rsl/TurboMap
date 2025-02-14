@@ -6,7 +6,7 @@
 namespace MAPPING_DATA_WRAPPER {
     struct CudaCamera {
         bool isAvailable;
-        float *mvParameters;
+        float mvParameters[8];
         Eigen::Matrix3f toK;
     };
 }
