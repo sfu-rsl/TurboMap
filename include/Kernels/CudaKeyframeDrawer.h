@@ -16,8 +16,8 @@ class CudaKeyframeDrawer {
     public:
         static void initializeMemory();
         static MAPPING_DATA_WRAPPER::CudaKeyframe* getCudaKeyframe(long unsigned int mnId);
-        static void addCudaKeyframe(ORB_SLAM3::KeyFrame* KF);
-        static void updateCudaKeyframeMapPoints(ORB_SLAM3::KeyFrame* KF);
+        static MAPPING_DATA_WRAPPER::CudaKeyframe* addCudaKeyframe(ORB_SLAM3::KeyFrame* KF);
+        static void updateCudaKeyframeMapPoint(long unsigned int KF_Id, ORB_SLAM3::MapPoint* mp, int idx);
         static void eraseCudaKeyframe(ORB_SLAM3::KeyFrame* KF);
         static void shutdown();
     public:

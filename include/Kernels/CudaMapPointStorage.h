@@ -12,8 +12,8 @@ class CudaMapPointStorage {
     public:
         static void initializeMemory();
         static MAPPING_DATA_WRAPPER::CudaMapPoint* getCudaMapPoint(long unsigned int mnId);
-        static void modifyCudaMapPoint(long unsigned int mnId, ORB_SLAM3::MapPoint* new_MP); 
-        static void addCudaMapPoint(ORB_SLAM3::MapPoint* MP);
+        static MAPPING_DATA_WRAPPER::CudaMapPoint* modifyCudaMapPoint(long unsigned int mnId, ORB_SLAM3::MapPoint* new_MP); 
+        static MAPPING_DATA_WRAPPER::CudaMapPoint* addCudaMapPoint(ORB_SLAM3::MapPoint* MP);
         static void eraseCudaMapPoint(ORB_SLAM3::MapPoint* MP);
         static MAPPING_DATA_WRAPPER::CudaMapPoint* keepCudaMapPoint(MAPPING_DATA_WRAPPER::CudaMapPoint cuda_mp);
         static void shutdown();

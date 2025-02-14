@@ -16,7 +16,7 @@ class CudaKeyframe {
         CudaKeyframe();
         void setGPUAddress(CudaKeyframe* ptr);
         void setMemory(ORB_SLAM3::KeyFrame* KF);
-        void updateMapPoints(vector<ORB_SLAM3::MapPoint*> mvpMapPoints);
+        void addMapPoint(ORB_SLAM3::MapPoint* mp, int idx);
         void freeMemory();
 
     public:
@@ -29,6 +29,9 @@ class CudaKeyframe {
         size_t mvpMapPoints_size;
         CudaMapPoint** mvpMapPoints;
         CudaKeyframe* gpuAddr;
+
+    private:
+        std::vector<CudaMapPoint*> h_mvpMapPoints;
     };
 }
 

@@ -20,8 +20,10 @@ namespace MAPPING_DATA_WRAPPER
 
         if (cameraIsFisheye) {
             checkCudaError(cudaMalloc((void**)&mvpMapPoints, 2 * nFeatures * sizeof(CudaMapPoint*)), "CudaKeyframe::failed to allocate memory for mvpMapPoints");
+            h_mvpMapPoints.resize(2 * nFeatures, nullptr);
         } else {
             checkCudaError(cudaMalloc((void**)&mvpMapPoints, nFeatures * sizeof(CudaMapPoint*)), "CudaKeyframe::failed to allocate memory for mvpMapPoints");
+            h_mvpMapPoints.resize(nFeatures, nullptr);
         }
 
         if (cameraIsFisheye) {
@@ -80,43 +82,12 @@ namespace MAPPING_DATA_WRAPPER
             tmp_mvKeysUn[i].octave = KF->mvKeysUn[i].octave;
         }
         checkCudaError(cudaMemcpy(mvKeysUn, tmp_mvKeysUn.data(), mvKeysUn_size * sizeof(CudaKeyPoint), cudaMemcpyHostToDevice), "CudaKeyframe:: Failed to copy mvKeysUn to gpu");
-
-        vector<ORB_SLAM3::MapPoint*> h_mapPoints = KF->GetMapPointMatches();
-        mvpMapPoints_size = h_mapPoints.size();
-        std::vector<CudaMapPoint*> tmp_mvpMapPoints(mvpMapPoints_size);
-        for (int i = 0; i < mvpMapPoints_size; ++i) {
-                if (h_mapPoints[i]) {
-                    CudaMapPoint* d_mp = CudaMapPointStorage::getCudaMapPoint(h_mapPoints[i]->mnId);
-                    if (d_mp == nullptr) {
-                        MAPPING_DATA_WRAPPER::CudaMapPoint cuda_mp(h_mapPoints[i], mnId, gpuAddr);
-                        d_mp = CudaMapPointStorage::keepCudaMapPoint(cuda_mp);
-                    }
-                    tmp_mvpMapPoints[i] = d_mp;
-                } else {
-                    CudaMapPoint* d_mp = nullptr;
-                    tmp_mvpMapPoints[i] = d_mp;            
-                }
-        }
-        checkCudaError(cudaMemcpy(mvpMapPoints, tmp_mvpMapPoints.data(), tmp_mvpMapPoints.size() * sizeof(CudaMapPoint*), cudaMemcpyHostToDevice), "CudaKeyframe:: Failed to copy mvpMapPoints to gpu");
     }
 
-    void CudaKeyframe::updateMapPoints(vector<ORB_SLAM3::MapPoint*> new_mvpMapPoints) {
-        mvpMapPoints_size = new_mvpMapPoints.size();
-        std::vector<CudaMapPoint*> tmp_mvpMapPoints(mvpMapPoints_size);
-        for (int i = 0; i < mvpMapPoints_size; ++i) {
-                if (new_mvpMapPoints[i]) {
-                    CudaMapPoint* d_mp = CudaMapPointStorage::getCudaMapPoint(new_mvpMapPoints[i]->mnId);
-                    if (d_mp == nullptr) {
-                        MAPPING_DATA_WRAPPER::CudaMapPoint cuda_mp(new_mvpMapPoints[i], mnId, gpuAddr);
-                        d_mp = CudaMapPointStorage::keepCudaMapPoint(cuda_mp);
-                    }
-                    tmp_mvpMapPoints[i] = d_mp;
-                } else {
-                    CudaMapPoint* d_mp = nullptr;
-                    tmp_mvpMapPoints[i] = d_mp;            
-                }
-        }
-        checkCudaError(cudaMemcpy(mvpMapPoints, tmp_mvpMapPoints.data(), tmp_mvpMapPoints.size() * sizeof(CudaMapPoint*), cudaMemcpyHostToDevice), "CudaKeyframe:: Failed to copy mvpMapPoints to gpu");
+    void CudaKeyframe::addMapPoint(ORB_SLAM3::MapPoint* mp, int idx) {
+        CudaMapPoint* d_mp = CudaMapPointStorage::getCudaMapPoint(mp->mnId);
+        h_mvpMapPoints[idx] = d_mp;
+        checkCudaError(cudaMemcpy(&mvpMapPoints[idx], &h_mvpMapPoints[idx], sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint*), cudaMemcpyHostToDevice), "[CudaKeyframe::updateMvpMapPoints: ] Failed to update idx ");
     }
 
     void CudaKeyframe::freeMemory(){

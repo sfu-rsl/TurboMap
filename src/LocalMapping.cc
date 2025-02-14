@@ -403,6 +403,9 @@ void LocalMapping::ProcessNewKeyFrame()
                 if(!pMP->IsInKeyFrame(mpCurrentKeyFrame))
                 {
                     pMP->AddObservation(mpCurrentKeyFrame, i);
+                    if (MappingKernelController::is_active) {
+                        CudaMapPointStorage::modifyCudaMapPoint(pMP->mnId, pMP);
+                    }
                     pMP->UpdateNormalAndDepth();
                     pMP->ComputeDistinctiveDescriptors();
                 }
@@ -420,9 +423,9 @@ void LocalMapping::ProcessNewKeyFrame()
     // Insert Keyframe in Map
     mpAtlas->AddKeyFrame(mpCurrentKeyFrame);
     cout << "Inside process new keyframe\n";
-    if (MappingKernelController::is_active) {
-        CudaKeyframeDrawer::addCudaKeyframe(mpCurrentKeyFrame);
-    }
+    // if (MappingKernelController::is_active) {
+    //     MappingKernelController::addKeyframeToGPU(mpCurrentKeyFrame);
+    // }
 }
 
 void LocalMapping::EmptyQueue()
@@ -450,10 +453,10 @@ void LocalMapping::MapPointCulling()
     {
         MapPoint* pMP = *lit;
 
-        if (MappingKernelController::is_active) {
-            if(pMP->isBad())
-                CudaMapPointStorage::eraseCudaMapPoint(pMP);
-        }
+        // if (MappingKernelController::is_active) {
+        //     if(pMP->isBad())
+        //         CudaMapPointStorage::eraseCudaMapPoint(pMP);
+        // }
 
         if(pMP->isBad())
             lit = mlpRecentAddedMapPoints.erase(lit);
@@ -795,15 +798,23 @@ void LocalMapping::CreateNewMapPoints()
             // Triangulation is succesfull
             MapPoint* pMP = new MapPoint(x3D, mpCurrentKeyFrame, mpAtlas->GetCurrentMap());
             num_created_mappoints += 1;
-
+            
             if (bPointStereo)
-                countStereo++;
+            countStereo++;
             
             pMP->AddObservation(mpCurrentKeyFrame,idx1);
             pMP->AddObservation(pKF2,idx2);
+            
+            if (MappingKernelController::is_active) {
+                CudaMapPointStorage::addCudaMapPoint(pMP);
+            }
 
             mpCurrentKeyFrame->AddMapPoint(pMP,idx1);
             pKF2->AddMapPoint(pMP,idx2);
+            if (MappingKernelController::is_active) {
+                CudaKeyframeDrawer::updateCudaKeyframeMapPoint(mpCurrentKeyFrame->mnId, pMP, idx1);
+                CudaKeyframeDrawer::updateCudaKeyframeMapPoint(pKF2->mnId, pMP, idx2);
+            }
 
             pMP->ComputeDistinctiveDescriptors();
 
@@ -811,12 +822,6 @@ void LocalMapping::CreateNewMapPoints()
 
             mpAtlas->AddMapPoint(pMP);
             mlpRecentAddedMapPoints.push_back(pMP);
-
-            if (MappingKernelController::is_active) {
-                CudaMapPointStorage::addCudaMapPoint(pMP);
-                CudaKeyframeDrawer::updateCudaKeyframeMapPoints(mpCurrentKeyFrame);
-                CudaKeyframeDrawer::updateCudaKeyframeMapPoints(pKF2);
-            }
         }
     }    
 #ifdef REGISTER_LOCAL_MAPPING_STATS
@@ -1218,12 +1223,12 @@ void LocalMapping::KeyFrameCulling()
     double sum = 0;
     int itr = 0;
 
-    int vpLocalKeyFrames_size = vpLocalKeyFrames.size();
-    int kf_count;
-    long unsigned int indices[vpLocalKeyFrames_size];
-    int values_nRedundantObservations[vpLocalKeyFrames_size];
-    int values_nMPs[vpLocalKeyFrames_size];
-    MappingKernelController::launchKeyframeCullingKernel(vpLocalKeyFrames, &kf_count, indices, values_nRedundantObservations, values_nMPs);
+    // int vpLocalKeyFrames_size = vpLocalKeyFrames.size();
+    // int kf_count;
+    // long unsigned int indices[vpLocalKeyFrames_size];
+    // int values_nRedundantObservations[vpLocalKeyFrames_size];
+    // int values_nMPs[vpLocalKeyFrames_size];
+    // MappingKernelController::launchKeyframeCullingKernel(vpLocalKeyFrames, &kf_count, indices, values_nRedundantObservations, values_nMPs);
 
     // for(int i = 0; i < kf_count ; i++) {
     //     int nObs = 3;
@@ -1361,9 +1366,9 @@ void LocalMapping::KeyFrameCulling()
                         pKF->mNextKF = NULL;
                         pKF->mPrevKF = NULL;
                         pKF->SetBadFlag();
-                        if (MappingKernelController::is_active) {
-                            CudaKeyframeDrawer::eraseCudaKeyframe(pKF);
-                        }
+                        // if (MappingKernelController::is_active) {
+                        //     CudaKeyframeDrawer::eraseCudaKeyframe(pKF);
+                        // }
                     }
                     else if(!mpCurrentKeyFrame->GetMap()->GetIniertialBA2() && ((pKF->GetImuPosition()-pKF->mPrevKF->GetImuPosition()).norm()<0.02) && (t<3))
                     {
@@ -1373,18 +1378,18 @@ void LocalMapping::KeyFrameCulling()
                         pKF->mNextKF = NULL;
                         pKF->mPrevKF = NULL;
                         pKF->SetBadFlag();
-                        if (MappingKernelController::is_active) {
-                            CudaKeyframeDrawer::eraseCudaKeyframe(pKF);
-                        }
+                        // if (MappingKernelController::is_active) {
+                        //     CudaKeyframeDrawer::eraseCudaKeyframe(pKF);
+                        // }
                     }
                 }
             }
             else
             {
                 pKF->SetBadFlag();
-                if (MappingKernelController::is_active) {
-                    CudaKeyframeDrawer::eraseCudaKeyframe(pKF);
-                }
+                // if (MappingKernelController::is_active) {
+                //     CudaKeyframeDrawer::eraseCudaKeyframe(pKF);
+                // }
             }
         }
         if((count > 20 && mbAbortBA) || count>100)

@@ -30,9 +30,9 @@ public:
     static void launchKeyframeCullingKernel(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int* h_kf_count, long unsigned int* h_indices,
                                                                             int* h_nMPs, int* h_nRedundantObservations);
     
-    // static void addMapPointToGPUStorage(ORB_SLAM3::MapPoint* MP);
+    // static void addMapPointToGPU(ORB_SLAM3::MapPoint* MP);
 
-    // static void addKeyframeToGPUStorage(ORB_SLAM3::KeyFrame* KF);
+    // static void addKeyframeToGPU(ORB_SLAM3::KeyFrame* KF);
 
 private:
     static bool memory_is_initialized;

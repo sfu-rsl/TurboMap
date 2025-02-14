@@ -34,6 +34,11 @@
 #include <iostream>
 
 #include "Kernels/TrackingKernelController.h"
+
+#include "Kernels/MappingKernelController.h"
+#include "Kernels/CudaKeyframeDrawer.h"
+#include "Kernels/CudaMapPointStorage.h"
+
 #include <mutex>
 #include <chrono>
 #include <csignal>
@@ -2431,6 +2436,10 @@ void Tracking::StereoInitialization()
         // Create KeyFrame
         KeyFrame* pKFini = new KeyFrame(mCurrentFrame,mpAtlas->GetCurrentMap(),mpKeyFrameDB);
 
+        if (MappingKernelController::is_active) {
+            CudaKeyframeDrawer::addCudaKeyframe(pKFini);
+        }
+
         // Insert KeyFrame in the map
         mpAtlas->AddKeyFrame(pKFini);
 
@@ -2446,6 +2455,10 @@ void Tracking::StereoInitialization()
                     MapPoint* pNewMP = new MapPoint(x3D, pKFini, mpAtlas->GetCurrentMap());
                     pNewMP->AddObservation(pKFini,i);
                     pKFini->AddMapPoint(pNewMP,i);
+                    if (MappingKernelController::is_active) {
+                        CudaMapPointStorage::addCudaMapPoint(pNewMP);
+                        CudaKeyframeDrawer::updateCudaKeyframeMapPoint(pKFini->mnId, pNewMP, i);
+                    }
                     pNewMP->ComputeDistinctiveDescriptors();
                     pNewMP->UpdateNormalAndDepth();
                     mpAtlas->AddMapPoint(pNewMP);
@@ -2466,6 +2479,12 @@ void Tracking::StereoInitialization()
 
                     pKFini->AddMapPoint(pNewMP,i);
                     pKFini->AddMapPoint(pNewMP,rightIndex + mCurrentFrame.Nleft);
+                    
+                    if (MappingKernelController::is_active) {
+                        CudaMapPointStorage::addCudaMapPoint(pNewMP);
+                        CudaKeyframeDrawer::updateCudaKeyframeMapPoint(pKFini->mnId, pNewMP, i);
+                        CudaKeyframeDrawer::updateCudaKeyframeMapPoint(pKFini->mnId, pNewMP, rightIndex + mCurrentFrame.Nleft);
+                    }
 
                     pNewMP->ComputeDistinctiveDescriptors();
                     pNewMP->UpdateNormalAndDepth();
@@ -2588,6 +2607,11 @@ void Tracking::CreateInitialMapMonocular()
     KeyFrame* pKFini = new KeyFrame(mInitialFrame,mpAtlas->GetCurrentMap(),mpKeyFrameDB);
     KeyFrame* pKFcur = new KeyFrame(mCurrentFrame,mpAtlas->GetCurrentMap(),mpKeyFrameDB);
 
+    if (MappingKernelController::is_active) {
+        CudaKeyframeDrawer::addCudaKeyframe(pKFini);
+        CudaKeyframeDrawer::addCudaKeyframe(pKFcur);
+    }
+
     if(mSensor == System::IMU_MONOCULAR)
         pKFini->mpImuPreintegrated = (IMU::Preintegrated*)(NULL);
 
@@ -2609,11 +2633,17 @@ void Tracking::CreateInitialMapMonocular()
         worldPos << mvIniP3D[i].x, mvIniP3D[i].y, mvIniP3D[i].z;
         MapPoint* pMP = new MapPoint(worldPos,pKFcur,mpAtlas->GetCurrentMap());
 
-        pKFini->AddMapPoint(pMP,i);
-        pKFcur->AddMapPoint(pMP,mvIniMatches[i]);
-
         pMP->AddObservation(pKFini,i);
         pMP->AddObservation(pKFcur,mvIniMatches[i]);
+        
+        pKFini->AddMapPoint(pMP,i);
+        pKFcur->AddMapPoint(pMP,mvIniMatches[i]);
+        
+        if (MappingKernelController::is_active) {
+            CudaMapPointStorage::addCudaMapPoint(pMP);
+            CudaKeyframeDrawer::updateCudaKeyframeMapPoint(pKFini->mnId, pMP, i);
+            CudaKeyframeDrawer::updateCudaKeyframeMapPoint(pKFcur->mnId, pMP, mvIniMatches[i]);
+        }
 
         pMP->ComputeDistinctiveDescriptors();
         pMP->UpdateNormalAndDepth();
@@ -2894,6 +2924,10 @@ void Tracking::UpdateLastFrame()
             }
 
             MapPoint* pNewMP = new MapPoint(x3D,mpAtlas->GetCurrentMap(),&mLastFrame,i);
+            if (MappingKernelController::is_active) {
+                CudaMapPointStorage::addCudaMapPoint(pNewMP);
+            }
+
             mLastFrame.mvpMapPoints[i]=pNewMP;
 
             mlpTemporalPoints.push_back(pNewMP);
@@ -3354,6 +3388,10 @@ void Tracking::CreateNewKeyFrame()
 
     KeyFrame* pKF = new KeyFrame(mCurrentFrame,mpAtlas->GetCurrentMap(),mpKeyFrameDB);
 
+    if (MappingKernelController::is_active) {
+        CudaKeyframeDrawer::addCudaKeyframe(pKF);
+    }
+
     if(mpAtlas->isImuInitialized()) //  || mpLocalMapper->IsInitializing())
         pKF->bImu = true;
 
@@ -3431,16 +3469,32 @@ void Tracking::CreateNewKeyFrame()
 
                     MapPoint* pNewMP = new MapPoint(x3D,pKF,mpAtlas->GetCurrentMap());
                     pNewMP->AddObservation(pKF,i);
-
+                    if (MappingKernelController::is_active) {
+                        CudaMapPointStorage::addCudaMapPoint(pNewMP);
+                    }
+                    
                     //Check if it is a stereo observation in order to not
                     //duplicate mappoints
                     if(mCurrentFrame.Nleft != -1 && mCurrentFrame.mvLeftToRightMatch[i] >= 0){
                         mCurrentFrame.mvpMapPoints[mCurrentFrame.Nleft + mCurrentFrame.mvLeftToRightMatch[i]]=pNewMP;
+
                         pNewMP->AddObservation(pKF,mCurrentFrame.Nleft + mCurrentFrame.mvLeftToRightMatch[i]);
+                        if (MappingKernelController::is_active) {
+                            CudaMapPointStorage::modifyCudaMapPoint(pNewMP->mnId, pNewMP);
+                        }
+
                         pKF->AddMapPoint(pNewMP,mCurrentFrame.Nleft + mCurrentFrame.mvLeftToRightMatch[i]);
+                        if (MappingKernelController::is_active) {
+                            CudaKeyframeDrawer::updateCudaKeyframeMapPoint(pKF->mnId, pNewMP, mCurrentFrame.Nleft + mCurrentFrame.mvLeftToRightMatch[i]);
+                        }
+                    }
+                    
+                    
+                    pKF->AddMapPoint(pNewMP,i);
+                    if (MappingKernelController::is_active) {
+                        CudaKeyframeDrawer::updateCudaKeyframeMapPoint(pKF->mnId, pNewMP, i);
                     }
 
-                    pKF->AddMapPoint(pNewMP,i);
                     pNewMP->ComputeDistinctiveDescriptors();
                     pNewMP->UpdateNormalAndDepth();
                     mpAtlas->AddMapPoint(pNewMP);
@@ -3461,7 +3515,6 @@ void Tracking::CreateNewKeyFrame()
             //Verbose::PrintMess("new mps for stereo KF: " + to_string(nPoints), Verbose::VERBOSITY_NORMAL);
         }
     }
-
 
     mpLocalMapper->InsertKeyFrame(pKF);
 

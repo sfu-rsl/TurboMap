@@ -1,6 +1,14 @@
 #include "Kernels/CudaKeyframeDrawer.h"
 #include <csignal> 
 
+// #define DEBUG
+
+#ifdef DEBUG
+#define DEBUG_PRINT(msg) std::cout << "Debug [CudaKeyframeDrawer::]  " << msg << std::endl
+#else
+#define DEBUG_PRINT(msg) do {} while (0)
+#endif
+
 MAPPING_DATA_WRAPPER::CudaKeyframe *CudaKeyframeDrawer::d_keyframes, *CudaKeyframeDrawer::h_keyframes;
 // std::unordered_map<long unsigned int, MAPPING_DATA_WRAPPER::CudaKeyframe*> CudaKeyframeDrawer::id_to_kf;
 std::unordered_map<long unsigned int, int> CudaKeyframeDrawer::mnId_to_idx;
@@ -39,19 +47,21 @@ __global__ void validateKFInput_GPU(MAPPING_DATA_WRAPPER::CudaKeyframe* KF) {
     }
 }
 
-void CudaKeyframeDrawer::updateCudaKeyframeMapPoints(ORB_SLAM3::KeyFrame* KF) {
-    auto it = mnId_to_idx.find(KF->mnId);
+void CudaKeyframeDrawer::updateCudaKeyframeMapPoint(long unsigned int KF_mnId, ORB_SLAM3::MapPoint* mp, int idx) {
+    auto it = mnId_to_idx.find(KF_mnId);
     if (it == mnId_to_idx.end()) {
         cout << "[ERROR] CudaKeyframeDrawer::modifyCudaKeyframe: ] KF not found!\n";
         raise(SIGSEGV);        
     }
-    int idx = it->second;
+    int KF_idx = it->second;
 
-    h_keyframes[idx].updateMapPoints(KF->GetMapPointMatches());
-    checkCudaError(cudaMemcpy(&d_keyframes[idx], &h_keyframes[idx], sizeof(MAPPING_DATA_WRAPPER::CudaKeyframe), cudaMemcpyHostToDevice), "[CudaKeyframeDrawer::modifyCudaKeyframe: ] Failed to modify keyframe");
+    h_keyframes[KF_idx].addMapPoint(mp, idx);
+    checkCudaError(cudaMemcpy(&d_keyframes[KF_idx], &h_keyframes[KF_idx], sizeof(MAPPING_DATA_WRAPPER::CudaKeyframe), cudaMemcpyHostToDevice), "[CudaKeyframeDrawer::modifyCudaKeyframe: ] Failed to modify keyframe");
+
+    DEBUG_PRINT("updateCudaKeyframeMapPoint: " << KF_mnId << endl);
 }
 
-void CudaKeyframeDrawer::addCudaKeyframe(ORB_SLAM3::KeyFrame* KF){
+MAPPING_DATA_WRAPPER::CudaKeyframe* CudaKeyframeDrawer::addCudaKeyframe(ORB_SLAM3::KeyFrame* KF){
     if (!memory_is_initialized) {
         cout << "[ERROR] CudaKeyframeDrawer::addCudaKeyframe: ] memory not initialized!\n";
         raise(SIGSEGV);
@@ -70,7 +80,9 @@ void CudaKeyframeDrawer::addCudaKeyframe(ORB_SLAM3::KeyFrame* KF){
     first_free_idx += 1;
     num_keyframes += 1;
 
-    cout << "Drawer added KF: " << KF->mnId << endl;
+    DEBUG_PRINT("addCudaKeyframe: " << KF->mnId << endl);
+
+    return &d_keyframes[first_free_idx-1];
 }
 
 void CudaKeyframeDrawer::eraseCudaKeyframe(ORB_SLAM3::KeyFrame* KF){
@@ -83,6 +95,8 @@ void CudaKeyframeDrawer::eraseCudaKeyframe(ORB_SLAM3::KeyFrame* KF){
 
     h_keyframes[idx].freeMemory();
     mnId_to_idx.erase(KF->mnId);
+
+    DEBUG_PRINT("eraseCudaKeyframe: " << KF->mnId << endl);
 }
 
 MAPPING_DATA_WRAPPER::CudaKeyframe* CudaKeyframeDrawer::getCudaKeyframe(long unsigned int mnId){

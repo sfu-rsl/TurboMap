@@ -25,6 +25,10 @@
 #include "ORBmatcher.h"
 #include "G2oTypes.h"
 
+#include "Kernels/MappingKernelController.h"
+#include "Kernels/CudaKeyframeDrawer.h"
+#include "Kernels/CudaMapPointStorage.h"
+
 #include<mutex>
 #include<thread>
 
@@ -1121,12 +1125,22 @@ void LoopClosing::CorrectLoop()
             {
                 MapPoint* pLoopMP = mvpLoopMatchedMPs[i];
                 MapPoint* pCurMP = mpCurrentKF->GetMapPoint(i);
-                if(pCurMP)
+                if(pCurMP){
                     pCurMP->Replace(pLoopMP);
+                    if (MappingKernelController::is_active) {
+                        CudaMapPointStorage::modifyCudaMapPoint(pCurMP->mnId, pLoopMP);
+                    }
+                }
                 else
                 {
                     mpCurrentKF->AddMapPoint(pLoopMP,i);
+                    if (MappingKernelController::is_active) {
+                        CudaKeyframeDrawer::updateCudaKeyframeMapPoint(mpCurrentKF->mnId, pLoopMP, i);
+                    }
                     pLoopMP->AddObservation(mpCurrentKF,i);
+                    if (MappingKernelController::is_active) {
+                        CudaMapPointStorage::modifyCudaMapPoint(pLoopMP->mnId, pLoopMP);
+                    }
                     pLoopMP->ComputeDistinctiveDescriptors();
                 }
             }
@@ -2144,7 +2158,9 @@ void LoopClosing::SearchAndFuse(const KeyFrameAndPose &CorrectedPosesMap, vector
 
                 num_replaces += 1;
                 pRep->Replace(vpMapPoints[i]);
-
+                if (MappingKernelController::is_active) {
+                    CudaMapPointStorage::modifyCudaMapPoint(pRep->mnId, vpMapPoints[i]);
+                }
             }
         }
 
@@ -2187,6 +2203,9 @@ void LoopClosing::SearchAndFuse(const vector<KeyFrame*> &vConectedKFs, vector<Ma
             {
                 num_replaces += 1;
                 pRep->Replace(vpMapPoints[i]);
+                if (MappingKernelController::is_active) {
+                    CudaMapPointStorage::modifyCudaMapPoint(pRep->mnId, vpMapPoints[i]);
+                }
             }
         }
         /*cout << "FUSE-POSE: KF " << pKF->mnId << " ->" << num_replaces << " MPs fused" << endl;
