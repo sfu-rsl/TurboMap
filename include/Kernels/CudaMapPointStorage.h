@@ -5,6 +5,8 @@
 #include "../MapPoint.h"
 #include "CudaUtils.h"
 #include "CudaWrappers/CudaMapPoint.h"
+#include <stack>
+#include <mutex>
 
 #define CUDA_MAP_POINT_STORAGE_SIZE 50000
 
@@ -19,11 +21,12 @@ class CudaMapPointStorage {
         static void shutdown();
     public:
         static MAPPING_DATA_WRAPPER::CudaMapPoint *d_mappoints, *h_mappoints;
-        static std::unordered_map<long unsigned int, MAPPING_DATA_WRAPPER::CudaMapPoint*> id_to_mp; 
+        // static std::unordered_map<long unsigned int, MAPPING_DATA_WRAPPER::CudaMapPoint*> id_to_mp; 
         static std::unordered_map<long unsigned int, int> mnId_to_idx; 
         static int num_mappoints;
         static bool memory_is_initialized;
         static int first_free_idx;
+        static std::mutex mtx;
 };
 
 #endif

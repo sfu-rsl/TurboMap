@@ -422,7 +422,7 @@ void LocalMapping::ProcessNewKeyFrame()
 
     // Insert Keyframe in Map
     mpAtlas->AddKeyFrame(mpCurrentKeyFrame);
-    cout << "Inside process new keyframe\n";
+    // cout << "Inside process new keyframe\n";
     // if (MappingKernelController::is_active) {
     //     MappingKernelController::addKeyframeToGPU(mpCurrentKeyFrame);
     // }

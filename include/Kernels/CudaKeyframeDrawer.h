@@ -5,6 +5,7 @@
 #include "KeyFrame.h"
 #include "CudaUtils.h"
 #include "CudaWrappers/CudaKeyframe.h"
+#include <mutex>
 
 #define CUDA_KEYFRAME_DRAWER_STORAGE 500
 
@@ -27,6 +28,7 @@ class CudaKeyframeDrawer {
         static int num_keyframes;
         static bool memory_is_initialized;
         static int first_free_idx;
+        static std::mutex mtx;
 };
 
 #endif

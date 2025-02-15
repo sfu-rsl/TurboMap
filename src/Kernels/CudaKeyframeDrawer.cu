@@ -15,8 +15,10 @@ std::unordered_map<long unsigned int, int> CudaKeyframeDrawer::mnId_to_idx;
 int CudaKeyframeDrawer::num_keyframes = 0;
 bool CudaKeyframeDrawer::memory_is_initialized = false;
 int CudaKeyframeDrawer::first_free_idx = 0;
+std::mutex CudaKeyframeDrawer::mtx;
 
 void CudaKeyframeDrawer::initializeMemory(){   
+    std::unique_lock<std::mutex> lock(mtx);
     if (memory_is_initialized) return;
     checkCudaError(cudaMallocHost((void**)&h_keyframes, CUDA_KEYFRAME_DRAWER_STORAGE * sizeof(MAPPING_DATA_WRAPPER::CudaKeyframe)), "[CudaKeyframeDrawer::] Failed to allocate memory for h_keyframes");  
     for (int i = 0; i < CUDA_KEYFRAME_DRAWER_STORAGE; ++i) {
@@ -48,6 +50,7 @@ __global__ void validateKFInput_GPU(MAPPING_DATA_WRAPPER::CudaKeyframe* KF) {
 }
 
 void CudaKeyframeDrawer::updateCudaKeyframeMapPoint(long unsigned int KF_mnId, ORB_SLAM3::MapPoint* mp, int idx) {
+    std::unique_lock<std::mutex> lock(mtx);
     auto it = mnId_to_idx.find(KF_mnId);
     if (it == mnId_to_idx.end()) {
         cout << "[ERROR] CudaKeyframeDrawer::modifyCudaKeyframe: ] KF not found!\n";
@@ -62,6 +65,7 @@ void CudaKeyframeDrawer::updateCudaKeyframeMapPoint(long unsigned int KF_mnId, O
 }
 
 MAPPING_DATA_WRAPPER::CudaKeyframe* CudaKeyframeDrawer::addCudaKeyframe(ORB_SLAM3::KeyFrame* KF){
+    std::unique_lock<std::mutex> lock(mtx);
     if (!memory_is_initialized) {
         cout << "[ERROR] CudaKeyframeDrawer::addCudaKeyframe: ] memory not initialized!\n";
         raise(SIGSEGV);
@@ -86,6 +90,7 @@ MAPPING_DATA_WRAPPER::CudaKeyframe* CudaKeyframeDrawer::addCudaKeyframe(ORB_SLAM
 }
 
 void CudaKeyframeDrawer::eraseCudaKeyframe(ORB_SLAM3::KeyFrame* KF){
+    std::unique_lock<std::mutex> lock(mtx);
     auto it = mnId_to_idx.find(KF->mnId);
     if (it == mnId_to_idx.end()) {
         cout << "[ERROR] CudaKeyframeDrawer::modifyCudaKeyframe: ] KF not found!\n";
@@ -100,6 +105,7 @@ void CudaKeyframeDrawer::eraseCudaKeyframe(ORB_SLAM3::KeyFrame* KF){
 }
 
 MAPPING_DATA_WRAPPER::CudaKeyframe* CudaKeyframeDrawer::getCudaKeyframe(long unsigned int mnId){
+    std::unique_lock<std::mutex> lock(mtx);
     auto it = mnId_to_idx.find(mnId);
     if (it != mnId_to_idx.end()) {
         return &d_keyframes[it->second];
@@ -108,6 +114,7 @@ MAPPING_DATA_WRAPPER::CudaKeyframe* CudaKeyframeDrawer::getCudaKeyframe(long uns
 }
 
 void CudaKeyframeDrawer::shutdown() {
+    std::unique_lock<std::mutex> lock(mtx);
     if (!memory_is_initialized) 
     return;
 
