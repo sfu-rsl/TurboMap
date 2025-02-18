@@ -106,3 +106,4 @@ plot.py
 KFCulling_dist.py
 sort.py
 checkresults.py
+!Dockerfile
