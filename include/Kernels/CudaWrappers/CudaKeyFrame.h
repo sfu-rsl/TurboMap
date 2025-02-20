@@ -16,23 +16,16 @@ namespace MAPPING_DATA_WRAPPER {
 
 #define KEYPOINTS_PER_CELL 20
 
-// CudaKeyFrameMemorySpace
 class CudaKeyFrame {
     private:
         void initializeMemory();
-
-    private:
-        bool mvKeysIsOnGpu, mvKeysRightIsOnGpu, mDescriptorsIsOnGpu;
     
     public:
         CudaKeyFrame();
         void setMemory(ORB_SLAM3::KeyFrame &KF);
-        void setMvKeys(CudaKeyPoint* const &_mvKeys);
-        void setMvKeysRight(CudaKeyPoint* const &_mvKeysRight);
-        void setMDescriptors(uint8_t* const &_mDescriptors);
-        const uint8_t* getMDescriptors() const { return mDescriptors; };
+        void setMemory(ORB_SLAM3::KeyFrame* KF);
         void setGPUAddress(CudaKeyFrame* ptr);
-        void updateMapPoints(vector<ORB_SLAM3::MapPoint*> mvpMapPoints);
+        void addMapPoint(ORB_SLAM3::MapPoint* mp, int idx);
         void freeMemory();
     
     public:
@@ -75,10 +68,10 @@ class CudaKeyFrame {
         
         size_t flatMGridRight_size[FRAME_GRID_COLS * FRAME_GRID_ROWS];
         std::size_t flatMGridRight[FRAME_GRID_COLS * FRAME_GRID_ROWS * KEYPOINTS_PER_CELL];
-
         
-        // float mpCamera_mvParameters[8];
-        
+    private:
+        std::vector<CudaMapPoint*> h_mvpMapPoints;
+    
     };
 }
 

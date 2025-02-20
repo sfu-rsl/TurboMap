@@ -419,10 +419,6 @@ void LocalMapping::ProcessNewKeyFrame()
 
     // Insert Keyframe in Map
     mpAtlas->AddKeyFrame(mpCurrentKeyFrame);
-    cout << "Inside process new keyframe\n";
-    if (MappingKernelController::is_active) {
-        CudaKeyFrameDrawer::addCudaKeyFrame(mpCurrentKeyFrame);
-    }
 }
 
 void LocalMapping::EmptyQueue()
@@ -449,11 +445,6 @@ void LocalMapping::MapPointCulling()
     while(lit!=mlpRecentAddedMapPoints.end())
     {
         MapPoint* pMP = *lit;
-
-        if (MappingKernelController::is_active) {
-            if(pMP->isBad())
-                CudaMapPointStorage::eraseCudaMapPoint(pMP);
-        }
 
         if(pMP->isBad())
             lit = mlpRecentAddedMapPoints.erase(lit);
@@ -811,12 +802,6 @@ void LocalMapping::CreateNewMapPoints()
 
             mpAtlas->AddMapPoint(pMP);
             mlpRecentAddedMapPoints.push_back(pMP);
-
-            if (MappingKernelController::is_active) {
-                CudaMapPointStorage::addCudaMapPoint(pMP);
-                CudaKeyFrameDrawer::updateCudaKeyFrameMapPoints(mpCurrentKeyFrame);
-                CudaKeyFrameDrawer::updateCudaKeyFrameMapPoints(pKF2);
-            }
         }
     }    
 #ifdef REGISTER_LOCAL_MAPPING_STATS
@@ -1371,9 +1356,6 @@ void LocalMapping::KeyFrameCulling()
                         pKF->mNextKF = NULL;
                         pKF->mPrevKF = NULL;
                         pKF->SetBadFlag();
-                        if (MappingKernelController::is_active) {
-                            CudaKeyFrameDrawer::eraseCudaKeyFrame(pKF);
-                        }
                     }
                     else if(!mpCurrentKeyFrame->GetMap()->GetIniertialBA2() && ((pKF->GetImuPosition()-pKF->mPrevKF->GetImuPosition()).norm()<0.02) && (t<3))
                     {
@@ -1383,18 +1365,12 @@ void LocalMapping::KeyFrameCulling()
                         pKF->mNextKF = NULL;
                         pKF->mPrevKF = NULL;
                         pKF->SetBadFlag();
-                        if (MappingKernelController::is_active) {
-                            CudaKeyFrameDrawer::eraseCudaKeyFrame(pKF);
-                        }
                     }
                 }
             }
             else
             {
                 pKF->SetBadFlag();
-                if (MappingKernelController::is_active) {
-                    CudaKeyFrameDrawer::eraseCudaKeyFrame(pKF);
-                }
             }
         }
         if((count > 20 && mbAbortBA) || count>100)

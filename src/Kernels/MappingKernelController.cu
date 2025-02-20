@@ -95,15 +95,3 @@ void MappingKernelController::launchFuseKernel(ORB_SLAM3::KeyFrame &KF, const ve
     
     mpFuseKernel->launch(KF, vpMapPoints, th, bRight, h_bestDist, h_bestIdx, pCamera, Tcw, Ow);
 }
-
-// void MappingKernelController::addMapPointToGPUStorage(ORB_SLAM3::MapPoint* MP) {
-//     DEBUG_PRINT("Adding Map Point To GPU Map Point Storage."); 
-
-//     CudaMapPointStorage::addCudaMapPoint(MP);
-// }
-
-// void MappingKernelController::addKeyframeToGPUStorage(ORB_SLAM3::KeyFrame* KF) {
-//     DEBUG_PRINT("Adding Keyframe To GPU Keyframe Storage."); 
-
-//     CudaKeyFrameDrawer::addCudaKeyFrame(KF);
-// }

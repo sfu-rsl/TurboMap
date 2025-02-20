@@ -54,16 +54,6 @@ namespace MAPPING_DATA_WRAPPER
         const cv::Mat& descriptor = mp->GetDescriptor();
         std::memcpy(mDescriptor, descriptor.ptr<uint8_t>(0), descriptor.cols * sizeof(uint8_t));
         mbBad = mp->isBad();
-        observerId = -1;
-        setObservations(mp);
-    }
-
-    CudaMapPoint::CudaMapPoint(ORB_SLAM3::MapPoint* mp, long unsigned int _observerId, CudaKeyFrame* d_kf) {
-        isEmpty = false;
-        mnId = mp->mnId;
-        mbBad = mp->isBad();
-        observerId = _observerId; 
-        observer = d_kf;
         setObservations(mp);
     }
 
@@ -82,16 +72,13 @@ namespace MAPPING_DATA_WRAPPER
             mObservations_leftIdx[itr] = std::get<0>(value);
             mObservations_rightIdx[itr] = std::get<1>(value);
 
-            if(key->mnId == observerId) {
-                mObservations_dkf[itr] = observer;
+            CudaKeyFrame* d_kf = CudaKeyFrameDrawer::getCudaKeyFrame(key->mnId);
+            if (d_kf != nullptr) {
+                mObservations_dkf[itr] = d_kf;
             } else {
-                CudaKeyFrame* d_kf = CudaKeyFrameDrawer::getCudaKeyFrame(key->mnId);
-                if (d_kf != nullptr) {
-                    mObservations_dkf[itr] = d_kf;
-                } else {
-                    cout << "MapPoint Error: KF " << key->mnId << " is not in the drawer.\n";
-                }
+                cout << "MapPoint Error: KF " << key->mnId << " is not in the drawer.\n";
             }
+
             itr++;
         }        
     }

@@ -46,34 +46,16 @@ namespace MAPPING_DATA_WRAPPER {
 
 class CudaKeyFrame;
 
-// struct Observation {
-//     CudaKeyFrame* d_kf;
-//     int leftIndex;
-//     int rightIndex;
-
-//     Observation() {}
-
-//     Observation(CudaKeyFrame* d_kf, int leftIndex, int rightIndex) 
-//     : d_kf(d_kf), leftIndex(leftIndex), rightIndex(rightIndex) {}
-// };
-
 class CudaMapPoint {
     public:
         CudaMapPoint();
         CudaMapPoint(ORB_SLAM3::MapPoint* mp);
-        CudaMapPoint(ORB_SLAM3::MapPoint* mp, long unsigned int _observerId, CudaKeyFrame* d_kf);
-
-        // void setMbBad(bool _mbBad) {mbBad = _mbBad;};
-        // void setNObs(int _nObs) {nObs = _nObs;}; 
-        // void setObserver(long unsigned int _observerId, CudaKeyFrame* d_kf) {observerId = _observerId; observer = d_kf;};
-
         void setObservations(ORB_SLAM3::MapPoint* mp);
     
     public:
         // For creating empty mapPoints instead of using null ptr
         bool isEmpty;
 
-    // For Fuse in LocalMapping
     public:
         long unsigned int mnId;
         bool mbBad;
@@ -82,9 +64,6 @@ class CudaMapPoint {
         CudaKeyFrame* mObservations_dkf[200];
         int mObservations_leftIdx[200];
         int mObservations_rightIdx[200];
-        // Observation mObservations[200];
-        CudaKeyFrame* observer;
-        long unsigned int observerId;
         Eigen::Vector3f mWorldPos;
         float mfMaxDistance;
         float mfMinDistance;

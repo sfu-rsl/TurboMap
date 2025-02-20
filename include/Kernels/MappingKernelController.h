@@ -37,10 +37,6 @@ public:
                             const float th, const bool bRight, int* h_bestDist, int* h_bestIdx,
                             ORB_SLAM3::GeometricCamera* pCamera, Sophus::SE3f Tcw, Eigen::Vector3f Ow);
 
-    // static void addMapPointToGPUStorage(ORB_SLAM3::MapPoint* MP);
-
-    // static void addKeyframeToGPUStorage(ORB_SLAM3::KeyFrame* KF);
-
 private:
     static bool memory_is_initialized;
     static MAPPING_DATA_WRAPPER::CudaKeyFrame *cudaKeyFramePtr;
