@@ -1,5 +1,5 @@
 #include "Kernels/CudaWrappers/CudaMapPoint.h"
-#include "Kernels/CudaKeyframeDrawer.h"
+#include "Kernels/CudaKeyFrameDrawer.h"
 #include <iostream>
 #include <map>
 #include <tuple>
@@ -48,20 +48,10 @@ namespace MAPPING_DATA_WRAPPER
         isEmpty = false;
         mnId = mp->mnId;
         mbBad = mp->isBad();
-        observerId = -1;
         setObservations(mp);
     }
 
-    CudaMapPoint::CudaMapPoint(ORB_SLAM3::MapPoint* mp, long unsigned int _observerId, CudaKeyframe* d_kf) {
-        isEmpty = false;
-        mnId = mp->mnId;
-        mbBad = mp->isBad();
-        observerId = _observerId; 
-        observer = d_kf;
-        setObservations(mp);
-    }
-
-    __global__ void validateKFInput_GPU(long unsigned int mnId, MAPPING_DATA_WRAPPER::CudaKeyframe* KF) {
+    __global__ void validateKFInput_GPU(long unsigned int mnId, MAPPING_DATA_WRAPPER::CudaKeyFrame* KF) {
         printf("[CudaMapPoint::setObservations::] mp: %lu, pKFi mnId: %lu\n", mnId, KF->mnId);
     }
 
@@ -76,16 +66,13 @@ namespace MAPPING_DATA_WRAPPER
             mObservations_leftIdx[itr] = std::get<0>(value);
             mObservations_rightIdx[itr] = std::get<1>(value);
 
-            if(key->mnId == observerId) {
-                mObservations_dkf[itr] = observer;
+            CudaKeyFrame* d_kf = CudaKeyFrameDrawer::getCudaKeyFrame(key->mnId);
+            if (d_kf != nullptr) {
+                mObservations_dkf[itr] = d_kf;
             } else {
-                CudaKeyframe* d_kf = CudaKeyframeDrawer::getCudaKeyframe(key->mnId);
-                if (d_kf != nullptr) {
-                    mObservations_dkf[itr] = d_kf;
-                } else {
-                    cout << "MapPoint Error: KF " << key->mnId << " is not in the drawer.\n";
-                }
+                cout << "MapPoint Error: KF " << key->mnId << " is not in the drawer.\n";
             }
+
             itr++;
         }        
     }

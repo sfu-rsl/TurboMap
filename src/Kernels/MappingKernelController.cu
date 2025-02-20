@@ -33,7 +33,7 @@ void MappingKernelController::initializeKernels(){
 
     DEBUG_PRINT("Initializing Kernels");
     
-    CudaKeyframeDrawer::initializeMemory();
+    CudaKeyFrameDrawer::initializeMemory();
 
     CudaMapPointStorage::initializeMemory();
     
@@ -49,7 +49,7 @@ void MappingKernelController::shutdownKernels(){
     DEBUG_PRINT("Shutting Kernels Down");
 
     if (memory_is_initialized) {
-        CudaKeyframeDrawer::shutdown();
+        CudaKeyFrameDrawer::shutdown();
         CudaMapPointStorage::shutdown();
         if(keyframeCullingOnGPU == 1)
             mpKFCullingKernel->shutdown();
@@ -70,26 +70,3 @@ void MappingKernelController::launchKeyframeCullingKernel(vector<ORB_SLAM3::KeyF
 
     mpKFCullingKernel->launch(vpLocalKeyFrames,h_kf_count, h_indices, h_nMPs, h_nRedundantObservations);
 }
-
-// void MappingKernelController::addKeyframeToGPU(ORB_SLAM3::KeyFrame* KF) {
-//     DEBUG_PRINT("Adding Keyframe To GPU Keyframe Storage."); 
-
-//     CudaKeyframeDrawer::addCudaKeyframe(KF);
-//     vector<ORB_SLAM3::MapPoint*> mvpMapPoints = KF->GetMapPointMatches();
-//     int mvpMapPoints_size = mvpMapPoints.size();
-//     for (int i = 0; i < mvpMapPoints_size; ++i) {
-//         if (mvpMapPoints[i]) {
-//             MAPPING_DATA_WRAPPER::CudaMapPoint* d_mp = CudaMapPointStorage::getCudaMapPoint(mvpMapPoints[i]->mnId);
-//             if (d_mp == nullptr) {
-//                 CudaMapPointStorage::addCudaMapPoint(mvpMapPoints[i]);
-//             }
-//         }
-//     }
-//     CudaKeyframeDrawer::setCudaKeyframeMapPoints(KF->mnId, mvpMapPoints);
-// }
-
-// void MappingKernelController::addMapPointToGPU(ORB_SLAM3::MapPoint* MP) {
-//     DEBUG_PRINT("Adding Map Point To GPU Map Point Storage."); 
-
-//     CudaMapPointStorage::addCudaMapPoint(MP);
-// }

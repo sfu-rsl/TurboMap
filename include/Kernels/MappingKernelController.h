@@ -2,7 +2,7 @@
 #define MAPPING_KERNEL_CONTROLLER_H
 
 #include "KFCullingKernel.h"
-#include "CudaKeyframeDrawer.h"
+#include "CudaKeyFrameDrawer.h"
 #include "CudaMapPointStorage.h"
 #include "CudaUtils.h"
 #include <memory> 
@@ -29,10 +29,6 @@ public:
     
     static void launchKeyframeCullingKernel(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int* h_kf_count, long unsigned int* h_indices,
                                                                             int* h_nMPs, int* h_nRedundantObservations);
-    
-    // static void addMapPointToGPU(ORB_SLAM3::MapPoint* MP);
-
-    // static void addKeyframeToGPU(ORB_SLAM3::KeyFrame* KF);
 
 private:
     static bool memory_is_initialized;

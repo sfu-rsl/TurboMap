@@ -36,7 +36,7 @@
 #include "Kernels/TrackingKernelController.h"
 
 #include "Kernels/MappingKernelController.h"
-#include "Kernels/CudaKeyframeDrawer.h"
+#include "Kernels/CudaKeyFrameDrawer.h"
 #include "Kernels/CudaMapPointStorage.h"
 
 #include <mutex>
@@ -2437,7 +2437,7 @@ void Tracking::StereoInitialization()
         KeyFrame* pKFini = new KeyFrame(mCurrentFrame,mpAtlas->GetCurrentMap(),mpKeyFrameDB);
 
         if (MappingKernelController::is_active) {
-            CudaKeyframeDrawer::addCudaKeyframe(pKFini);
+            CudaKeyFrameDrawer::addCudaKeyFrame(pKFini);
         }
 
         // Insert KeyFrame in the map
@@ -2457,7 +2457,7 @@ void Tracking::StereoInitialization()
                     pKFini->AddMapPoint(pNewMP,i);
                     if (MappingKernelController::is_active) {
                         CudaMapPointStorage::addCudaMapPoint(pNewMP);
-                        CudaKeyframeDrawer::updateCudaKeyframeMapPoint(pKFini->mnId, pNewMP, i);
+                        CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(pKFini->mnId, pNewMP, i);
                     }
                     pNewMP->ComputeDistinctiveDescriptors();
                     pNewMP->UpdateNormalAndDepth();
@@ -2482,8 +2482,8 @@ void Tracking::StereoInitialization()
                     
                     if (MappingKernelController::is_active) {
                         CudaMapPointStorage::addCudaMapPoint(pNewMP);
-                        CudaKeyframeDrawer::updateCudaKeyframeMapPoint(pKFini->mnId, pNewMP, i);
-                        CudaKeyframeDrawer::updateCudaKeyframeMapPoint(pKFini->mnId, pNewMP, rightIndex + mCurrentFrame.Nleft);
+                        CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(pKFini->mnId, pNewMP, i);
+                        CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(pKFini->mnId, pNewMP, rightIndex + mCurrentFrame.Nleft);
                     }
 
                     pNewMP->ComputeDistinctiveDescriptors();
@@ -2608,8 +2608,8 @@ void Tracking::CreateInitialMapMonocular()
     KeyFrame* pKFcur = new KeyFrame(mCurrentFrame,mpAtlas->GetCurrentMap(),mpKeyFrameDB);
 
     if (MappingKernelController::is_active) {
-        CudaKeyframeDrawer::addCudaKeyframe(pKFini);
-        CudaKeyframeDrawer::addCudaKeyframe(pKFcur);
+        CudaKeyFrameDrawer::addCudaKeyFrame(pKFini);
+        CudaKeyFrameDrawer::addCudaKeyFrame(pKFcur);
     }
 
     if(mSensor == System::IMU_MONOCULAR)
@@ -2641,8 +2641,8 @@ void Tracking::CreateInitialMapMonocular()
         
         if (MappingKernelController::is_active) {
             CudaMapPointStorage::addCudaMapPoint(pMP);
-            CudaKeyframeDrawer::updateCudaKeyframeMapPoint(pKFini->mnId, pMP, i);
-            CudaKeyframeDrawer::updateCudaKeyframeMapPoint(pKFcur->mnId, pMP, mvIniMatches[i]);
+            CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(pKFini->mnId, pMP, i);
+            CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(pKFcur->mnId, pMP, mvIniMatches[i]);
         }
 
         pMP->ComputeDistinctiveDescriptors();
@@ -3389,7 +3389,7 @@ void Tracking::CreateNewKeyFrame()
     KeyFrame* pKF = new KeyFrame(mCurrentFrame,mpAtlas->GetCurrentMap(),mpKeyFrameDB);
 
     if (MappingKernelController::is_active) {
-        CudaKeyframeDrawer::addCudaKeyframe(pKF);
+        CudaKeyFrameDrawer::addCudaKeyFrame(pKF);
     }
 
     if(mpAtlas->isImuInitialized()) //  || mpLocalMapper->IsInitializing())
@@ -3485,14 +3485,14 @@ void Tracking::CreateNewKeyFrame()
 
                         pKF->AddMapPoint(pNewMP,mCurrentFrame.Nleft + mCurrentFrame.mvLeftToRightMatch[i]);
                         if (MappingKernelController::is_active) {
-                            CudaKeyframeDrawer::updateCudaKeyframeMapPoint(pKF->mnId, pNewMP, mCurrentFrame.Nleft + mCurrentFrame.mvLeftToRightMatch[i]);
+                            CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(pKF->mnId, pNewMP, mCurrentFrame.Nleft + mCurrentFrame.mvLeftToRightMatch[i]);
                         }
                     }
                     
                     
                     pKF->AddMapPoint(pNewMP,i);
                     if (MappingKernelController::is_active) {
-                        CudaKeyframeDrawer::updateCudaKeyframeMapPoint(pKF->mnId, pNewMP, i);
+                        CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(pKF->mnId, pNewMP, i);
                     }
 
                     pNewMP->ComputeDistinctiveDescriptors();

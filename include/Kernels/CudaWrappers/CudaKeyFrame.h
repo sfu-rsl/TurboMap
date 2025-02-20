@@ -8,13 +8,13 @@
 
 namespace MAPPING_DATA_WRAPPER {
 
-class CudaKeyframe {
+class CudaKeyFrame {
     private:
         void initializeMemory();
 
     public:
-        CudaKeyframe();
-        void setGPUAddress(CudaKeyframe* ptr);
+        CudaKeyFrame();
+        void setGPUAddress(CudaKeyFrame* ptr);
         void setMemory(ORB_SLAM3::KeyFrame* KF);
         void addMapPoint(ORB_SLAM3::MapPoint* mp, int idx);
         void freeMemory();
@@ -28,7 +28,7 @@ class CudaKeyframe {
         CudaKeyPoint *mvKeys, *mvKeysRight, *mvKeysUn;
         size_t mvpMapPoints_size;
         CudaMapPoint** mvpMapPoints;
-        CudaKeyframe* gpuAddr;
+        CudaKeyFrame* gpuAddr;
 
     private:
         std::vector<CudaMapPoint*> h_mvpMapPoints;

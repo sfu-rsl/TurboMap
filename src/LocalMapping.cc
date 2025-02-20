@@ -26,7 +26,7 @@
 #include "Stats/LocalMappingStats.h"
 #include "Kernels/MappingKernelController.h"
 #include "Kernels/CudaMapPointStorage.h"
-#include "Kernels/CudaKeyframeDrawer.h"
+#include "Kernels/CudaKeyFrameDrawer.h"
 #include<mutex>
 #include<chrono>
 #include <csignal>
@@ -812,8 +812,8 @@ void LocalMapping::CreateNewMapPoints()
             mpCurrentKeyFrame->AddMapPoint(pMP,idx1);
             pKF2->AddMapPoint(pMP,idx2);
             if (MappingKernelController::is_active) {
-                CudaKeyframeDrawer::updateCudaKeyframeMapPoint(mpCurrentKeyFrame->mnId, pMP, idx1);
-                CudaKeyframeDrawer::updateCudaKeyframeMapPoint(pKF2->mnId, pMP, idx2);
+                CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(mpCurrentKeyFrame->mnId, pMP, idx1);
+                CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(pKF2->mnId, pMP, idx2);
             }
 
             pMP->ComputeDistinctiveDescriptors();
@@ -1366,9 +1366,6 @@ void LocalMapping::KeyFrameCulling()
                         pKF->mNextKF = NULL;
                         pKF->mPrevKF = NULL;
                         pKF->SetBadFlag();
-                        // if (MappingKernelController::is_active) {
-                        //     CudaKeyframeDrawer::eraseCudaKeyframe(pKF);
-                        // }
                     }
                     else if(!mpCurrentKeyFrame->GetMap()->GetIniertialBA2() && ((pKF->GetImuPosition()-pKF->mPrevKF->GetImuPosition()).norm()<0.02) && (t<3))
                     {
@@ -1378,18 +1375,12 @@ void LocalMapping::KeyFrameCulling()
                         pKF->mNextKF = NULL;
                         pKF->mPrevKF = NULL;
                         pKF->SetBadFlag();
-                        // if (MappingKernelController::is_active) {
-                        //     CudaKeyframeDrawer::eraseCudaKeyframe(pKF);
-                        // }
                     }
                 }
             }
             else
             {
                 pKF->SetBadFlag();
-                // if (MappingKernelController::is_active) {
-                //     CudaKeyframeDrawer::eraseCudaKeyframe(pKF);
-                // }
             }
         }
         if((count > 20 && mbAbortBA) || count>100)

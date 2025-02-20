@@ -1,5 +1,5 @@
 #include "Kernels/KFCullingKernel.h"
-#include "Kernels/CudaKeyframeDrawer.h"
+#include "Kernels/CudaKeyFrameDrawer.h"
 #include <csignal> 
 
 void KFCullingKernel::initialize(){
@@ -7,11 +7,11 @@ void KFCullingKernel::initialize(){
         return;
     }
 
-    checkCudaError(cudaMalloc((void**)&d_keyframes, MAX_NUM_KEYFRAMES * sizeof(MAPPING_DATA_WRAPPER::CudaKeyframe*)), "[KFCullingKernel::] Failed to allocate memory for d_keyframes");   
+    checkCudaError(cudaMalloc((void**)&d_keyframes, MAX_NUM_KEYFRAMES * sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame*)), "[KFCullingKernel::] Failed to allocate memory for d_keyframes");   
 
-    // checkCudaError(cudaMallocHost((void**)&h_keyframes, MAX_NUM_KEYFRAMES * sizeof(MAPPING_DATA_WRAPPER::CudaKeyframe)), "[KFCullingKernel::] Failed to allocate memory for h_keyframes");   
+    // checkCudaError(cudaMallocHost((void**)&h_keyframes, MAX_NUM_KEYFRAMES * sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame)), "[KFCullingKernel::] Failed to allocate memory for h_keyframes");   
     // for (int i = 0; i < MAX_NUM_KEYFRAMES; ++i) {
-    //     h_keyframes[i] = MAPPING_DATA_WRAPPER::CudaKeyframe();
+    //     h_keyframes[i] = MAPPING_DATA_WRAPPER::CudaKeyFrame();
     // }
 
     checkCudaError(cudaMalloc((void**)&d_nRedundantObservations, MAX_NUM_KEYFRAMES * sizeof(int)), "[KFCullingKernel::] Failed to allocate memory for d_nRedundantObservations"); 
@@ -20,12 +20,12 @@ void KFCullingKernel::initialize(){
     memory_is_initialized = true;
 }
 
-__global__ void keyframeCullingKernel(MAPPING_DATA_WRAPPER::CudaKeyframe** d_keyframes, int numKeyframes, int thObs, bool mbMonocular,
+__global__ void keyframeCullingKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame** d_keyframes, int numKeyframes, int thObs, bool mbMonocular,
                                     int* d_nMPs, int* d_nRedundantObservations) {
     unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx < numKeyframes) {
 
-        MAPPING_DATA_WRAPPER::CudaKeyframe* pKF = d_keyframes[idx];
+        MAPPING_DATA_WRAPPER::CudaKeyFrame* pKF = d_keyframes[idx];
 
         if (pKF == nullptr) return;
 
@@ -67,7 +67,7 @@ __global__ void keyframeCullingKernel(MAPPING_DATA_WRAPPER::CudaKeyframe** d_key
             int nObs=0;
             for(int j = 0; j < pMP->mObservations_size; j++) {
 
-                MAPPING_DATA_WRAPPER::CudaKeyframe* pKFi = pMP->mObservations_dkf[j];
+                MAPPING_DATA_WRAPPER::CudaKeyFrame* pKFi = pMP->mObservations_dkf[j];
 
                 // printf("PKFi: %p\n", pKFi);
                 // printf("PKFi->mnId: %d\n", pKFi->mnId);
@@ -135,9 +135,9 @@ void validateKFInput_CPU(ORB_SLAM3::KeyFrame* KF) {
     }
 }
 
-__global__ void validateKFInput_GPU(MAPPING_DATA_WRAPPER::CudaKeyframe** d_keyframes, int idx) {
+__global__ void validateKFInput_GPU(MAPPING_DATA_WRAPPER::CudaKeyFrame** d_keyframes, int idx) {
     printf("***********************KF CULLING KERNEL******************************\n");
-    MAPPING_DATA_WRAPPER::CudaKeyframe* KF = d_keyframes[idx];
+    MAPPING_DATA_WRAPPER::CudaKeyFrame* KF = d_keyframes[idx];
     for (int i = 0; i < KF->mvpMapPoints_size; ++i) {
         //  printf("1\n");
         MAPPING_DATA_WRAPPER::CudaMapPoint* mp = KF->mvpMapPoints[i];
@@ -146,11 +146,11 @@ __global__ void validateKFInput_GPU(MAPPING_DATA_WRAPPER::CudaKeyframe** d_keyfr
             printf("[GPU::] i: %d, mp: is empty\n", i);
         } else {
             // printf("[GPU::] i: %d, mp: %lu\n", i, mp->mnId);
-            MAPPING_DATA_WRAPPER::CudaKeyframe** mObservations_dkf = mp->mObservations_dkf;
+            MAPPING_DATA_WRAPPER::CudaKeyFrame** mObservations_dkf = mp->mObservations_dkf;
             for (int j = 0; j < mp->mObservations_size; ++j) {
                 int leftIdx = mp->mObservations_leftIdx[j];
                 // printf("[GPU::] mp: %lu, leftIdx: %d\n", mp->mnId, leftIdx);
-                MAPPING_DATA_WRAPPER::CudaKeyframe* pKFi = mp->mObservations_dkf[j];
+                MAPPING_DATA_WRAPPER::CudaKeyFrame* pKFi = mp->mObservations_dkf[j];
                 printf("    [GPU::] j:%d. mp: %lu, pKFi ptr: %p\n", j, mp->mnId, (void*)pKFi);
                 printf("    [GPU::] j:%d, mp: %lu, pKFi mnId: %lu\n", j, mp->mnId, (void*)pKFi->mnId);
             }
@@ -171,19 +171,19 @@ void KFCullingKernel::launch(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int*
         ORB_SLAM3::KeyFrame* pKF = vpLocalKeyFrames[i];
 
         if((pKF->mnId==pKF->GetMap()->GetInitKFid()) || pKF->isBad()) {
-            MAPPING_DATA_WRAPPER::CudaKeyframe* d_kf = nullptr;
-            checkCudaError(cudaMemcpy(&d_keyframes[KF_count], &d_kf, sizeof(MAPPING_DATA_WRAPPER::CudaKeyframe*), cudaMemcpyHostToDevice), "[KFCullingKernel::] Failed to set d_keyframes[i] to null");
+            MAPPING_DATA_WRAPPER::CudaKeyFrame* d_kf = nullptr;
+            checkCudaError(cudaMemcpy(&d_keyframes[KF_count], &d_kf, sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame*), cudaMemcpyHostToDevice), "[KFCullingKernel::] Failed to set d_keyframes[i] to null");
             KF_count++;
             continue;
         }
 
-        MAPPING_DATA_WRAPPER::CudaKeyframe* d_kf = CudaKeyframeDrawer::getCudaKeyframe(pKF->mnId);
+        MAPPING_DATA_WRAPPER::CudaKeyFrame* d_kf = CudaKeyFrameDrawer::getCudaKeyFrame(pKF->mnId);
         if (d_kf == nullptr) {
-            cout << "[ERROR] KFCullingKernel::launch: ] CudaKeyframeDrawer doesn't have the keyframe: " << pKF->mnId << "\n";
+            cout << "[ERROR] KFCullingKernel::launch: ] CudaKeyFrameDrawer doesn't have the keyframe: " << pKF->mnId << "\n";
             raise(SIGSEGV);
         }
 
-        checkCudaError(cudaMemcpy(&d_keyframes[KF_count], &d_kf, sizeof(MAPPING_DATA_WRAPPER::CudaKeyframe*), cudaMemcpyHostToDevice), "[KFCullingKernel::] Failed to copy d_kf from drawer to d_keyframes");
+        checkCudaError(cudaMemcpy(&d_keyframes[KF_count], &d_kf, sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame*), cudaMemcpyHostToDevice), "[KFCullingKernel::] Failed to copy d_kf from drawer to d_keyframes");
         KF_count++;
     }
 

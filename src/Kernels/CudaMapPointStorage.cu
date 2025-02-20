@@ -10,7 +10,6 @@
 #endif
 
 MAPPING_DATA_WRAPPER::CudaMapPoint *CudaMapPointStorage::d_mappoints, *CudaMapPointStorage::h_mappoints;
-// std::unordered_map<long unsigned int, MAPPING_DATA_WRAPPER::CudaMapPoint*> CudaMapPointStorage::id_to_mp;
 std::unordered_map<long unsigned int, cmp_buffer_index_t> CudaMapPointStorage::mnId_to_idx;
 int CudaMapPointStorage::num_mappoints = 0;
 bool CudaMapPointStorage::memory_is_initialized = false;
@@ -76,7 +75,6 @@ MAPPING_DATA_WRAPPER::CudaMapPoint* CudaMapPointStorage::addCudaMapPoint(ORB_SLA
         first_free_idx++;
     }
 
-
     h_mappoints[new_mp_idx] = MAPPING_DATA_WRAPPER::CudaMapPoint(MP);
     checkCudaError(cudaMemcpy(&d_mappoints[new_mp_idx], &h_mappoints[new_mp_idx], sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint), cudaMemcpyHostToDevice), "[CudaMapPointStorage::] Failed to copy individual element to d_mappoints");
 
@@ -84,38 +82,6 @@ MAPPING_DATA_WRAPPER::CudaMapPoint* CudaMapPointStorage::addCudaMapPoint(ORB_SLA
     num_mappoints += 1;
 
     DEBUG_PRINT("addCudaMapPoint: " << MP->mnId << " (mappoints on gpu: " << num_mappoints << ")" << endl);
-
-    return &d_mappoints[new_mp_idx];
-}
-
-MAPPING_DATA_WRAPPER::CudaMapPoint* CudaMapPointStorage::keepCudaMapPoint(MAPPING_DATA_WRAPPER::CudaMapPoint cuda_mp){
-    std::unique_lock<std::mutex> lock(mtx);
-    if (!memory_is_initialized) {
-        cout << "[ERROR] CudaMapPointStorage::keepCudaMapPoint: ] memory not initialized!\n";
-        raise(SIGSEGV);
-    }
-
-    if (num_mappoints >= CUDA_MAP_POINT_STORAGE_SIZE) {
-        cout << "[ERROR] CudaMapPointStorage::keepCudaMapPoint: ] number of mappoints: " << num_mappoints << " is greater than CUDA_MAP_POINT_STORAGE_SIZE: " << CUDA_MAP_POINT_STORAGE_SIZE << "\n";
-        raise(SIGSEGV);
-    }
-
-    // Reuse available space if possible
-    cmp_buffer_index_t new_mp_idx = first_free_idx;
-    if (!free_idx.empty()) {
-        new_mp_idx = free_idx.front();
-        free_idx.pop();
-    }
-    else {
-        first_free_idx++;
-    }
-
-    h_mappoints[new_mp_idx] = cuda_mp;
-    checkCudaError(cudaMemcpy(&d_mappoints[new_mp_idx], &h_mappoints[new_mp_idx], sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint), cudaMemcpyHostToDevice), "[CudaMapPointStorage::] Failed to copy individual element to d_mappoints");
-    mnId_to_idx.emplace(cuda_mp.mnId, new_mp_idx);
-    num_mappoints += 1;
-
-    DEBUG_PRINT("keepCudaMapPoint: " << cuda_mp.mnId << " (mappoints on gpu: " << num_mappoints << ")" << endl);
 
     return &d_mappoints[new_mp_idx];
 }
@@ -146,7 +112,6 @@ MAPPING_DATA_WRAPPER::CudaMapPoint* CudaMapPointStorage::getCudaMapPoint(long un
     }
     return nullptr;
 }
-
 
 void CudaMapPointStorage::shutdown() {
     std::unique_lock<std::mutex> lock(mtx);

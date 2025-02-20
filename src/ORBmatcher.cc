@@ -34,7 +34,7 @@
 #include "Stats/TrackingStats.h"
 #include "Stats/LocalMappingStats.h"
 #include "Kernels/CudaMapPointStorage.h"
-#include "Kernels/CudaKeyframeDrawer.h"
+#include "Kernels/CudaKeyFrameDrawer.h"
 
 using namespace std;
 
@@ -1439,7 +1439,7 @@ namespace ORB_SLAM3
                     pKF->AddMapPoint(pMP,bestIdx);
                     if (MappingKernelController::is_active) {
                         CudaMapPointStorage::modifyCudaMapPoint(pMP->mnId, pMP);
-                        CudaKeyframeDrawer::updateCudaKeyframeMapPoint(pKF->mnId, pMP, bestIdx);
+                        CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(pKF->mnId, pMP, bestIdx);
                     }
                 }
                 nFused++;
@@ -1563,7 +1563,7 @@ namespace ORB_SLAM3
                     pKF->AddMapPoint(pMP,bestIdx);
                     if (MappingKernelController::is_active) {
                         CudaMapPointStorage::modifyCudaMapPoint(pMP->mnId, pMP);
-                        CudaKeyframeDrawer::updateCudaKeyframeMapPoint(pKF->mnId, pMP, bestIdx);
+                        CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(pKF->mnId, pMP, bestIdx);
                     }
                 }
                 nFused++;

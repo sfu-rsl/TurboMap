@@ -4,7 +4,7 @@
 #include "KernelInterface.h"
 #include "CudaUtils.h"
 #include "../KeyFrame.h"
-#include "CudaWrappers/CudaKeyframe.h"
+#include "CudaWrappers/CudaKeyFrame.h"
 #include <map>
 #include <stdio.h>
 #include <fstream>
@@ -27,7 +27,7 @@ class KFCullingKernel: public KernelInterface {
     
     private:
         bool memory_is_initialized;
-        MAPPING_DATA_WRAPPER::CudaKeyframe **d_keyframes, **h_keyframes;
+        MAPPING_DATA_WRAPPER::CudaKeyFrame **d_keyframes, **h_keyframes;
         // MAPPING_DATA_WRAPPER::CudaMapPoint *d_mapPoints, *h_mapPoints;
         int *d_nMPs, *d_nRedundantObservations;
         int *empty_array[MAX_NUM_KEYFRAMES];

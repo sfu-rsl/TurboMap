@@ -26,7 +26,7 @@
 #include "G2oTypes.h"
 
 #include "Kernels/MappingKernelController.h"
-#include "Kernels/CudaKeyframeDrawer.h"
+#include "Kernels/CudaKeyFrameDrawer.h"
 #include "Kernels/CudaMapPointStorage.h"
 
 #include<mutex>
@@ -1135,7 +1135,7 @@ void LoopClosing::CorrectLoop()
                 {
                     mpCurrentKF->AddMapPoint(pLoopMP,i);
                     if (MappingKernelController::is_active) {
-                        CudaKeyframeDrawer::updateCudaKeyframeMapPoint(mpCurrentKF->mnId, pLoopMP, i);
+                        CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(mpCurrentKF->mnId, pLoopMP, i);
                     }
                     pLoopMP->AddObservation(mpCurrentKF,i);
                     if (MappingKernelController::is_active) {
