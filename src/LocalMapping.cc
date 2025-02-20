@@ -403,6 +403,9 @@ void LocalMapping::ProcessNewKeyFrame()
                 if(!pMP->IsInKeyFrame(mpCurrentKeyFrame))
                 {
                     pMP->AddObservation(mpCurrentKeyFrame, i);
+                    if (MappingKernelController::is_active) {
+                        CudaMapPointStorage::modifyCudaMapPoint(pMP->mnId, pMP);
+                    }
                     pMP->UpdateNormalAndDepth();
                     pMP->ComputeDistinctiveDescriptors();
                 }
@@ -786,15 +789,23 @@ void LocalMapping::CreateNewMapPoints()
             // Triangulation is succesfull
             MapPoint* pMP = new MapPoint(x3D, mpCurrentKeyFrame, mpAtlas->GetCurrentMap());
             num_created_mappoints += 1;
-
+            
             if (bPointStereo)
-                countStereo++;
+            countStereo++;
             
             pMP->AddObservation(mpCurrentKeyFrame,idx1);
             pMP->AddObservation(pKF2,idx2);
+            
+            if (MappingKernelController::is_active) {
+                CudaMapPointStorage::addCudaMapPoint(pMP);
+            }
 
             mpCurrentKeyFrame->AddMapPoint(pMP,idx1);
             pKF2->AddMapPoint(pMP,idx2);
+            if (MappingKernelController::is_active) {
+                CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(mpCurrentKeyFrame->mnId, pMP, idx1);
+                CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(pKF2->mnId, pMP, idx2);
+            }
 
             pMP->ComputeDistinctiveDescriptors();
 
@@ -1213,12 +1224,12 @@ void LocalMapping::KeyFrameCulling()
     double sum = 0;
     int itr = 0;
 
-    int vpLocalKeyFrames_size = vpLocalKeyFrames.size();
-    int kf_count;
-    long unsigned int indices[vpLocalKeyFrames_size];
-    int values_nRedundantObservations[vpLocalKeyFrames_size];
-    int values_nMPs[vpLocalKeyFrames_size];
-    MappingKernelController::launchKeyframeCullingKernel(vpLocalKeyFrames, &kf_count, indices, values_nRedundantObservations, values_nMPs);
+    // int vpLocalKeyFrames_size = vpLocalKeyFrames.size();
+    // int kf_count;
+    // long unsigned int indices[vpLocalKeyFrames_size];
+    // int values_nRedundantObservations[vpLocalKeyFrames_size];
+    // int values_nMPs[vpLocalKeyFrames_size];
+    // MappingKernelController::launchKeyframeCullingKernel(vpLocalKeyFrames, &kf_count, indices, values_nRedundantObservations, values_nMPs);
 
     // for(int i = 0; i < kf_count ; i++) {
     //     int nObs = 3;

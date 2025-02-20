@@ -1426,18 +1426,28 @@ namespace ORB_SLAM3
                     {
                         if(!pMPinKF->isBad())
                         {
-                            if(pMPinKF->Observations()>pMP->Observations()){
+                            if(pMPinKF->Observations()>pMP->Observations()) {
                                 pMP->Replace(pMPinKF);
+                                if (MappingKernelController::is_active) {
+                                    CudaMapPointStorage::modifyCudaMapPoint(pMP->mnId, pMPinKF);
+                                }
                             }
-                            else{
+                            else {
                                 pMPinKF->Replace(pMP);
-                            }
+                                if (MappingKernelController::is_active) {
+                                    CudaMapPointStorage::modifyCudaMapPoint(pMPinKF->mnId, pMP);
+                                }
+                            }   
                         }
                     }
                     else
                     {
                         pMP->AddObservation(pKF,bestIdx);
                         pKF->AddMapPoint(pMP,bestIdx);
+                        if (MappingKernelController::is_active) {
+                            CudaMapPointStorage::modifyCudaMapPoint(pMP->mnId, pMP);
+                            CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(pKF->mnId, pMP, bestIdx);
+                        }
                     }
                     nFused++;
                 }
@@ -1536,25 +1546,33 @@ namespace ORB_SLAM3
                 if (bestDist<=TH_LOW)
                 {
                     MapPoint* pMPinKF = pKF->GetMapPoint(bestIdx);
-
                     if(pMPinKF)
                     {
                         if(!pMPinKF->isBad())
                         {
-                            if(pMPinKF->Observations()>pMP->Observations()){
+                            if(pMPinKF->Observations()>pMP->Observations()) {
                                 pMP->Replace(pMPinKF);
+                                if (MappingKernelController::is_active) {
+                                    CudaMapPointStorage::modifyCudaMapPoint(pMP->mnId, pMPinKF);
+                                }
                             }
-                            else{
+                            else {
                                 pMPinKF->Replace(pMP);
-                            }
+                                if (MappingKernelController::is_active) {
+                                    CudaMapPointStorage::modifyCudaMapPoint(pMPinKF->mnId, pMP);
+                                }
+                            }   
                         }
                     }
                     else
                     {
                         pMP->AddObservation(pKF,bestIdx);
                         pKF->AddMapPoint(pMP,bestIdx);
+                        if (MappingKernelController::is_active) {
+                            CudaMapPointStorage::modifyCudaMapPoint(pMP->mnId, pMP);
+                            CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(pKF->mnId, pMP, bestIdx);
+                        }
                     }
-                    
                     nFused++;
                 }
                 else{
@@ -1675,6 +1693,10 @@ namespace ORB_SLAM3
                 {
                     pMP->AddObservation(pKF,bestIdx);
                     pKF->AddMapPoint(pMP,bestIdx);
+                    if (MappingKernelController::is_active) {
+                        CudaMapPointStorage::modifyCudaMapPoint(pMP->mnId, pMP);
+                        CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(pKF->mnId, pMP, bestIdx);
+                    }
                 }
                 nFused++;
             }

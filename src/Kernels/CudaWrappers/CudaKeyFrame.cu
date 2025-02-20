@@ -1,10 +1,7 @@
 #include "Kernels/CudaWrappers/CudaKeyFrame.h"
 #include "Kernels/CudaMapPointStorage.h"
-#include <cstdio>
-#include <vector>
 
 // #define DEBUG
-// #define TIME_MEASURMENT
 
 #ifdef DEBUG
 #define DEBUG_PRINT(msg) std::cout << "Debug [CudaKeyFrame]: " << msg << std::endl

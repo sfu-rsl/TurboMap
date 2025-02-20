@@ -54,7 +54,7 @@ __global__ void keyframeCullingKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame** d_key
 
             d_nMPs[idx] += 1;
 
-            // printf("3. pMP->mnId: %lu pMP->nObs: %d thObs: %d\n", pMP->mnId, pMP->nObs, thObs);
+            printf("3. pMP->mnId: %lu pMP->nObs: %d thObs: %d\n", pMP->mnId, pMP->nObs, thObs);
 
             if(pMP->nObs <= thObs) continue;
 
