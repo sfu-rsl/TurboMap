@@ -1028,7 +1028,6 @@ namespace ORB_SLAM3
             T12 = T1w * Tw2;
             R12 = T12.rotationMatrix();
             t12 = T12.translation();
-            cout << "T_T\n";
         }
         else{
             Sophus::SE3f Tr1w = pKF1->GetRightPose();

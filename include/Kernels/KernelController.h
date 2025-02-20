@@ -8,6 +8,7 @@
 #include "CudaWrappers/CudaFrame.h"
 #include "CudaUtils.h"
 #include "../Stats/TrackingStats.h"
+#include "../Stats/LocalMappingStats.h"
 #include <memory> 
 using namespace std; 
 
@@ -28,7 +29,9 @@ public:
     
     static void shutdownKernels();
     
-    static void saveKernelsStats(const std::string &file_path);
+    static void saveTrackingKernelsStats(const std::string &file_path);
+
+    static void saveLocalMappingKernelsStats(const std::string &file_path);
     
     static void launchStereoMatchKernel(std::vector<std::vector<int>> &vRowIndices, uchar* d_imagePyramidL, uchar* d_imagePyramidR, 
                                         std::vector<cv::Mat> &mvImagePyramid, std::vector<cv::Mat> &mvImagePyramidRight,

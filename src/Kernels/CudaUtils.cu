@@ -40,25 +40,17 @@ void CudaUtils::loadSetting(int _nFeatures, int _nLevels, bool _isMonocular, flo
 }
 
 __device__ int DescriptorDistance(const uint8_t *a, const uint8_t *b) {
-    printf("dd1\n");
     const int32_t *pa = reinterpret_cast<const int32_t*>(a);
     const int32_t *pb = reinterpret_cast<const int32_t*>(b);
-
-    printf("dd2\n");
 
     int dist = 0;
 
     for (int i = 0; i < DESCRIPTOR_SIZE / 4; i++, pa++, pb++) {
-        printf("dd2.1\n");
         unsigned int v = *pa ^ *pb;
-        printf("dd2.2\n");
         v = v - ((v >> 1) & 0x55555555);
         v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
         dist += (((v + (v >> 4)) & 0xF0F0F0F) * 0x1010101) >> 24;
-        printf("dd2.3\n");
     }
-
-    printf("dd3\n");
 
     return dist;
 }

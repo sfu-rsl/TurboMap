@@ -97,10 +97,13 @@ void KernelController::shutdownKernels(){
     }
 }
 
-void KernelController::saveKernelsStats(const std::string &file_path){
+void KernelController::saveTrackingKernelsStats(const std::string &file_path){
     mpStereoMatchKernel->saveStats(file_path);
     mpSearchLocalPointsKernel->saveStats(file_path);
     mpPoseEstimationKernel->saveStats(file_path);
+}
+
+void KernelController::saveLocalMappingKernelsStats(const std::string &file_path){
     mpSearchForTriangulationKernel->saveStats(file_path);
 }
 

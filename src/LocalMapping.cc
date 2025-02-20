@@ -555,11 +555,6 @@ void LocalMapping::CreateNewMapPoints()
     LocalMappingStats::getInstance().searchForTriangulation_time.push_back(timeTriangulation);
 #endif
 
-    if (vpNeighKFs.size() == 11)
-        exit(0);
-
-    cout << "vpNeighKFsIndexes: " << vpNeighKFsIndexes.size() << ", allvMatchedIndices: " << allvMatchedIndices.size() << endl;
-
     // Search matches with epipolar restriction and triangulate
     for(size_t i=0; i<vpNeighKFsIndexes.size(); i++)
     {
