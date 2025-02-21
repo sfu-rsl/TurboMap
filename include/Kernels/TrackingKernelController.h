@@ -1,37 +1,38 @@
-#ifndef KERNEL_CONTROLLER_H
-#define KERNEL_CONTROLLER_H
+#ifndef TRACKING_KERNEL_CONTROLLER_H
+#define TRACKING_KERNEL_CONTROLLER_H
 
 #include "SearchLocalPointsKernel.h"
 #include "PoseEstimationKernel.h"
 #include "StereoMatchKernel.h"
-#include "SearchForTriangulationKernel.h"
 #include "CudaWrappers/CudaFrame.h"
+#include "CudaWrappers/CudaKeyFrame.h"
 #include "CudaUtils.h"
+#include "CameraModels/GeometricCamera.h"
 #include "../Stats/TrackingStats.h"
-#include "../Stats/LocalMappingStats.h"
 #include <memory> 
 using namespace std; 
 
-class KernelController{
+class TrackingKernelController{
 public:
     static void setCUDADevice(int deviceID);
+
+    static bool is_active;
+
+    static void activate();
     
-    static void setGPURunMode(bool orbExtractionStatus, bool stereoMatchStatus, bool searchLocalPointsStatus, bool poseEstimationStatus, bool poseOptimizationStatus, bool searchForTriangulationStatus);
+    static void setGPURunMode(bool orbExtractionStatus, bool stereoMatchStatus, bool searchLocalPointsStatus, bool poseEstimationStatus, bool poseOptimizationStatus);
 
     static bool orbExtractionKernelRunStatus;
     static bool stereoMatchKernelRunStatus;
     static bool searchLocalPointsKernelRunStatus;
     static bool poseEstimationKernelRunStatus;
     static bool poseOptimizationRunStatus;
-    static bool searchForTriangulationRunStatus;
 
     static void initializeKernels();
     
     static void shutdownKernels();
     
-    static void saveTrackingKernelsStats(const std::string &file_path);
-
-    static void saveLocalMappingKernelsStats(const std::string &file_path);
+    static void saveKernelsStats(const std::string &file_path);
     
     static void launchStereoMatchKernel(std::vector<std::vector<int>> &vRowIndices, uchar* d_imagePyramidL, uchar* d_imagePyramidR, 
                                         std::vector<cv::Mat> &mvImagePyramid, std::vector<cv::Mat> &mvImagePyramidRight,
@@ -50,10 +51,6 @@ public:
                                             const float th, const bool bForward, const bool bBackward, Eigen::Matrix4f transform_matrix,
                                             int* h_bestDist, int* h_bestIdx2, int* h_bestDistR, int* h_bestIdxR2);
 
-    static void launchSearchForTriangulationKernel(ORB_SLAM3::KeyFrame* mpCurrentKeyFrame, std::vector<ORB_SLAM3::KeyFrame*> vpNeighKFs, 
-                                                   bool mbMonocular, bool mbInertial, bool recentlyLost, bool mbIMU_BA2, 
-                                                   std::vector<std::vector<std::pair<size_t,size_t>>> &allvMatchedIndices, std::vector<size_t> &vpNeighKFsIndexes);
-
 private:
     static bool memory_is_initialized;
     static bool stereoMatchDataHasMovedForward;
@@ -61,7 +58,6 @@ private:
     static std::unique_ptr<StereoMatchKernel> mpStereoMatchKernel;
     static std::unique_ptr<SearchLocalPointsKernel> mpSearchLocalPointsKernel;
     static std::unique_ptr<PoseEstimationKernel> mpPoseEstimationKernel;
-    static std::unique_ptr<SearchForTriangulationKernel> mpSearchForTriangulationKernel;
 };
 
 #endif

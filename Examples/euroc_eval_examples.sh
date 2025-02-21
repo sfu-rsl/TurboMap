@@ -2,14 +2,9 @@
 # pathDatasetEuroc='../EuRoC-Dataset' #Example, it is necesary to change it by the dataset path
 pathDatasetEuroc=$HOME/SLAM/Datasets/EuRoc
 
-orbExtractionRunstatus=$1
-stereoMatchRunstatus=$2
-searchLocalPointsRunstatus=$3
-poseEstimationRunstatus=$4
-poseOptimizationRunstatus=$5
-searchForTriangulationRunStatus=$6
-dataset_name=$7
-version=$8
+mode=$1
+dataset_name=$2
+version=$3
 
 # if [ "$poseOptimizationRunstatus" -eq 1 ]; then
 #     statsDir="../Results/poseOptimization_on/${orbExtractionRunstatus}${stereoMatchRunstatus}${searchLocalPointsRunstatus}${poseEstimationRunstatus}/${dataset_name}/${version}"
@@ -50,12 +45,15 @@ fi
 #Single Session Example (Stereo-Inertial)
 
 echo "Launching $dataset_name with Stereo-Inertial sensor"
-file_name="dataset-${dataset_name}_stereoi"
+
+#with gdb
+# file_name="dataset-${dataset_name}_stereoi"
 # EXECUTABLE=./Stereo-Inertial/stereo_inertial_euroc
-# ARGS="../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${orbExtractionRunstatus} ${stereoMatchRunstatus} ${searchLocalPointsRunstatus} ${poseEstimationRunstatus}"
+# ARGS="../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${mode}"
 # gdb -ex "set args $ARGS" -ex "run" $EXECUTABLE
-# compute-sanitizer --tool memcheck --report-api-errors all --show-backtrace no ./Stereo-Inertial/stereo_inertial_euroc ../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${orbExtractionRunstatus} ${stereoMatchRunstatus} ${searchLocalPointsRunstatus} ${poseEstimationRunstatus} ${poseOptimizationRunstatus} ${searchForTriangulationRunStatus}
-./Stereo-Inertial/stereo_inertial_euroc ../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${orbExtractionRunstatus} ${stereoMatchRunstatus} ${searchLocalPointsRunstatus} ${poseEstimationRunstatus} ${poseOptimizationRunstatus} ${searchForTriangulationRunStatus}
+
+#without gdb
+./Stereo-Inertial/stereo_inertial_euroc ../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${mode}
 
 # EXECUTABLE=./Stereo/stereo_euroc 
 # ARGS="../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${orbExtractionRunstatus} ${stereoMatchRunstatus} ${searchLocalPointsRunstatus} ${poseEstimationRunstatus}"

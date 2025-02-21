@@ -24,19 +24,33 @@
 #include "Converter.h"
 #include "GeometricTools.h"
 #include "Stats/LocalMappingStats.h"
+#include "Kernels/MappingKernelController.h"
+#include "Kernels/CudaMapPointStorage.h"
+#include "Kernels/CudaKeyFrameDrawer.h"
 #include<mutex>
 #include<chrono>
-
-#include "Kernels/KernelController.h"
+#include <csignal>
 
 namespace ORB_SLAM3
 {
+
+void LocalMapping::signalHandler(int signum) {
+    std::cout << "[LocalMapping::] Interrupt signal (" << signum << ") received.\n";
+
+    // Release resources here
+    MappingKernelController::shutdownKernels();
+    CudaUtils::shutdown();
+    // Exit the program
+    std::exit(signum);
+}
 
 LocalMapping::LocalMapping(System* pSys, Atlas *pAtlas, const float bMonocular, bool bInertial, const string &_strSeqName):
     mpSystem(pSys), mbMonocular(bMonocular), mbInertial(bInertial), mbResetRequested(false), mbResetRequestedActiveMap(false), mbFinishRequested(false), mbFinished(true), mpAtlas(pAtlas), bInitializing(false),
     mbAbortBA(false), mbStopped(false), mbStopRequested(false), mbNotStop(false), mbAcceptKeyFrames(true),
     mIdxInit(0), mScale(1.0), mInitSect(0), mbNotBA1(true), mbNotBA2(true), mIdxIteration(0), infoInertial(Eigen::MatrixXd::Zero(9,9))
 {
+    std::signal(SIGINT, LocalMapping::signalHandler);
+
     mnMatchesInliers = 0;
 
     mbBadImu = false;
@@ -50,6 +64,10 @@ LocalMapping::LocalMapping(System* pSys, Atlas *pAtlas, const float bMonocular, 
     nLBA_exec = 0;
     nLBA_abort = 0;
 #endif
+
+    if(MappingKernelController::is_active) {
+        MappingKernelController::initializeKernels();
+    }
 
 }
 
@@ -385,6 +403,9 @@ void LocalMapping::ProcessNewKeyFrame()
                 if(!pMP->IsInKeyFrame(mpCurrentKeyFrame))
                 {
                     pMP->AddObservation(mpCurrentKeyFrame, i);
+                    if (MappingKernelController::is_active) {
+                        CudaMapPointStorage::modifyCudaMapPoint(pMP->mnId, pMP);
+                    }
                     pMP->UpdateNormalAndDepth();
                     pMP->ComputeDistinctiveDescriptors();
                 }
@@ -505,15 +526,15 @@ void LocalMapping::CreateNewMapPoints()
     std::chrono::steady_clock::time_point time_StartTriangulation = std::chrono::steady_clock::now();
 #endif
 
-    if (KernelController::searchForTriangulationRunStatus == 1) {
+    if (MappingKernelController::searchForTriangulationOnGPU) {
         if (CheckNewKeyFrames())
             return;
-        KernelController::launchSearchForTriangulationKernel(
+        MappingKernelController::launchSearchForTriangulationKernel(
             mpCurrentKeyFrame, vpNeighKFs, mbMonocular, mbInertial, Tracking::RECENTLY_LOST, mpCurrentKeyFrame->GetMap()->GetIniertialBA2(), 
             allvMatchedIndices, vpNeighKFsIndexes
         );
     }
-    else if (KernelController::searchForTriangulationRunStatus == 0) {
+    else {
         for(size_t i=0; i<vpNeighKFs.size(); i++) {
 
             if(i>0 && CheckNewKeyFrames())
@@ -806,15 +827,23 @@ void LocalMapping::CreateNewMapPoints()
             // Triangulation is succesfull
             MapPoint* pMP = new MapPoint(x3D, mpCurrentKeyFrame, mpAtlas->GetCurrentMap());
             num_created_mappoints += 1;
-
+            
             if (bPointStereo)
-                countStereo++;
+            countStereo++;
             
             pMP->AddObservation(mpCurrentKeyFrame,idx1);
             pMP->AddObservation(pKF2,idx2);
+            
+            if (MappingKernelController::is_active) {
+                CudaMapPointStorage::addCudaMapPoint(pMP);
+            }
 
             mpCurrentKeyFrame->AddMapPoint(pMP,idx1);
             pKF2->AddMapPoint(pMP,idx2);
+            if (MappingKernelController::is_active) {
+                CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(mpCurrentKeyFrame->mnId, pMP, idx1);
+                CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(pKF2->mnId, pMP, idx2);
+            }
 
             pMP->ComputeDistinctiveDescriptors();
 
@@ -883,22 +912,32 @@ void LocalMapping::SearchInNeighbors()
     // Search matches by projection from current KF in target KFs
     ORBmatcher matcher;
     vector<MapPoint*> vpMapPointMatches = mpCurrentKeyFrame->GetMapPointMatches();
+    auto start5 = std::chrono::high_resolution_clock::now();
+    double first_fuse = 0;
+    double second_fuse = 0;
 
-#ifdef REGISTER_LOCAL_MAPPING_STATS
-    std::chrono::steady_clock::time_point time_StartFuse = std::chrono::steady_clock::now();
-#endif
     for(vector<KeyFrame*>::iterator vit=vpTargetKFs.begin(), vend=vpTargetKFs.end(); vit!=vend; vit++)
     {
         KeyFrame* pKFi = *vit;
 
+        auto start12 = std::chrono::high_resolution_clock::now();
         matcher.Fuse(pKFi,vpMapPointMatches);
+        auto end12 = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double, std::milli> elapsed12 = end12 - start12;
+        first_fuse += elapsed12.count();
+
+        auto start13 = std::chrono::high_resolution_clock::now();
         if(pKFi->NLeft != -1) matcher.Fuse(pKFi,vpMapPointMatches,true);
+        auto end13 = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double, std::milli> elapsed13 = end13 - start13;
+        second_fuse += elapsed13.count();
     }
-#ifdef REGISTER_LOCAL_MAPPING_STATS
-    std::chrono::steady_clock::time_point time_EndFuse = std::chrono::steady_clock::now();
-    double timeFuse = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_EndFuse - time_StartFuse).count();
-    LocalMappingStats::getInstance().fuse_time.push_back(timeFuse);
-#endif
+
+    auto end5 = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> elapsed5 = end5 - start5;
+    // std::cout << "Part 5 execution time: " << elapsed5.count() << " ms" << std::endl;
+    // std::cout << "First fuse execution time: " << first_fuse << " ms" << std::endl;
+    // std::cout << "Second fuse execution time: " << second_fuse << " ms" << std::endl;
 
 
     if (mbAbortBA)
@@ -926,8 +965,8 @@ void LocalMapping::SearchInNeighbors()
         }
     }
 
-    matcher.Fuse(mpCurrentKeyFrame,vpFuseCandidates);
-    if(mpCurrentKeyFrame->NLeft != -1) matcher.Fuse(mpCurrentKeyFrame,vpFuseCandidates,true);
+    // matcher.Fuse(mpCurrentKeyFrame,vpFuseCandidates);
+    // if(mpCurrentKeyFrame->NLeft != -1) matcher.Fuse(mpCurrentKeyFrame,vpFuseCandidates,true);
 
 
     // Update points
@@ -1028,6 +1067,8 @@ void LocalMapping::InterruptBA()
 
 void LocalMapping::KeyFrameCulling()
 {
+
+    if (MappingKernelController::keyframeCullingOnGPU == false) {
     // Check redundant keyframes (only local keyframes)
     // A keyframe is considered redundant if the 90% of the MapPoints it sees, are seen
     // in at least other 3 keyframes (in the same or finer scale)
@@ -1064,6 +1105,8 @@ void LocalMapping::KeyFrameCulling()
     for(vector<KeyFrame*>::iterator vit=vpLocalKeyFrames.begin(), vend=vpLocalKeyFrames.end(); vit!=vend; vit++)
     {
 
+        std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
+
         count++;
         KeyFrame* pKF = *vit;
 
@@ -1075,6 +1118,7 @@ void LocalMapping::KeyFrameCulling()
         const int thObs=nObs;
         int nRedundantObservations=0;
         int nMPs=0;
+        std::chrono::steady_clock::time_point t7 = std::chrono::steady_clock::now();
         for(size_t i=0, iend=vpMapPoints.size(); i<iend; i++)
         {
             MapPoint* pMP = vpMapPoints[i];
@@ -1133,7 +1177,6 @@ void LocalMapping::KeyFrameCulling()
             }
         }
 
-
         if(nRedundantObservations>redundant_th*nMPs)
         {
             if (mbInertial)
@@ -1177,6 +1220,221 @@ void LocalMapping::KeyFrameCulling()
         {
             break;
         }
+    }
+    }
+
+    else {
+    // Check redundant keyframes (only local keyframes)
+    // A keyframe is considered redundant if the 90% of the MapPoints it sees, are seen
+    // in at least other 3 keyframes (in the same or finer scale)
+    // We only consider close stereo points
+    std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+    const int Nd = 21;
+    mpCurrentKeyFrame->UpdateBestCovisibles();
+    vector<KeyFrame*> vpLocalKeyFrames = mpCurrentKeyFrame->GetVectorCovisibleKeyFrames();
+
+    float redundant_th;
+    if(!mbInertial)
+        redundant_th = 0.9;
+    else if (mbMonocular)
+        redundant_th = 0.9;
+    else
+        redundant_th = 0.5;
+
+    const bool bInitImu = mpAtlas->isImuInitialized();
+    int count=0;
+
+    // Compoute last KF from optimizable window:
+    unsigned int last_ID;
+    if (mbInertial)
+    {
+        int count = 0;
+        KeyFrame* aux_KF = mpCurrentKeyFrame;
+        while(count<Nd && aux_KF->mPrevKF)
+        {
+            aux_KF = aux_KF->mPrevKF;
+            count++;
+        }
+        last_ID = aux_KF->mnId;
+    }
+
+    double sum = 0;
+    int itr = 0;
+
+    // int vpLocalKeyFrames_size = vpLocalKeyFrames.size();
+    // int kf_count;
+    // long unsigned int indices[vpLocalKeyFrames_size];
+    // int values_nRedundantObservations[vpLocalKeyFrames_size];
+    // int values_nMPs[vpLocalKeyFrames_size];
+    // MappingKernelController::launchKeyframeCullingKernel(vpLocalKeyFrames, &kf_count, indices, values_nRedundantObservations, values_nMPs);
+
+    // for(int i = 0; i < kf_count ; i++) {
+    //     int nObs = 3;
+    //     const int thObs=nObs;
+    //     long unsigned int idx = indices[i];
+    //     KeyFrame* pKF = vpLocalKeyFrames[idx];
+    //     int nRedundantObservations = values_nRedundantObservations[i];
+    //     int nMPs = values_nMPs[i];
+
+    //     if(nRedundantObservations>redundant_th*nMPs)
+    //     {
+    //         cout << "==GPU RUN== KF: " << idx << " nRedundantObservations: " << nRedundantObservations << " nMPs: " << nMPs << endl;
+    //     }
+    // }
+
+    std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
+    for(vector<KeyFrame*>::iterator vit=vpLocalKeyFrames.begin(), vend=vpLocalKeyFrames.end(); vit!=vend; vit++)
+    {
+
+        std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
+
+        count++;
+        KeyFrame* pKF = *vit;
+        size_t idx = std::distance(vpLocalKeyFrames.begin(), vit);
+
+        if((pKF->mnId==pKF->GetMap()->GetInitKFid()) || pKF->isBad())
+            continue;
+        const vector<MapPoint*> vpMapPoints = pKF->GetMapPointMatches();
+
+        int nObs = 3;
+        const int thObs=nObs;
+        int nRedundantObservations=0;
+        int nMPs=0;
+        std::chrono::steady_clock::time_point t7 = std::chrono::steady_clock::now();
+        for(size_t i=0, iend=vpMapPoints.size(); i<iend; i++)
+        {
+            MapPoint* pMP = vpMapPoints[i];
+            if(pMP)
+            {
+                if(!pMP->isBad())
+                {
+                    if(!mbMonocular)
+                    {
+                        if(pKF->mvDepth[i]>pKF->mThDepth || pKF->mvDepth[i]<0)
+                            continue;
+                    }
+
+                    // cout << "[**CPU RUN**] [nMPs++] KF: " << pKF->mnId << ", MP: " << pMP->mnId << endl;
+                    nMPs++;
+
+                    if(pMP->Observations()>thObs)
+                    {
+                        const int &scaleLevel = (pKF -> NLeft == -1) ? pKF->mvKeysUn[i].octave
+                                                                     : (i < pKF -> NLeft) ? pKF -> mvKeys[i].octave
+                                                                                          : pKF -> mvKeysRight[i].octave;
+                        const map<KeyFrame*, tuple<int,int>> observations = pMP->GetObservations();
+                        int nObs=0;
+                        int j = 0;
+                        for(map<KeyFrame*, tuple<int,int>>::const_iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)
+                        {
+                            j++;
+                            KeyFrame* pKFi = mit->first;
+                            if(pKFi==pKF)
+                                continue;
+                            tuple<int,int> indexes = mit->second;
+                            int leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);
+                            int scaleLeveli = -1;
+                            if(pKFi -> NLeft == -1)
+                                scaleLeveli = pKFi->mvKeysUn[leftIndex].octave;
+                            else {
+                                if (leftIndex != -1) {
+                                    scaleLeveli = pKFi->mvKeys[leftIndex].octave;
+                                }
+                                if (rightIndex != -1) {
+                                    int rightLevel = pKFi->mvKeysRight[rightIndex - pKFi->NLeft].octave;
+                                    scaleLeveli = (scaleLeveli == -1 || scaleLeveli > rightLevel) ? rightLevel
+                                                                                                  : scaleLeveli;
+                                }
+                            }
+
+                            // if(pKF->mnId == 4 && pMP->mnId == 12) {
+                            //     printf("[**CPU RUN**] KF: %lu, MP: %lu, j: %d, pKFi: %lu, leftIndex: %d, rightIndex: %d\n", pKF->mnId, pMP->mnId, j, pKFi->mnId, leftIndex, rightIndex);
+                            //     cout << "[**CPU RUN**] KF: " << pKF->mnId << ", MP: " << pMP->mnId << ", j:" << j << ", scaleLeveli: " << scaleLeveli << ", scaleLevel: " << scaleLevel << endl;
+                            // }
+                            // if(pKF->mnId == 4 && pMP->mnId == 13) {
+                            //     printf("[**CPU RUN**] KF: %lu, MP: %lu, j: %d, pKFi: %lu, leftIndex: %d, rightIndex: %d\n", pKF->mnId, pMP->mnId, j, pKFi->mnId, leftIndex, rightIndex);
+                            //     cout << "[**CPU RUN**] KF: " << pKF->mnId << ", MP: " << pMP->mnId << ", j:" << j << ", scaleLeveli: " << scaleLeveli << ", scaleLevel: " << scaleLevel << endl;
+                            // }
+
+                            if(scaleLeveli<=scaleLevel+1)
+                            {
+                                nObs++;
+                                if(nObs>thObs)
+                                    break;
+                            }
+                        }
+
+                        if(nObs>thObs)
+                        {
+                            // cout << "[**CPU RUN**] [nRedundantObservations++] KF: " << pKF->mnId << ", MP: " << pMP->mnId << endl;
+                            nRedundantObservations++;
+                        }
+                    }
+                }
+            }
+        }
+        std::chrono::steady_clock::time_point t8 = std::chrono::steady_clock::now();
+        double mp_loop = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t8 - t7).count();
+
+        // int index = std::distance(vpLocalKeyFrames.begin(), vit); 
+        // cout << "KF" << index << "-> gpu: " << h_results[index] << " | cpu: " << nRedundantObservations << endl;
+
+
+        if(nRedundantObservations>redundant_th*nMPs)
+        {
+            // cout << "==GPU RUN== KF: " << idx << " nRedundantObservations: " << values_nRedundantObservations[idx] << " nMPs: " << values_nMPs[idx] << endl;
+            // cout << "**CPU RUN** KF: " << idx << " nRedundantObservations: " << nRedundantObservations << " nMPs: " << nMPs << endl;
+            if (mbInertial)
+            {
+                if (mpAtlas->KeyFramesInMap()<=Nd)
+                    continue;
+
+                if(pKF->mnId>(mpCurrentKeyFrame->mnId-2))
+                    continue;
+
+                if(pKF->mPrevKF && pKF->mNextKF)
+                {
+                    const float t = pKF->mNextKF->mTimeStamp-pKF->mPrevKF->mTimeStamp;
+
+                    if((bInitImu && (pKF->mnId<last_ID) && t<3.) || (t<0.5))
+                    {
+                        pKF->mNextKF->mpImuPreintegrated->MergePrevious(pKF->mpImuPreintegrated);
+                        pKF->mNextKF->mPrevKF = pKF->mPrevKF;
+                        pKF->mPrevKF->mNextKF = pKF->mNextKF;
+                        pKF->mNextKF = NULL;
+                        pKF->mPrevKF = NULL;
+                        pKF->SetBadFlag();
+                    }
+                    else if(!mpCurrentKeyFrame->GetMap()->GetIniertialBA2() && ((pKF->GetImuPosition()-pKF->mPrevKF->GetImuPosition()).norm()<0.02) && (t<3))
+                    {
+                        pKF->mNextKF->mpImuPreintegrated->MergePrevious(pKF->mpImuPreintegrated);
+                        pKF->mNextKF->mPrevKF = pKF->mPrevKF;
+                        pKF->mPrevKF->mNextKF = pKF->mNextKF;
+                        pKF->mNextKF = NULL;
+                        pKF->mPrevKF = NULL;
+                        pKF->SetBadFlag();
+                    }
+                }
+            }
+            else
+            {
+                pKF->SetBadFlag();
+            }
+        }
+        if((count > 20 && mbAbortBA) || count>100)
+        {
+            break;
+        }
+        std::chrono::steady_clock::time_point t6 = std::chrono::steady_clock::now();
+        double kf_loop_body = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t6 - t5).count();
+        sum += (mp_loop / kf_loop_body)*100;
+        itr += 1;
+    }
+    std::chrono::steady_clock::time_point t4 = std::chrono::steady_clock::now();
+    double outer_loop = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t4 - t3).count();
+    double total = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t4 - t1).count();
+
+    // cout << "[KFCulling]=> total: " << total << ", update_covisibles: " << update_covisibles << ", kf_loop: " << outer_loop << ", mp_loop_portion: " << sum/itr << ", num_kf:" << vpLocalKeyFrames.size() << endl;        
     }
 }
 

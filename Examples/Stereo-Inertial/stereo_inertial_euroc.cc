@@ -30,6 +30,8 @@
 #include<System.h>
 #include<Stats/TrackingStats.h>
 #include<Stats/LocalMappingStats.h>
+#include "Kernels/TrackingKernelController.h"
+#include "Kernels/MappingKernelController.h"
 
 #include "ImuTypes.h"
 #include "Optimizer.h"
@@ -44,33 +46,59 @@ void LoadIMU(const string &strImuPath, vector<double> &vTimeStamps, vector<cv::P
 
 int main(int argc, char **argv)
 {
-    int min_num_argc = 5 + 7;
+    // int min_num_argc = 5 + 6;
+
+    // if(argc < min_num_argc)
+    // {
+    //     cerr << endl << "Usage: ./stereo_inertial_euroc path_to_vocabulary path_to_settings path_to_sequence_folder_1 path_to_times_file_1 (path_to_image_folder_2 path_to_times_file_2 ... path_to_image_folder_N path_to_times_file_N) " 
+    //         << "strStatsFile OrbExtractionRunStatus StereoMatchRunStatus SearchLocalPointsRunStatus PoseEstimationRunStatus PoseOptimizationRunStatus"  << endl;
+    //     return 1;
+    // }
+
+    // bool RunPoseOptimization = (strcmp(argv[argc-1], "1") == 0);
+    // bool RunPoseEstimationOnGPU = (strcmp(argv[argc-2], "1") == 0);
+    // bool RunSearchLocalPointsOnGPU = (strcmp(argv[argc-3], "1") == 0);
+    // bool RunStereoMatchOnGPU = (strcmp(argv[argc-4], "1") == 0);
+    // bool RunOrbExtractionOnGPU = (strcmp(argv[argc-5], "1") == 0);
+    // string strStatsFile = argv[argc-6];
+    // argc-=6;
+
+    // cout << "[Kernels Run Status::] ORB Extraction: " << RunOrbExtractionOnGPU <<
+    //         " Stereo Match: " << RunStereoMatchOnGPU <<
+    //         " Search Local Points: " << RunSearchLocalPointsOnGPU <<
+    //         " Pose Estimation: " << RunPoseEstimationOnGPU <<
+    //         " Pose Optimization: " << RunPoseOptimization << endl;
+
+    // TrackingKernelController::setGPURunMode(RunOrbExtractionOnGPU, RunStereoMatchOnGPU, RunSearchLocalPointsOnGPU, RunPoseEstimationOnGPU, RunPoseOptimization);
+    
+    int min_num_argc = 5 + 2;
 
     if(argc < min_num_argc)
     {
         cerr << endl << "Usage: ./stereo_inertial_euroc path_to_vocabulary path_to_settings path_to_sequence_folder_1 path_to_times_file_1 (path_to_image_folder_2 path_to_times_file_2 ... path_to_image_folder_N path_to_times_file_N) " 
-            << "strStatsFile OrbExtractionRunStatus StereoMatchRunStatus SearchLocalPointsRunStatus PoseEstimationRunStatus PoseOptimizationRunStatus SearchForTriangulationRunStatus"  << endl;
+            << "strStatsFile <[0] for ORB-SLAM3, [1] for FastTrack, [2] for FastMap>"  << endl;
         return 1;
     }
 
-    bool SearchForTriangulationRunStatus = (strcmp(argv[argc-1], "1") == 0);
-    bool RunPoseOptimization = (strcmp(argv[argc-2], "1") == 0);
-    bool RunPoseEstimationOnGPU = (strcmp(argv[argc-3], "1") == 0);
-    bool RunSearchLocalPointsOnGPU = (strcmp(argv[argc-4], "1") == 0);
-    bool RunStereoMatchOnGPU = (strcmp(argv[argc-5], "1") == 0);
-    bool RunOrbExtractionOnGPU = (strcmp(argv[argc-6], "1") == 0);
-    string strStatsFile = argv[argc-7];
-    argc-=7;
+    bool ORBSLAM_mode = (strcmp(argv[argc-1], "0") == 0);
+    bool FastTrack_mode = (strcmp(argv[argc-1], "1") == 0);
+    bool FastMap_mode = (strcmp(argv[argc-1], "2") == 0);
+    string strStatsFile = argv[argc-2];
+    argc-=2;
 
-    cout << "[Kernels Run Status::] ORB Extraction: " << RunOrbExtractionOnGPU <<
-            " Stereo Match: " << RunStereoMatchOnGPU <<
-            " Search Local Points: " << RunSearchLocalPointsOnGPU <<
-            " Pose Estimation: " << RunPoseEstimationOnGPU <<
-            " Pose Optimization: " << RunPoseOptimization <<
-            " Search For Triangulation: " << SearchForTriangulationRunStatus << endl;
+    cout << "Mode:" << ORBSLAM_mode << FastTrack_mode << FastMap_mode << endl;
 
-    KernelController::setGPURunMode(RunOrbExtractionOnGPU, RunStereoMatchOnGPU, RunSearchLocalPointsOnGPU, RunPoseEstimationOnGPU, RunPoseOptimization, SearchForTriangulationRunStatus);
-    
+    if (FastTrack_mode) {
+        TrackingKernelController::activate();
+        // TrackingKernelController::setGPURunMode(1,1,1,1,0);
+    }
+
+    if (FastMap_mode) {
+        MappingKernelController::activate();
+        // MappingKernelController::setGPURunMode(1);
+    }
+
+
     const int num_seq = (argc-3)/2;
 
     cout << "num_seq = " << num_seq << endl;

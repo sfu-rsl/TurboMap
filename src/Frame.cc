@@ -25,7 +25,7 @@
 #include "Converter.h"
 #include "ORBmatcher.h"
 #include "GeometricCamera.h"
-#include "Kernels/KernelController.h"
+#include "Kernels/TrackingKernelController.h"
 #include "Stats/TrackingStats.h"
 
 #include <thread>
@@ -153,7 +153,7 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
     std::chrono::steady_clock::time_point time_StartStereoMatches_ = std::chrono::steady_clock::now();
 #endif
 
-    if (KernelController::stereoMatchKernelRunStatus == 1)
+    if (TrackingKernelController::stereoMatchKernelRunStatus == 1)
         ComputeStereoMatchesGPU();
     else
         ComputeStereoMatches();
@@ -1039,9 +1039,9 @@ void Frame::ComputeStereoMatchesGPU()
 
     vector<pair<int, int>> vDistIdx;
 
-    bool mvImagePyramidOnGpu = KernelController::orbExtractionKernelRunStatus;
+    bool mvImagePyramidOnGpu = TrackingKernelController::orbExtractionKernelRunStatus;
 
-    KernelController::launchStereoMatchKernel(vRowIndices, mpORBextractorLeft->GetGPUPyramid(), mpORBextractorRight->GetGPUPyramid(), 
+    TrackingKernelController::launchStereoMatchKernel(vRowIndices, mpORBextractorLeft->GetGPUPyramid(), mpORBextractorRight->GetGPUPyramid(), 
                                               mpORBextractorLeft->mvImagePyramid, mpORBextractorRight->mvImagePyramid,
                                               mvKeys, mvKeysRight, mDescriptors, mDescriptorsRight, minD, maxD, thOrbDist, mbf, mvImagePyramidOnGpu,
                                               vDistIdx, mvuRight, mvDepth);
@@ -1197,7 +1197,7 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
     std::chrono::steady_clock::time_point time_StartStereoMatches_ = std::chrono::steady_clock::now();
 #endif
 
-    if (KernelController::stereoMatchKernelRunStatus == 1)
+    if (TrackingKernelController::stereoMatchKernelRunStatus == 1)
         ComputeStereoFishEyeMatchesGPU();
     else
         ComputeStereoFishEyeMatches();
@@ -1279,7 +1279,7 @@ void Frame::ComputeStereoFishEyeMatchesGPU() {
     mnCloseMPs = 0;
 
     int matches[mvKeys.size()];
-    KernelController::launchFisheyeStereoMatchKernel(mvKeys.size(), mvKeysRight.size(), mDescriptors, mDescriptorsRight, matches);
+    TrackingKernelController::launchFisheyeStereoMatchKernel(mvKeys.size(), mvKeysRight.size(), mDescriptors, mDescriptorsRight, matches);
 
     int nMatches = 0;
     int descMatches = 0;

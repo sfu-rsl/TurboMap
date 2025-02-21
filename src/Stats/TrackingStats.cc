@@ -18,7 +18,7 @@ void TrackingStats::saveStats(const string &file_path) {
 
     std::ofstream myfile;
 
-    KernelController::saveTrackingKernelsStats(data_path);
+    TrackingKernelController::saveKernelsStats(data_path);
 
     std::ofstream myfile;
 

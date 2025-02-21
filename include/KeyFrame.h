@@ -537,6 +537,7 @@ public:
         cout << "Point distribution in KeyFrame: left-> " << left << " --- right-> " << right << endl;
     }
 
+    const std::vector<std::vector<std::vector<size_t>>>& getMGrid() const;
 
 };
 

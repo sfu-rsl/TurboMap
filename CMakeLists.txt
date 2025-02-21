@@ -94,13 +94,19 @@ src/Settings.cc
 src/Stats/TrackingStats.cc
 src/Stats/LocalMappingStats.cc
 src/Kernels/CudaUtils.cu
-src/Kernels/CudaWrappers/CudaMapPoint.cc
+src/Kernels/CudaWrappers/CudaMapPoint.cu
 src/Kernels/CudaWrappers/CudaFrame.cu
+src/Kernels/CudaWrappers/CudaKeyFrame.cu
 src/Kernels/StereoMatchKernel.cu
 src/Kernels/SearchLocalPointsKernel.cu
 src/Kernels/PoseEstimationKernel.cu
 src/Kernels/SearchForTriangulationKernel.cu
-src/Kernels/KernelController.cu
+src/Kernels/TrackingKernelController.cu
+src/Kernels/MappingKernelController.cu
+src/Kernels/KFCullingKernel.cu
+src/Kernels/CudaKeyFrameDrawer.cu
+src/Kernels/CudaMapPointStorage.cu
+src/Kernels/FuseKernel.cu
 include/System.h
 include/Tracking.h
 include/LocalMapping.h
@@ -143,13 +149,19 @@ include/Kernels/CudaUtils.h
 include/Kernels/CudaWrappers/CudaMapPoint.h
 include/Kernels/CudaWrappers/CudaKeyPoint.h
 include/Kernels/CudaWrappers/CudaFrame.h
+include/Kernels/CudaWrappers/CudaKeyFrame.h
 include/Kernels/CudaWrappers/CudaCamera.h
 include/Kernels/StereoMatchKernel.h
 include/Kernels/SearchLocalPointsKernel.h
 include/Kernels/PoseEstimationKernel.h
 include/Kernels/SearchForTriangulationKernel.h
 include/Kernels/KernelInterface.h
-include/Kernels/KernelController.h
+include/Kernels/FuseKernel.h
+include/Kernels/TrackingKernelController.h
+include/Kernels/MappingKernelController.h
+include/Kernels/KFCullingKernel.h
+include/Kernels/CudaKeyFrameDrawer.h
+include/Kernels/CudaMapPointStorage.h
 )
 
 set_target_properties( ${PROJECT_NAME}

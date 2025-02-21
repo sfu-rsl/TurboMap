@@ -60,7 +60,7 @@ int main(int argc, char **argv)
             " Pose Optimization: " << RunPoseOptimization << 
             " Search For Triangulation: " << SearchForTriangulationRunStatus << endl;
 
-    KernelController::setGPURunMode(RunOrbExtractionOnGPU, RunStereoMatchOnGPU, RunSearchLocalPointsOnGPU, RunPoseEstimationOnGPU, RunPoseOptimization, SearchForTriangulationRunStatus);
+    TrackingKernelController::setGPURunMode(RunOrbExtractionOnGPU, RunStereoMatchOnGPU, RunSearchLocalPointsOnGPU, RunPoseEstimationOnGPU, RunPoseOptimization);
 
     const int num_seq = (argc-3)/2;
     cout << "num_seq = " << num_seq << endl;

@@ -12,4 +12,14 @@ namespace TRACKING_DATA_WRAPPER {
     };
 }
 
+
+namespace MAPPING_DATA_WRAPPER {
+
+    struct CudaKeyPoint {
+        float ptx;
+        float pty;
+        int octave;
+    };
+}
+
 #endif // CUDA_KEYPOINT_H

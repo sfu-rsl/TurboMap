@@ -25,7 +25,7 @@
 #include "resize.h"
 #include "gaussian_blur.h"
 #include "descriptor.h"
-#include "Kernels/KernelController.h"
+#include "Kernels/TrackingKernelController.h"
 #include "Kernels/CudaUtils.h"
 
 #include "ORBextractor.h"
@@ -413,7 +413,7 @@ namespace ORB_SLAM3
             maxScaleFactor = 1/maxScaleFactor;
         }
 
-        if (KernelController::orbExtractionKernelRunStatus == 1) {
+        if (TrackingKernelController::orbExtractionKernelRunStatus == 1) {
 
             int points[32] = {0,  3,  1,  3, 2,  2, 3,  1, 3, 0, 3, -1, 2, -2, 1, -3,
                               0, -3, -1, -3, -2, -2, -3, -1, -3, 0, -3,  1, -2,  2, -1,  3};
@@ -468,7 +468,7 @@ namespace ORB_SLAM3
         const Point* pattern0 = (const Point*)bit_pattern_31_;
         std::copy(pattern0, pattern0 + npoints, std::back_inserter(pattern));
 
-        if (KernelController::orbExtractionKernelRunStatus == 1) {
+        if (TrackingKernelController::orbExtractionKernelRunStatus == 1) {
             checkCudaError(cudaMalloc(&(d_pattern), sizeof(cv::Point)*pattern.size()),"[ORBextractor::] Failed to allocate memory for d_pattern");
             checkCudaError(cudaMemcpy(d_pattern, pattern.data(), sizeof(cv::Point)*pattern.size(), cudaMemcpyHostToDevice),"[ORBextractor::] Failed to copy d_pattern");
         }
@@ -492,7 +492,7 @@ namespace ORB_SLAM3
             ++v0;
         }
 
-        if (KernelController::orbExtractionKernelRunStatus == 1) {
+        if (TrackingKernelController::orbExtractionKernelRunStatus == 1) {
             checkCudaError(cudaMalloc(&umax_gpu, sizeof(int)*umax.size()),"[ORBextractor::] Failed to allocate memory for umax_gpu");
             checkCudaError(cudaMemcpyAsync(umax_gpu, umax.data(), sizeof(int)*umax.size(), cudaMemcpyHostToDevice, cudaStream),"[ORBextractor::] Failed to copy umax_gpu");
         }
@@ -1371,7 +1371,7 @@ namespace ORB_SLAM3
         vector < vector<cv::KeyPoint> > allKeypoints;
         int nkeypoints = 0;
 
-        if (KernelController::orbExtractionKernelRunStatus == 1) {
+        if (TrackingKernelController::orbExtractionKernelRunStatus == 1) {
             // this->checkAndReallocMemory(image);
 
             // Pre-compute the scale pyramid
@@ -1407,7 +1407,7 @@ namespace ORB_SLAM3
         //Modified for speeding up stereo fisheye matching
         int monoIndex = 0, stereoIndex = nkeypoints-1;
 
-        if (KernelController::orbExtractionKernelRunStatus == 1) {
+        if (TrackingKernelController::orbExtractionKernelRunStatus == 1) {
             for (int level = 0; level < nlevels; ++level)
             {
                 vector<OrbKeyPoint>& keypoints = allKeypointsGPU[level];
@@ -1544,7 +1544,7 @@ namespace ORB_SLAM3
     }
 
     ORBextractor::~ORBextractor() {
-        if (KernelController::orbExtractionKernelRunStatus == 1) {
+        if (TrackingKernelController::orbExtractionKernelRunStatus == 1) {
             this->freeMemory();
             this->freeInputMemory();
             checkCudaError(cudaFree(d_scaleFactor),"[ORBextractor::] Failed to free d_scaleFactor");

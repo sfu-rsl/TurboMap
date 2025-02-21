@@ -1,45 +1,48 @@
-#include "Kernels/KernelController.h"
+#include "Kernels/TrackingKernelController.h"
 
 // #define DEBUG
 
 #ifdef DEBUG
-#define DEBUG_PRINT(msg) std::cout << "Debug [KernelController::]  " << msg << std::endl
+#define DEBUG_PRINT(msg) std::cout << "Debug [Tracking KernelController::]  " << msg << std::endl
 #else
 #define DEBUG_PRINT(msg) do {} while (0)
 #endif
 
-bool KernelController::orbExtractionKernelRunStatus;
-bool KernelController::stereoMatchKernelRunStatus;
-bool KernelController::searchLocalPointsKernelRunStatus;
-bool KernelController::poseEstimationKernelRunStatus;
-bool KernelController::poseOptimizationRunStatus;
-bool KernelController::searchForTriangulationRunStatus;
-bool KernelController::memory_is_initialized = false;
-bool KernelController::stereoMatchDataHasMovedForward = false;
-std::unique_ptr<SearchLocalPointsKernel> KernelController::mpSearchLocalPointsKernel = std::make_unique<SearchLocalPointsKernel>();
-std::unique_ptr<PoseEstimationKernel> KernelController::mpPoseEstimationKernel = std::make_unique<PoseEstimationKernel>();
-std::unique_ptr<StereoMatchKernel> KernelController::mpStereoMatchKernel = std::make_unique<StereoMatchKernel>();
-std::unique_ptr<SearchForTriangulationKernel> KernelController::mpSearchForTriangulationKernel = std::make_unique<SearchForTriangulationKernel>();
-TRACKING_DATA_WRAPPER::CudaFrame* KernelController::cudaFramePtr;
-TRACKING_DATA_WRAPPER::CudaFrame* KernelController::cudaLastFramePtr;
+bool TrackingKernelController::is_active = false;
+bool TrackingKernelController::orbExtractionKernelRunStatus;
+bool TrackingKernelController::stereoMatchKernelRunStatus;
+bool TrackingKernelController::searchLocalPointsKernelRunStatus;
+bool TrackingKernelController::poseEstimationKernelRunStatus;
+bool TrackingKernelController::poseOptimizationRunStatus;
+bool TrackingKernelController::memory_is_initialized = false;
+bool TrackingKernelController::stereoMatchDataHasMovedForward = false;
+std::unique_ptr<SearchLocalPointsKernel> TrackingKernelController::mpSearchLocalPointsKernel = std::make_unique<SearchLocalPointsKernel>();
+std::unique_ptr<PoseEstimationKernel> TrackingKernelController::mpPoseEstimationKernel = std::make_unique<PoseEstimationKernel>();
+std::unique_ptr<StereoMatchKernel> TrackingKernelController::mpStereoMatchKernel = std::make_unique<StereoMatchKernel>();
+TRACKING_DATA_WRAPPER::CudaFrame* TrackingKernelController::cudaFramePtr;
+TRACKING_DATA_WRAPPER::CudaFrame* TrackingKernelController::cudaLastFramePtr;
 
-void KernelController::setCUDADevice(int deviceID) {
+void TrackingKernelController::setCUDADevice(int deviceID) {
     cudaSetDevice(deviceID);
     cudaDeviceProp deviceProp;
     cudaGetDeviceProperties(&deviceProp, deviceID);
     printf("Using device %d: %s\n", deviceID, deviceProp.name);
 }
 
-void KernelController::setGPURunMode(bool orbExtractionStatus, bool stereoMatchStatus, bool searchLocalPointsStatus, bool poseEstimationStatus, bool poseOptimizationStatus, bool searchForTriangulationStatus) {
+void TrackingKernelController::activate(){
+    is_active = true;
+    setGPURunMode(1,1,1,1,0);
+}
+
+void TrackingKernelController::setGPURunMode(bool orbExtractionStatus, bool stereoMatchStatus, bool searchLocalPointsStatus, bool poseEstimationStatus, bool poseOptimizationStatus) {
     orbExtractionKernelRunStatus = orbExtractionStatus;
     stereoMatchKernelRunStatus = stereoMatchStatus;
     searchLocalPointsKernelRunStatus = searchLocalPointsStatus;
     poseEstimationKernelRunStatus = poseEstimationStatus;
     poseOptimizationRunStatus = poseOptimizationStatus;
-    searchForTriangulationRunStatus = searchForTriangulationStatus;
 }
 
-void KernelController::initializeKernels(){
+void TrackingKernelController::initializeKernels(){
     cudaFramePtr = new TRACKING_DATA_WRAPPER::CudaFrame();
     cudaLastFramePtr = new TRACKING_DATA_WRAPPER::CudaFrame();
 #ifdef REGISTER_TRACKING_STATS
@@ -61,28 +64,15 @@ void KernelController::initializeKernels(){
         mpPoseEstimationKernel->initialize();
 #ifdef REGISTER_TRACKING_STATS
     std::chrono::steady_clock::time_point PE_end = std::chrono::steady_clock::now();
-#endif
-#ifdef REGISTER_LOCAL_MAPPING_STATS
-    std::chrono::steady_clock::time_point SFT_start = std::chrono::steady_clock::now();
-#endif    
-    if(searchForTriangulationRunStatus == 1)
-        mpSearchForTriangulationKernel->initialize();
-#ifdef REGISTER_LOCAL_MAPPING_STATS
-    std::chrono::steady_clock::time_point SFT_end = std::chrono::steady_clock::now();    
-    LocalMappingStats::getInstance().searchForTriangulation_init_time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(SFT_end - SFT_start).count();
-#endif    
-
-#ifdef REGISTER_TRACKING_STATS
-    std::chrono::steady_clock::time_point PE_end = std::chrono::steady_clock::now();
     TrackingStats::getInstance().stereoMatch_init_time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(SM_end - SM_start).count();
     TrackingStats::getInstance().searchLocalPoints_init_time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(SLP_end - SLP_start).count();
     TrackingStats::getInstance().poseEstimation_init_time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(PE_end - PE_start).count();
 #endif
-    checkCudaError(cudaDeviceSynchronize(), "[Kernel Controller:] Failed to initialize kernels.");
+    checkCudaError(cudaDeviceSynchronize(), "[Tracking Kernel Controller:] Failed to initialize kernels.");
     memory_is_initialized = true;
 }
 
-void KernelController::shutdownKernels(){
+void TrackingKernelController::shutdownKernels(){
     if (memory_is_initialized) {
         cudaFramePtr->freeMemory();
         delete cudaFramePtr;
@@ -92,22 +82,16 @@ void KernelController::shutdownKernels(){
             mpSearchLocalPointsKernel->shutdown();
         if(poseEstimationKernelRunStatus == 1)
             mpPoseEstimationKernel->shutdown();
-        if(searchForTriangulationRunStatus == 1)
-            mpSearchForTriangulationKernel->shutdown();
     }
 }
 
-void KernelController::saveTrackingKernelsStats(const std::string &file_path){
+void TrackingKernelController::saveKernelsStats(const std::string &file_path){
     mpStereoMatchKernel->saveStats(file_path);
     mpSearchLocalPointsKernel->saveStats(file_path);
     mpPoseEstimationKernel->saveStats(file_path);
 }
 
-void KernelController::saveLocalMappingKernelsStats(const std::string &file_path){
-    mpSearchForTriangulationKernel->saveStats(file_path);
-}
-
-void KernelController::launchStereoMatchKernel(std::vector<std::vector<int>> &vRowIndices, uchar* d_imagePyramidL, uchar* d_imagePyramidR, 
+void TrackingKernelController::launchStereoMatchKernel(std::vector<std::vector<int>> &vRowIndices, uchar* d_imagePyramidL, uchar* d_imagePyramidR, 
                                                std::vector<cv::Mat> &mvImagePyramid, std::vector<cv::Mat> &mvImagePyramidRight,
                                                std::vector<cv::KeyPoint> &mvKeys, std::vector<cv::KeyPoint> &mvKeysRight, 
                                                cv::Mat mDescriptors, cv::Mat mDescriptorsRight, const float minD, const float maxD, const int thOrbDist, 
@@ -127,7 +111,7 @@ void KernelController::launchStereoMatchKernel(std::vector<std::vector<int>> &vR
     }
 }
 
-void KernelController::launchFisheyeStereoMatchKernel(const int N, const int Nr, cv::Mat mDescriptors, cv::Mat mDescriptorsRight, int* matches) {
+void TrackingKernelController::launchFisheyeStereoMatchKernel(const int N, const int Nr, cv::Mat mDescriptors, cv::Mat mDescriptorsRight, int* matches) {
 
     DEBUG_PRINT("launching FisheyeStereoMatch Kernel"); 
 
@@ -139,7 +123,7 @@ void KernelController::launchFisheyeStereoMatchKernel(const int N, const int Nr,
     }
 }
 
-void KernelController::launchSearchLocalPointsKernel(ORB_SLAM3::Frame &F, const vector<ORB_SLAM3::MapPoint*> &vmp,
+void TrackingKernelController::launchSearchLocalPointsKernel(ORB_SLAM3::Frame &F, const vector<ORB_SLAM3::MapPoint*> &vmp,
                                                     const float th, const bool bFarPoints, const float thFarPoints,
                                                     int* h_bestLevel, int* h_bestLevel2, int* h_bestDist, int* h_bestDist2, int* h_bestIdx,
                                                     int* h_bestLevelR, int* h_bestLevelR2, int* h_bestDistR, int* h_bestDistR2, int* h_bestIdxR) {
@@ -169,7 +153,7 @@ void KernelController::launchSearchLocalPointsKernel(ORB_SLAM3::Frame &F, const 
                                     h_bestLevelR, h_bestLevelR2, h_bestDistR, h_bestDistR2, h_bestIdxR);
 }
 
-void KernelController::launchPoseEstimationKernel(ORB_SLAM3::Frame &CurrentFrame, const ORB_SLAM3::Frame &LastFrame,
+void TrackingKernelController::launchPoseEstimationKernel(ORB_SLAM3::Frame &CurrentFrame, const ORB_SLAM3::Frame &LastFrame,
                                                 const float th, const bool bForward, const bool bBackward, Eigen::Matrix4f transform_matrix,
                                                 int* h_bestDist, int* h_bestIdx2, int* h_bestDistR, int* h_bestIdxR2){
 
@@ -194,13 +178,4 @@ void KernelController::launchPoseEstimationKernel(ORB_SLAM3::Frame &CurrentFrame
 #endif
 
     mpPoseEstimationKernel->launch(CurrentFrame, LastFrame, th, bForward, bBackward, transform_matrix, h_bestDist, h_bestIdx2, h_bestDistR, h_bestIdxR2);
-}
-
-void KernelController::launchSearchForTriangulationKernel(ORB_SLAM3::KeyFrame* mpCurrentKeyFrame, std::vector<ORB_SLAM3::KeyFrame*> vpNeighKFs, 
-                                                          bool mbMonocular, bool mbInertial, bool recentlyLost, bool mbIMU_BA2, 
-                                                          std::vector<std::vector<std::pair<size_t,size_t>>> &allvMatchedIndices, 
-                                                          std::vector<size_t> &vpNeighKFsIndexes) {
-
-    DEBUG_PRINT("launching SearchForTriangulation Kernel"); 
-    mpSearchForTriangulationKernel->launch(mpCurrentKeyFrame, vpNeighKFs, mbMonocular, mbInertial, recentlyLost, mbIMU_BA2, allvMatchedIndices, vpNeighKFsIndexes);
 }
