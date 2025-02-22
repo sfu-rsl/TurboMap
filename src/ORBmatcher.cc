@@ -1422,13 +1422,13 @@ namespace ORB_SLAM3
                         if(pMPinKF->Observations()>pMP->Observations()) {
                             pMP->Replace(pMPinKF);
                             if (MappingKernelController::is_active) {
-                                CudaMapPointStorage::modifyCudaMapPoint(pMP->mnId, pMPinKF);
+                                CudaMapPointStorage::replaceCudaMapPoint(pMP->mnId, pMPinKF);
                             }
                         }
                         else {
                             pMPinKF->Replace(pMP);
                             if (MappingKernelController::is_active) {
-                                CudaMapPointStorage::modifyCudaMapPoint(pMPinKF->mnId, pMP);
+                                CudaMapPointStorage::replaceCudaMapPoint(pMPinKF->mnId, pMP);
                             }
                         }   
                     }
@@ -1437,10 +1437,10 @@ namespace ORB_SLAM3
                 {
                     pMP->AddObservation(pKF,bestIdx);
                     pKF->AddMapPoint(pMP,bestIdx);
-                    if (MappingKernelController::is_active) {
-                        CudaMapPointStorage::modifyCudaMapPoint(pMP->mnId, pMP);
-                        CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(pKF->mnId, pMP, bestIdx);
-                    }
+                    // if (MappingKernelController::is_active) {
+                    //     CudaMapPointStorage::replaceCudaMapPoint(pMP->mnId, pMP);
+                    //     CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(pKF->mnId, pMP, bestIdx);
+                    // }
                 }
                 nFused++;
             }
@@ -1561,10 +1561,10 @@ namespace ORB_SLAM3
                 {
                     pMP->AddObservation(pKF,bestIdx);
                     pKF->AddMapPoint(pMP,bestIdx);
-                    if (MappingKernelController::is_active) {
-                        CudaMapPointStorage::modifyCudaMapPoint(pMP->mnId, pMP);
-                        CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(pKF->mnId, pMP, bestIdx);
-                    }
+                    // if (MappingKernelController::is_active) {
+                    //     CudaMapPointStorage::replaceCudaMapPoint(pMP->mnId, pMP);
+                    //     CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(pKF->mnId, pMP, bestIdx);
+                    // }
                 }
                 nFused++;
             }

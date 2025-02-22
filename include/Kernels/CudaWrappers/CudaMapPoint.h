@@ -5,6 +5,8 @@
 #include <opencv2/opencv.hpp>
 #include <Eigen/Core>
 
+#define MAX_NUM_OBSERVATIONS 200
+
 namespace TRACKING_DATA_WRAPPER {
 
 class CudaMapPoint {
@@ -49,7 +51,11 @@ class CudaMapPoint {
     public:
         CudaMapPoint();
         CudaMapPoint(ORB_SLAM3::MapPoint* mp);
+        void initialize();
+        void setMemory(ORB_SLAM3::MapPoint* mp);
         void setObservations(ORB_SLAM3::MapPoint* mp);
+        void setAsEmpty() { isEmpty = true; };
+        void freeMemory();
 
     public:
         // For creating empty mapPoints instead of using null ptr
@@ -60,9 +66,9 @@ class CudaMapPoint {
         bool mbBad;
         int nObs;
         int mObservations_size;
-        CudaKeyFrame* mObservations_dkf[200];
-        int mObservations_leftIdx[200];
-        int mObservations_rightIdx[200];
+        CudaKeyFrame** mObservations_dkf;
+        int mObservations_leftIdx[MAX_NUM_OBSERVATIONS];
+        int mObservations_rightIdx[MAX_NUM_OBSERVATIONS];
     };
 }
 

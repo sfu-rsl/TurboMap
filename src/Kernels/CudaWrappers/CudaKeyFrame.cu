@@ -21,9 +21,11 @@ namespace MAPPING_DATA_WRAPPER
         if (cameraIsFisheye) {
             checkCudaError(cudaMalloc((void**)&mvpMapPoints, 2 * nFeatures * sizeof(CudaMapPoint*)), "CudaKeyFrame::failed to allocate memory for mvpMapPoints");
             h_mvpMapPoints.resize(2 * nFeatures, nullptr);
+            mvpMapPoints_size = 2 * nFeatures;
         } else {
             checkCudaError(cudaMalloc((void**)&mvpMapPoints, nFeatures * sizeof(CudaMapPoint*)), "CudaKeyFrame::failed to allocate memory for mvpMapPoints");
             h_mvpMapPoints.resize(nFeatures, nullptr);
+            mvpMapPoints_size = nFeatures;
         }
 
         if (cameraIsFisheye) {
@@ -40,6 +42,7 @@ namespace MAPPING_DATA_WRAPPER
     }
 
     CudaKeyFrame::CudaKeyFrame() {
+        isEmpty = true;
         initializeMemory();
     }
 
@@ -50,6 +53,7 @@ namespace MAPPING_DATA_WRAPPER
     void CudaKeyFrame::setMemory(ORB_SLAM3::KeyFrame* KF) {
         DEBUG_PRINT("Filling CudaKeyFrame Memory With Keyframe Data...");
 
+        isEmpty = false;
         NLeft = KF->NLeft;
         mnId = KF->mnId;
         mThDepth = KF->mThDepth;
@@ -84,10 +88,13 @@ namespace MAPPING_DATA_WRAPPER
         checkCudaError(cudaMemcpy(mvKeysUn, tmp_mvKeysUn.data(), mvKeysUn_size * sizeof(CudaKeyPoint), cudaMemcpyHostToDevice), "CudaKeyFrame:: Failed to copy mvKeysUn to gpu");
     }
 
-    void CudaKeyFrame::addMapPoint(ORB_SLAM3::MapPoint* mp, int idx) {
-        CudaMapPoint* d_mp = CudaMapPointStorage::getCudaMapPoint(mp->mnId);
-        h_mvpMapPoints[idx] = d_mp;
-        checkCudaError(cudaMemcpy(&mvpMapPoints[idx], &h_mvpMapPoints[idx], sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint*), cudaMemcpyHostToDevice), "[CudaKeyFrame::updateMvpMapPoints: ] Failed to update idx ");
+    void CudaKeyFrame::addMapPoint(MAPPING_DATA_WRAPPER::CudaMapPoint* d_mp, int idx) {
+        checkCudaError(cudaMemcpy(&mvpMapPoints[idx], &d_mp, sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint*), cudaMemcpyHostToDevice), "[CudaKeyFrame::updateMvpMapPoints: ] Failed to update idx ");
+    }
+
+    void CudaKeyFrame::eraseMapPoint(int idx) {
+        CudaMapPoint* d_mp = nullptr;
+        checkCudaError(cudaMemcpy(&mvpMapPoints[idx], &d_mp, sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint*), cudaMemcpyHostToDevice), "[CudaKeyFrame::updateMvpMapPoints: ] Failed to update idx ");
     }
 
     void CudaKeyFrame::freeMemory(){
@@ -97,5 +104,4 @@ namespace MAPPING_DATA_WRAPPER
         checkCudaError(cudaFree((void*) mvKeysRight),"[CudaKeyFrame::] Failed to free memory: mvKeysRight");
         checkCudaError(cudaFree(mvKeysUn),"[CudaKeyFrame::] Failed to free memory: mvKeysUn");
     }
-
 }

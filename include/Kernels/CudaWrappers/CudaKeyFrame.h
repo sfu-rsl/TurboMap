@@ -16,10 +16,13 @@ class CudaKeyFrame {
         CudaKeyFrame();
         void setGPUAddress(CudaKeyFrame* ptr);
         void setMemory(ORB_SLAM3::KeyFrame* KF);
-        void addMapPoint(ORB_SLAM3::MapPoint* mp, int idx);
+        void addMapPoint(CudaMapPoint* d_mp, int idx);
+        void eraseMapPoint(int idx);
+        void setAsEmpty() { isEmpty = true; };
         void freeMemory();
 
     public:
+        bool isEmpty;
         int mnId;
         int NLeft;
         float mThDepth;

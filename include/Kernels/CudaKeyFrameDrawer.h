@@ -4,6 +4,7 @@
 #include <vector>
 #include "KeyFrame.h"
 #include "CudaUtils.h"
+#include "CudaMapPointStorage.h"
 #include "CudaWrappers/CudaKeyFrame.h"
 #include <mutex>
 #include <queue>
@@ -14,6 +15,11 @@ namespace MAPPING_DATA_WRAPPER {
     class CudaKeyFrame;
 }
 
+namespace ORB_SLAM3 {
+    class KeyFrame;
+    class MapPoint;
+}
+
 using ckd_buffer_index_t = int;
 
 class CudaKeyFrameDrawer {
@@ -21,8 +27,10 @@ class CudaKeyFrameDrawer {
         static void initializeMemory();
         static MAPPING_DATA_WRAPPER::CudaKeyFrame* getCudaKeyFrame(long unsigned int mnId);
         static MAPPING_DATA_WRAPPER::CudaKeyFrame* addCudaKeyFrame(ORB_SLAM3::KeyFrame* KF);
-        static void updateCudaKeyFrameMapPoint(long unsigned int KF_Id, ORB_SLAM3::MapPoint* mp, int idx);
         static void eraseCudaKeyFrame(ORB_SLAM3::KeyFrame* KF);
+        static void updateCudaKeyFrameMapPoint(long unsigned int KF_Id, ORB_SLAM3::MapPoint* mp, int idx);
+        static void eraseCudaKeyFrameMapPoint(long unsigned int KF_mnId, int idx);
+        static void printDrawerKeyframes();
         static void shutdown();
     public:
         static MAPPING_DATA_WRAPPER::CudaKeyFrame *d_keyframes, *h_keyframes;

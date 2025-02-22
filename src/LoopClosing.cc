@@ -1128,7 +1128,7 @@ void LoopClosing::CorrectLoop()
                 if(pCurMP){
                     pCurMP->Replace(pLoopMP);
                     if (MappingKernelController::is_active) {
-                        CudaMapPointStorage::modifyCudaMapPoint(pCurMP->mnId, pLoopMP);
+                        CudaMapPointStorage::replaceCudaMapPoint(pCurMP->mnId, pLoopMP);
                     }
                 }
                 else
@@ -1139,7 +1139,7 @@ void LoopClosing::CorrectLoop()
                     }
                     pLoopMP->AddObservation(mpCurrentKF,i);
                     if (MappingKernelController::is_active) {
-                        CudaMapPointStorage::modifyCudaMapPoint(pLoopMP->mnId, pLoopMP);
+                        CudaMapPointStorage::replaceCudaMapPoint(pLoopMP->mnId, pLoopMP);
                     }
                     pLoopMP->ComputeDistinctiveDescriptors();
                 }
@@ -2159,7 +2159,7 @@ void LoopClosing::SearchAndFuse(const KeyFrameAndPose &CorrectedPosesMap, vector
                 num_replaces += 1;
                 pRep->Replace(vpMapPoints[i]);
                 if (MappingKernelController::is_active) {
-                    CudaMapPointStorage::modifyCudaMapPoint(pRep->mnId, vpMapPoints[i]);
+                    CudaMapPointStorage::replaceCudaMapPoint(pRep->mnId, vpMapPoints[i]);
                 }
             }
         }
@@ -2204,7 +2204,7 @@ void LoopClosing::SearchAndFuse(const vector<KeyFrame*> &vConectedKFs, vector<Ma
                 num_replaces += 1;
                 pRep->Replace(vpMapPoints[i]);
                 if (MappingKernelController::is_active) {
-                    CudaMapPointStorage::modifyCudaMapPoint(pRep->mnId, vpMapPoints[i]);
+                    CudaMapPointStorage::replaceCudaMapPoint(pRep->mnId, vpMapPoints[i]);
                 }
             }
         }

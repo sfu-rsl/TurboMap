@@ -40,7 +40,12 @@ namespace TRACKING_DATA_WRAPPER
 
 namespace MAPPING_DATA_WRAPPER
 {
+    void CudaMapPoint::initialize() {
+        checkCudaError(cudaMalloc((void**)&mObservations_dkf, MAX_NUM_OBSERVATIONS * sizeof(CudaKeyFrame*)), "CudaMapPoint::failed to allocate memory for mObservations_dkf");
+    }
+
     CudaMapPoint::CudaMapPoint() {
+        initialize();
         isEmpty = true;
     }
 
@@ -51,8 +56,11 @@ namespace MAPPING_DATA_WRAPPER
         setObservations(mp);
     }
 
-    __global__ void validateKFInput_GPU(long unsigned int mnId, MAPPING_DATA_WRAPPER::CudaKeyFrame* KF) {
-        printf("[CudaMapPoint::setObservations::] mp: %lu, pKFi mnId: %lu\n", mnId, KF->mnId);
+    void CudaMapPoint::setMemory(ORB_SLAM3::MapPoint* mp) {
+        isEmpty = false;
+        mnId = mp->mnId;
+        mbBad = mp->isBad();
+        setObservations(mp);
     }
 
     void CudaMapPoint::setObservations(ORB_SLAM3::MapPoint* mp) {
@@ -68,12 +76,18 @@ namespace MAPPING_DATA_WRAPPER
 
             CudaKeyFrame* d_kf = CudaKeyFrameDrawer::getCudaKeyFrame(key->mnId);
             if (d_kf != nullptr) {
-                mObservations_dkf[itr] = d_kf;
-            } else {
-                cout << "MapPoint Error: KF " << key->mnId << " is not in the drawer.\n";
-            }
+                // mObservations_dkf[itr] = d_kf;
+                checkCudaError(cudaMemcpy(&mObservations_dkf[itr], &d_kf, sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame*), cudaMemcpyHostToDevice), "[CudaMapPoint::setObservations: ] Failed to add d_kf");
+            } 
+            // else {
+            //     cout << "MapPoint Error: KF " << key->mnId << " is not in the drawer.\n";
+            // }
 
             itr++;
         }        
+    }
+
+    void CudaMapPoint::freeMemory() {
+        checkCudaError(cudaFree(mObservations_dkf),"[CudaMapPoint::] Failed to free memory: mObservations_dkf");
     }
 }

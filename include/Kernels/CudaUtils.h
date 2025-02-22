@@ -3,6 +3,9 @@
 
 #include <vector>
 #include <opencv2/opencv.hpp>
+#include "../KeyFrame.h"
+#include "CudaWrappers/CudaKeyFrame.h"
+#include "CudaWrappers/CudaMapPoint.h"
 
 #ifdef __CUDACC__
 #include <cuda_runtime.h>
@@ -13,7 +16,7 @@
 // Flag to activate the measurement of time in each kernel.
 // #define REGISTER_TRACKING_STATS
 
-#define REGISTER_LOCAL_MAPPING_STATS
+// #define REGISTER_LOCAL_MAPPING_STATS
 
 // #define DEBUG
 #define N_FEATURES_TH 20
@@ -42,5 +45,15 @@ class CudaUtils {
 
 void checkCudaError(cudaError_t err, const char* msg);
 __device__ int DescriptorDistance(const uint8_t *a, const uint8_t *b);
+
+void printKeyframeCPU(ORB_SLAM3::KeyFrame* KF);
+__global__ void printKFSingleGPU(MAPPING_DATA_WRAPPER::CudaKeyFrame* KF);
+__global__ void printKFListGPU(MAPPING_DATA_WRAPPER::CudaKeyFrame** d_keyframes, int idx);
+__device__ void printKeyframeGPU(MAPPING_DATA_WRAPPER::CudaKeyFrame* KF);
+
+void printMPCPU(ORB_SLAM3::MapPoint* mp);
+__device__ void printMPGPU(MAPPING_DATA_WRAPPER::CudaMapPoint* mp);
+__global__ void printMPSingleGPU(MAPPING_DATA_WRAPPER::CudaMapPoint* mp);
+__global__ void printMPListGPU(MAPPING_DATA_WRAPPER::CudaMapPoint** d_mapPoints, int idx);
 
 #endif // CUDA_UTILS_H

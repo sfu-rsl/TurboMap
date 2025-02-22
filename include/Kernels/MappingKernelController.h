@@ -27,8 +27,7 @@ public:
     
     static void saveKernelsStats(const std::string &file_path);
     
-    static void launchKeyframeCullingKernel(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int* h_kf_count, long unsigned int* h_indices,
-                                                                            int* h_nMPs, int* h_nRedundantObservations);
+    static void launchKeyframeCullingKernel(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int* h_nMPs, int* h_nRedundantObservations);
 
 private:
     static bool memory_is_initialized;

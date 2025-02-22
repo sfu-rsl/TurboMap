@@ -5,6 +5,7 @@
 #include "CudaUtils.h"
 #include "../KeyFrame.h"
 #include "CudaWrappers/CudaKeyFrame.h"
+#include "CudaKeyFrameDrawer.h"
 #include <map>
 #include <stdio.h>
 #include <fstream>
@@ -22,8 +23,7 @@ class KFCullingKernel: public KernelInterface {
         void shutdown() override;
         void saveStats(const std::string &file_path) override {};
         void launch() override { std::cout << "[KFCullingKernel:] provide input for kernel launch.\n"; };
-        void launch(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int* h_kf_count, long unsigned int* h_indices,
-                                                                            int* h_nMPs, int* h_nRedundantObservations);
+        void launch(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int* h_nMPs, int* h_nRedundantObservations);
     
     private:
         bool memory_is_initialized;

@@ -12,13 +12,19 @@
 
 using cmp_buffer_index_t = int;
 
+namespace ORB_SLAM3 {
+    class MapPoint;
+}
+
 class CudaMapPointStorage {
     public:
         static void initializeMemory();
         static MAPPING_DATA_WRAPPER::CudaMapPoint* getCudaMapPoint(long unsigned int mnId);
-        static MAPPING_DATA_WRAPPER::CudaMapPoint* modifyCudaMapPoint(long unsigned int mnId, ORB_SLAM3::MapPoint* new_MP); 
+        static MAPPING_DATA_WRAPPER::CudaMapPoint* replaceCudaMapPoint(long unsigned int mnId, ORB_SLAM3::MapPoint* new_MP); 
+        static void setCudaMapPointObservations(long unsigned int mnId, ORB_SLAM3::MapPoint* mp); 
         static MAPPING_DATA_WRAPPER::CudaMapPoint* addCudaMapPoint(ORB_SLAM3::MapPoint* MP);
         static void eraseCudaMapPoint(ORB_SLAM3::MapPoint* MP);
+        static void printStorageMapPoints();
         static void shutdown();
     public:
         static MAPPING_DATA_WRAPPER::CudaMapPoint *d_mappoints, *h_mappoints; 

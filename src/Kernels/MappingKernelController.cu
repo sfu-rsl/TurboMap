@@ -63,10 +63,9 @@ void MappingKernelController::saveKernelsStats(const std::string &file_path){
     mpKFCullingKernel->saveStats(file_path);
 }
 
-void MappingKernelController::launchKeyframeCullingKernel(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int* h_kf_count, long unsigned int* h_indices,
-                                                                            int* h_nMPs, int* h_nRedundantObservations) {
+void MappingKernelController::launchKeyframeCullingKernel(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int* h_nMPs, int* h_nRedundantObservations) {
 
     DEBUG_PRINT("Launching Keyframe Culling Kernel"); 
 
-    mpKFCullingKernel->launch(vpLocalKeyFrames,h_kf_count, h_indices, h_nMPs, h_nRedundantObservations);
+    mpKFCullingKernel->launch(vpLocalKeyFrames, h_nMPs, h_nRedundantObservations);
 }

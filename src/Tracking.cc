@@ -3480,7 +3480,7 @@ void Tracking::CreateNewKeyFrame()
 
                         pNewMP->AddObservation(pKF,mCurrentFrame.Nleft + mCurrentFrame.mvLeftToRightMatch[i]);
                         if (MappingKernelController::is_active) {
-                            CudaMapPointStorage::modifyCudaMapPoint(pNewMP->mnId, pNewMP);
+                            CudaMapPointStorage::replaceCudaMapPoint(pNewMP->mnId, pNewMP);
                         }
 
                         pKF->AddMapPoint(pNewMP,mCurrentFrame.Nleft + mCurrentFrame.mvLeftToRightMatch[i]);

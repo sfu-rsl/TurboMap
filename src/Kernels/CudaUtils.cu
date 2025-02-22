@@ -14,6 +14,76 @@ int CudaUtils::ORBmatcher_TH_LOW = 50;
 int CudaUtils::ORBmatcher_HISTO_LENGTH = 30;
 bool CudaUtils::cameraIsFisheye;
 
+void printKeyframeCPU(ORB_SLAM3::KeyFrame* KF) {
+    printf("[*CPU*] KF mnId: %d\n", KF->mnId);
+    vector<ORB_SLAM3::MapPoint*> h_mapPoints = KF->GetMapPointMatches();
+    int mvpMapPoints_size = h_mapPoints.size();
+    for (int i = 0; i < mvpMapPoints_size; ++i) {
+        if(h_mapPoints[i]) {
+            printf("    i:%d, mp mnId: %d\n", i, h_mapPoints[i]->mnId);
+            std::map<ORB_SLAM3::KeyFrame*,std::tuple<int,int>> observations = h_mapPoints[i]->GetObservations();
+            for(map<ORB_SLAM3::KeyFrame*, tuple<int,int>>::const_iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)
+            {
+                ORB_SLAM3::KeyFrame* pKFi = mit->first;
+                printf("        pKFi mnId: %d\n", pKFi->mnId);
+            }           
+        }
+    }
+}
+
+__device__ void printKeyframeGPU(MAPPING_DATA_WRAPPER::CudaKeyFrame* KF) {
+    printf("[=GPU=] KF mnId: %lu\n", KF->mnId);
+    for (int i = 0; i < KF->mvpMapPoints_size; ++i) {
+        MAPPING_DATA_WRAPPER::CudaMapPoint* mp = KF->mvpMapPoints[i];
+        if (mp == nullptr) continue;
+        printf("    i:%d, mp mnId: %lu\n", i, mp->mnId);
+        MAPPING_DATA_WRAPPER::CudaKeyFrame** mObservations_dkf = mp->mObservations_dkf;
+        for (int j = 0; j < mp->mObservations_size; ++j) {
+            MAPPING_DATA_WRAPPER::CudaKeyFrame* pKFi = mp->mObservations_dkf[j];
+            // printf("        j:%d, pKFi mnId: %lu\n", j, pKFi->mnId);
+            printf("     j:%d, pKFi ptr: %p\n", j, (void*)pKFi);
+        }
+    }
+}
+
+
+__global__ void printKFSingleGPU(MAPPING_DATA_WRAPPER::CudaKeyFrame* KF) {
+    printKeyframeGPU(KF);
+}
+
+__global__ void printKFListGPU(MAPPING_DATA_WRAPPER::CudaKeyFrame** d_keyframes, int idx) {
+    MAPPING_DATA_WRAPPER::CudaKeyFrame* KF = d_keyframes[idx];
+    printKeyframeGPU(KF);
+}
+
+void printMPCPU(ORB_SLAM3::MapPoint* mp) {
+    printf("[*CPU*] mp mnId: %lu\n", mp->mnId);
+    map<ORB_SLAM3::KeyFrame*, tuple<int,int>> observations = mp->GetObservations();
+    for (const auto& pair : observations) {
+        ORB_SLAM3::KeyFrame* key = pair.first;
+        printf("    pKFi mnId: %lu\n", key->mnId);
+    }     
+}
+
+__device__ void printMPGPU(MAPPING_DATA_WRAPPER::CudaMapPoint* mp) {
+    printf("[=GPU=] mp mnId: %lu\n", mp->mnId);
+    MAPPING_DATA_WRAPPER::CudaKeyFrame** mObservations_dkf = mp->mObservations_dkf;
+    for (int j = 0; j < mp->mObservations_size; ++j) {
+        MAPPING_DATA_WRAPPER::CudaKeyFrame* pKFi = mp->mObservations_dkf[j];
+        // printf("    pKFi mnId: %lu\n", pKFi->mnId);
+        printf("    pKFi ptr: %p\n", (void*)pKFi);
+    }    
+}
+
+__global__ void printMPSingleGPU(MAPPING_DATA_WRAPPER::CudaMapPoint* mp) {
+    printMPGPU(mp);
+}
+
+__global__ void printMPListGPU(MAPPING_DATA_WRAPPER::CudaMapPoint** d_mapPoints, int idx) {
+    MAPPING_DATA_WRAPPER::CudaMapPoint* mp = d_mapPoints[idx];
+    printMPGPU(mp);
+}
+
 void checkCudaError(cudaError_t err, const char* msg) {
     if (err != cudaSuccess) {
         std::cerr << msg << ": " << cudaGetErrorString(err) << ", status code: " << err << std::endl;

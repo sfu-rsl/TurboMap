@@ -403,9 +403,9 @@ void LocalMapping::ProcessNewKeyFrame()
                 if(!pMP->IsInKeyFrame(mpCurrentKeyFrame))
                 {
                     pMP->AddObservation(mpCurrentKeyFrame, i);
-                    if (MappingKernelController::is_active) {
-                        CudaMapPointStorage::modifyCudaMapPoint(pMP->mnId, pMP);
-                    }
+                    // if (MappingKernelController::is_active) {
+                    //     CudaMapPointStorage::replaceCudaMapPoint(pMP->mnId, pMP);
+                    // }
                     pMP->UpdateNormalAndDepth();
                     pMP->ComputeDistinctiveDescriptors();
                 }
@@ -453,21 +453,22 @@ void LocalMapping::MapPointCulling()
     {
         MapPoint* pMP = *lit;
 
-        // if (MappingKernelController::is_active) {
-        //     if(pMP->isBad())
-        //         CudaMapPointStorage::eraseCudaMapPoint(pMP);
-        // }
-
         if(pMP->isBad())
             lit = mlpRecentAddedMapPoints.erase(lit);
         else if(pMP->GetFoundRatio()<0.25f)
         {
             pMP->SetBadFlag();
+            if (MappingKernelController::is_active) {
+                CudaMapPointStorage::eraseCudaMapPoint(pMP);
+            }
             lit = mlpRecentAddedMapPoints.erase(lit);
         }
         else if(((int)nCurrentKFid-(int)pMP->mnFirstKFid)>=2 && pMP->Observations()<=cnThObs)
         {
             pMP->SetBadFlag();
+            if (MappingKernelController::is_active) {
+                CudaMapPointStorage::eraseCudaMapPoint(pMP);
+            }
             lit = mlpRecentAddedMapPoints.erase(lit);
         }
         else if(((int)nCurrentKFid-(int)pMP->mnFirstKFid)>=3)
@@ -1161,6 +1162,9 @@ void LocalMapping::KeyFrameCulling()
                         pKF->mNextKF = NULL;
                         pKF->mPrevKF = NULL;
                         pKF->SetBadFlag();
+                        if (MappingKernelController::is_active) {
+                            CudaKeyFrameDrawer::eraseCudaKeyFrame(pKF);
+                        }
                     }
                     else if(!mpCurrentKeyFrame->GetMap()->GetIniertialBA2() && ((pKF->GetImuPosition()-pKF->mPrevKF->GetImuPosition()).norm()<0.02) && (t<3))
                     {
@@ -1170,14 +1174,21 @@ void LocalMapping::KeyFrameCulling()
                         pKF->mNextKF = NULL;
                         pKF->mPrevKF = NULL;
                         pKF->SetBadFlag();
+                        if (MappingKernelController::is_active) {
+                            CudaKeyFrameDrawer::eraseCudaKeyFrame(pKF);
+                        }
                     }
                 }
             }
             else
             {
                 pKF->SetBadFlag();
+                if (MappingKernelController::is_active) {
+                    CudaKeyFrameDrawer::eraseCudaKeyFrame(pKF);
+                }
             }
         }
+
         if((count > 20 && mbAbortBA) || count>100)
         {
             break;
@@ -1223,28 +1234,73 @@ void LocalMapping::KeyFrameCulling()
     double sum = 0;
     int itr = 0;
 
-    // int vpLocalKeyFrames_size = vpLocalKeyFrames.size();
-    // int kf_count;
-    // long unsigned int indices[vpLocalKeyFrames_size];
-    // int values_nRedundantObservations[vpLocalKeyFrames_size];
-    // int values_nMPs[vpLocalKeyFrames_size];
-    // MappingKernelController::launchKeyframeCullingKernel(vpLocalKeyFrames, &kf_count, indices, values_nRedundantObservations, values_nMPs);
+    int vpLocalKeyFrames_size = vpLocalKeyFrames.size();
+    int values_nMPs[vpLocalKeyFrames_size];
+    int values_nRedundantObservations[vpLocalKeyFrames_size];
+    MappingKernelController::launchKeyframeCullingKernel(vpLocalKeyFrames, values_nMPs, values_nRedundantObservations);
 
-    // for(int i = 0; i < kf_count ; i++) {
-    //     int nObs = 3;
-    //     const int thObs=nObs;
-    //     long unsigned int idx = indices[i];
-    //     KeyFrame* pKF = vpLocalKeyFrames[idx];
-    //     int nRedundantObservations = values_nRedundantObservations[i];
-    //     int nMPs = values_nMPs[i];
+    // std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
+    // for(int i = 0; i < vpLocalKeyFrames.size(); i++) {
 
-    //     if(nRedundantObservations>redundant_th*nMPs)
+    //     count++;
+    //     KeyFrame* pKF = vpLocalKeyFrames[i];
+        
+    //     if((pKF->mnId==pKF->GetMap()->GetInitKFid()) || pKF->isBad())
+    //         continue;
+
+    //     if(values_nRedundantObservations[i] > redundant_th * values_nMPs[i])
     //     {
-    //         cout << "==GPU RUN== KF: " << idx << " nRedundantObservations: " << nRedundantObservations << " nMPs: " << nMPs << endl;
-    //     }
-    // }
+    //         if (mbInertial)
+    //         {
+    //             if (mpAtlas->KeyFramesInMap()<=Nd)
+    //                 continue;
 
-    std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
+    //             if(pKF->mnId>(mpCurrentKeyFrame->mnId-2))
+    //                 continue;
+
+    //             if(pKF->mPrevKF && pKF->mNextKF)
+    //             {
+    //                 const float t = pKF->mNextKF->mTimeStamp-pKF->mPrevKF->mTimeStamp;
+
+    //                 if((bInitImu && (pKF->mnId<last_ID) && t<3.) || (t<0.5))
+    //                 {
+    //                     pKF->mNextKF->mpImuPreintegrated->MergePrevious(pKF->mpImuPreintegrated);
+    //                     pKF->mNextKF->mPrevKF = pKF->mPrevKF;
+    //                     pKF->mPrevKF->mNextKF = pKF->mNextKF;
+    //                     pKF->mNextKF = NULL;
+    //                     pKF->mPrevKF = NULL;
+    //                     pKF->SetBadFlag();
+    //                     if (MappingKernelController::is_active) {
+    //                         CudaKeyFrameDrawer::eraseCudaKeyFrame(pKF);
+    //                     }
+    //                 }
+    //                 else if(!mpCurrentKeyFrame->GetMap()->GetIniertialBA2() && ((pKF->GetImuPosition()-pKF->mPrevKF->GetImuPosition()).norm()<0.02) && (t<3))
+    //                 {
+    //                     pKF->mNextKF->mpImuPreintegrated->MergePrevious(pKF->mpImuPreintegrated);
+    //                     pKF->mNextKF->mPrevKF = pKF->mPrevKF;
+    //                     pKF->mPrevKF->mNextKF = pKF->mNextKF;
+    //                     pKF->mNextKF = NULL;
+    //                     pKF->mPrevKF = NULL;
+    //                     pKF->SetBadFlag();
+    //                     if (MappingKernelController::is_active) {
+    //                         CudaKeyFrameDrawer::eraseCudaKeyFrame(pKF);
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //         else
+    //         {
+    //             pKF->SetBadFlag();
+    //             if (MappingKernelController::is_active) {
+    //                 CudaKeyFrameDrawer::eraseCudaKeyFrame(pKF);
+    //             }
+    //         }
+    //     }
+    //     if((count > 20 && mbAbortBA) || count>100)
+    //     {
+    //         break;
+    //     }       
+    // }
     for(vector<KeyFrame*>::iterator vit=vpLocalKeyFrames.begin(), vend=vpLocalKeyFrames.end(); vit!=vend; vit++)
     {
 
@@ -1267,7 +1323,11 @@ void LocalMapping::KeyFrameCulling()
         {
             MapPoint* pMP = vpMapPoints[i];
             if(pMP)
-            {
+            {   
+                if (pKF->mnId == 1) {
+                    cout << " ,[" << i << ": " << pMP->mnId << "]";
+                }
+
                 if(!pMP->isBad())
                 {
                     if(!mbMonocular)
@@ -1335,17 +1395,25 @@ void LocalMapping::KeyFrameCulling()
                 }
             }
         }
-        std::chrono::steady_clock::time_point t8 = std::chrono::steady_clock::now();
-        double mp_loop = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t8 - t7).count();
+        cout << "\n************CPU**************" << endl;
+        // std::chrono::steady_clock::time_point t8 = std::chrono::steady_clock::now();
+        // double mp_loop = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t8 - t7).count();
 
         // int index = std::distance(vpLocalKeyFrames.begin(), vit); 
         // cout << "KF" << index << "-> gpu: " << h_results[index] << " | cpu: " << nRedundantObservations << endl;
 
 
+        // if( 
+        // (nRedundantObservations>redundant_th*nMPs && values_nRedundantObservations[idx]<=redundant_th*values_nMPs[idx]) ||
+        //  (nRedundantObservations<=redundant_th*nMPs && values_nRedundantObservations[idx]>redundant_th*values_nMPs[idx]) ) {
+        //     cout << "Discrepency: " << endl;
+        //     cout << "==GPU RUN== KF: " << idx << " nRedundantObservations: " << values_nRedundantObservations[idx] << " nMPs: " << values_nMPs[idx] << endl;
+        //     cout << "**CPU RUN** KF: " << idx << " nRedundantObservations: " << nRedundantObservations << " nMPs: " << nMPs << endl;
+        // }
+
+
         if(nRedundantObservations>redundant_th*nMPs)
         {
-            // cout << "==GPU RUN== KF: " << idx << " nRedundantObservations: " << values_nRedundantObservations[idx] << " nMPs: " << values_nMPs[idx] << endl;
-            // cout << "**CPU RUN** KF: " << idx << " nRedundantObservations: " << nRedundantObservations << " nMPs: " << nMPs << endl;
             if (mbInertial)
             {
                 if (mpAtlas->KeyFramesInMap()<=Nd)
@@ -1387,14 +1455,10 @@ void LocalMapping::KeyFrameCulling()
         {
             break;
         }
-        std::chrono::steady_clock::time_point t6 = std::chrono::steady_clock::now();
-        double kf_loop_body = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t6 - t5).count();
-        sum += (mp_loop / kf_loop_body)*100;
-        itr += 1;
     }
-    std::chrono::steady_clock::time_point t4 = std::chrono::steady_clock::now();
-    double outer_loop = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t4 - t3).count();
-    double total = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t4 - t1).count();
+    // std::chrono::steady_clock::time_point t4 = std::chrono::steady_clock::now();
+    // double outer_loop = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t4 - t3).count();
+    // double total = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t4 - t1).count();
 
     // cout << "[KFCulling]=> total: " << total << ", update_covisibles: " << update_covisibles << ", kf_loop: " << outer_loop << ", mp_loop_portion: " << sum/itr << ", num_kf:" << vpLocalKeyFrames.size() << endl;        
     }
@@ -1761,6 +1825,9 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
     for(list<KeyFrame*>::iterator lit = mlNewKeyFrames.begin(), lend=mlNewKeyFrames.end(); lit!=lend; lit++)
     {
         (*lit)->SetBadFlag();
+        if (MappingKernelController::is_active) {
+            CudaKeyFrameDrawer::eraseCudaKeyFrame((*lit));
+        }
         delete *lit;
     }
     mlNewKeyFrames.clear();
@@ -1830,6 +1897,9 @@ void LocalMapping::ScaleRefinement()
     for(list<KeyFrame*>::iterator lit = mlNewKeyFrames.begin(), lend=mlNewKeyFrames.end(); lit!=lend; lit++)
     {
         (*lit)->SetBadFlag();
+        if (MappingKernelController::is_active) {
+            CudaKeyFrameDrawer::eraseCudaKeyFrame((*lit));
+        }
         delete *lit;
     }
     mlNewKeyFrames.clear();

@@ -18,6 +18,9 @@
 
 #include "MapPoint.h"
 #include "ORBmatcher.h"
+#include "Kernels/CudaKeyFrameDrawer.h"
+#include "Kernels/CudaMapPointStorage.h"
+#include "Kernels/MappingKernelController.h"
 
 #include<mutex>
 
@@ -163,6 +166,10 @@ void MapPoint::AddObservation(KeyFrame* pKF, int idx)
         nObs+=2;
     else
         nObs++;
+
+    if (MappingKernelController::is_active) {
+        CudaMapPointStorage::setCudaMapPointObservations(mnId, this);
+    }
 }
 
 void MapPoint::EraseObservation(KeyFrame* pKF)
@@ -194,6 +201,10 @@ void MapPoint::EraseObservation(KeyFrame* pKF)
             if(nObs<=2)
                 bBad=true;
         }
+    }
+
+    if (MappingKernelController::is_active) {
+        CudaMapPointStorage::setCudaMapPointObservations(mnId, this);
     }
 
     if(bBad)
