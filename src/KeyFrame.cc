@@ -96,6 +96,10 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
     SetPose(F.GetPose());
 
     mnOriginMapId = pMap->GetId();
+
+    if (MappingKernelController::is_active) {
+        CudaKeyFrameDrawer::addCudaKeyFrame(this);
+    }
 }
 
 void KeyFrame::ComputeBoW()
@@ -302,8 +306,14 @@ void KeyFrame::AddMapPoint(MapPoint *pMP, const size_t &idx)
     unique_lock<mutex> lock(mMutexFeatures);
     mvpMapPoints[idx]=pMP;
     if (MappingKernelController::is_active) {
-        CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(mnId, pMP, idx);
+        MAPPING_DATA_WRAPPER::CudaKeyFrame* d_kf = CudaKeyFrameDrawer::getCudaKeyFrame(mnId);
+        if (d_kf) {
+            CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(mnId, pMP, idx);
+        }
     }
+
+    // if (mnId == 1)
+    //     printf("[%d: %lu]\n", idx, pMP->mnId);
 }
 
 void KeyFrame::EraseMapPointMatch(const int &idx)
@@ -311,7 +321,10 @@ void KeyFrame::EraseMapPointMatch(const int &idx)
     unique_lock<mutex> lock(mMutexFeatures);
     mvpMapPoints[idx]=static_cast<MapPoint*>(NULL);
     if(MappingKernelController::is_active) {
-        CudaKeyFrameDrawer::eraseCudaKeyFrameMapPoint(mnId, idx);
+        MAPPING_DATA_WRAPPER::CudaKeyFrame* d_kf = CudaKeyFrameDrawer::getCudaKeyFrame(mnId);
+        if (d_kf) {
+            CudaKeyFrameDrawer::eraseCudaKeyFrameMapPoint(mnId, idx);
+        }
     }
 }
 
@@ -337,6 +350,12 @@ void KeyFrame::EraseMapPointMatch(MapPoint* pMP)
 void KeyFrame::ReplaceMapPointMatch(const int &idx, MapPoint* pMP)
 {
     mvpMapPoints[idx]=pMP;
+    if (MappingKernelController::is_active) {
+        MAPPING_DATA_WRAPPER::CudaKeyFrame* d_kf = CudaKeyFrameDrawer::getCudaKeyFrame(mnId);
+        if (d_kf) {
+            CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(mnId, pMP, idx);
+        }
+    }
 }
 
 set<MapPoint*> KeyFrame::GetMapPoints()
@@ -693,6 +712,10 @@ void KeyFrame::SetBadFlag()
 
     mpMap->EraseKeyFrame(this);
     mpKeyFrameDB->erase(this);
+
+    if (MappingKernelController::is_active) {
+        CudaKeyFrameDrawer::eraseCudaKeyFrame(this);
+    }
 }
 
 bool KeyFrame::isBad()

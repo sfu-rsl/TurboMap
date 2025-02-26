@@ -53,19 +53,18 @@ namespace MAPPING_DATA_WRAPPER
         isEmpty = false;
         mnId = mp->mnId;
         mbBad = mp->isBad();
-        setObservations(mp);
+        // setObservations(mp);
     }
 
     void CudaMapPoint::setMemory(ORB_SLAM3::MapPoint* mp) {
         isEmpty = false;
         mnId = mp->mnId;
         mbBad = mp->isBad();
-        setObservations(mp);
+        // setObservations(mp);
     }
 
-    void CudaMapPoint::setObservations(ORB_SLAM3::MapPoint* mp) {
-        nObs = mp->Observations();
-        map<ORB_SLAM3::KeyFrame*, tuple<int,int>> observations = mp->GetObservations();
+    void CudaMapPoint::setObservations(int _nObs, map<ORB_SLAM3::KeyFrame*, tuple<int,int>> observations) {
+        nObs = _nObs;
         mObservations_size = observations.size();
         int itr = 0;
         for (const auto& pair : observations) {

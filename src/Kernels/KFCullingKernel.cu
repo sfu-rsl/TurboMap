@@ -41,15 +41,9 @@ __global__ void keyframeCullingKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame** d_key
             
             MAPPING_DATA_WRAPPER::CudaMapPoint* pMP = vpMapPoints[i];
 
-            // printf("[==GPU RUN==] 1 KF: %lu\n", pKF->mnId);
-            
             if (pMP == nullptr) continue;
             
             if (pMP->isEmpty) continue;
-
-            if (pKF->mnId == 1) {
-                printf(" ,[%d: %lu]", i, pMP->mnId);
-            }
             
             if (pMP->mbBad) continue;
 
@@ -59,14 +53,7 @@ __global__ void keyframeCullingKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame** d_key
                     continue;
             }
 
-            // printf("[==GPU RUN==] 2 KF: %lu\n", pKF->mnId);
-
-            // printf("[==GPU RUN==] [nMPs++] KF: %lu, MP: %lu\n", pKF->mnId, pMP->mnId);
-
             d_nMPs[idx] += 1;
-
-
-            // printf("3. pMP->mnId: %lu pMP->nObs: %d thObs: %d\n", pMP->mnId, pMP->nObs, thObs);
 
             if(pMP->nObs <= thObs) continue;
 
@@ -74,8 +61,7 @@ __global__ void keyframeCullingKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame** d_key
             int scaleLevel = (pKF->NLeft == -1) ? pKF->mvKeysUn[i].octave
                                                             : (i < pKF->NLeft) ? pKF->mvKeys[i].octave
                                                                                 : pKF->mvKeysRight[i].octave;
-                                                                        
-            // printf("pMP->mObservations_size: %d\n", pMP->mObservations_size);
+
             int nObs=0;
             for(int j = 0; j < pMP->mObservations_size; j++) {
 
@@ -84,9 +70,6 @@ __global__ void keyframeCullingKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame** d_key
                 if (pKFi == nullptr) continue;
 
                 if (pKFi->isEmpty) continue;
-
-                // printf("PKFi: %p\n", pKFi);
-                // printf("PKFi->mnId: %d\n", pKFi->mnId);
 
                 if(pKFi->mnId==pKF->mnId)
                     continue;
@@ -107,15 +90,6 @@ __global__ void keyframeCullingKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame** d_key
                                                                                         : scaleLeveli;
                     }
                 }
-                
-                // if(pKF->mnId == 4 && pMP->mnId == 12) {
-                //     printf("[==GPU RUN==] KF: %lu, MP: %lu, j: %d, pKFi: %lu, leftIndex: %d, rightIndex: %d\n", pKF->mnId, pMP->mnId, j, (void*)pKFi->mnId, leftIndex, rightIndex);
-                //     printf("[==GPU RUN==] KF: %lu, MP: %lu, j: %d, scaleLeveli: %d, scaleLevel: %d\n", pKF->mnId, pMP->mnId, j, scaleLeveli, scaleLevel);
-                // }
-                // if(pKF->mnId == 4 && pMP->mnId == 13) {
-                //     printf("[==GPU RUN==] KF: %lu, MP: %lu, j: %d, pKFi: %lu, leftIndex: %d, rightIndex: %d\n", pKF->mnId, pMP->mnId, j, (void*)pKFi->mnId, leftIndex, rightIndex);
-                //     printf("[==GPU RUN==] KF: %lu, MP: %lu, j: %d, scaleLeveli: %d, scaleLevel: %d\n", pKF->mnId, pMP->mnId, j, scaleLeveli, scaleLevel);
-                // }
 
                 if(scaleLeveli<=scaleLevel+1) {
                     nObs++;
@@ -126,11 +100,9 @@ __global__ void keyframeCullingKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame** d_key
 
             if(nObs>thObs)
             {
-                // printf("[==GPU RUN==] [nRedundantObservations++] KF: %lu, MP: %lu\n", pKF->mnId, pMP->mnId);
                 d_nRedundantObservations[idx] += 1;
             }
         }
-        printf("\n=============GPU==============\n");
     }
 }
 

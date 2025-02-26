@@ -1127,20 +1127,11 @@ void LoopClosing::CorrectLoop()
                 MapPoint* pCurMP = mpCurrentKF->GetMapPoint(i);
                 if(pCurMP){
                     pCurMP->Replace(pLoopMP);
-                    if (MappingKernelController::is_active) {
-                        CudaMapPointStorage::replaceCudaMapPoint(pCurMP->mnId, pLoopMP);
-                    }
                 }
                 else
                 {
                     mpCurrentKF->AddMapPoint(pLoopMP,i);
-                    if (MappingKernelController::is_active) {
-                        CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(mpCurrentKF->mnId, pLoopMP, i);
-                    }
                     pLoopMP->AddObservation(mpCurrentKF,i);
-                    if (MappingKernelController::is_active) {
-                        CudaMapPointStorage::replaceCudaMapPoint(pLoopMP->mnId, pLoopMP);
-                    }
                     pLoopMP->ComputeDistinctiveDescriptors();
                 }
             }
@@ -2158,9 +2149,6 @@ void LoopClosing::SearchAndFuse(const KeyFrameAndPose &CorrectedPosesMap, vector
 
                 num_replaces += 1;
                 pRep->Replace(vpMapPoints[i]);
-                if (MappingKernelController::is_active) {
-                    CudaMapPointStorage::replaceCudaMapPoint(pRep->mnId, vpMapPoints[i]);
-                }
             }
         }
 
@@ -2203,9 +2191,6 @@ void LoopClosing::SearchAndFuse(const vector<KeyFrame*> &vConectedKFs, vector<Ma
             {
                 num_replaces += 1;
                 pRep->Replace(vpMapPoints[i]);
-                if (MappingKernelController::is_active) {
-                    CudaMapPointStorage::replaceCudaMapPoint(pRep->mnId, vpMapPoints[i]);
-                }
             }
         }
         /*cout << "FUSE-POSE: KF " << pKF->mnId << " ->" << num_replaces << " MPs fused" << endl;

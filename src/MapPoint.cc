@@ -37,6 +37,10 @@ MapPoint::MapPoint():
     mpReplaced(static_cast<MapPoint*>(NULL))
 {
     mpReplaced = static_cast<MapPoint*>(NULL);
+
+    if (MappingKernelController::is_active) {
+        CudaMapPointStorage::addCudaMapPoint(this);
+    }
 }
 
 MapPoint::MapPoint(const Eigen::Vector3f &Pos, KeyFrame *pRefKF, Map* pMap):
@@ -56,6 +60,10 @@ MapPoint::MapPoint(const Eigen::Vector3f &Pos, KeyFrame *pRefKF, Map* pMap):
     // MapPoints can be created from Tracking and Local Mapping. This mutex avoid conflicts with id.
     unique_lock<mutex> lock(mpMap->mMutexPointCreation);
     mnId=nNextId++;
+
+    if (MappingKernelController::is_active) {
+        CudaMapPointStorage::addCudaMapPoint(this);
+    }
 }
 
 MapPoint::MapPoint(const double invDepth, cv::Point2f uv_init, KeyFrame* pRefKF, KeyFrame* pHostKF, Map* pMap):
@@ -76,6 +84,10 @@ MapPoint::MapPoint(const double invDepth, cv::Point2f uv_init, KeyFrame* pRefKF,
     // MapPoints can be created from Tracking and Local Mapping. This mutex avoid conflicts with id.
     unique_lock<mutex> lock(mpMap->mMutexPointCreation);
     mnId=nNextId++;
+
+    if (MappingKernelController::is_active) {
+        CudaMapPointStorage::addCudaMapPoint(this);
+    }
 }
 
 MapPoint::MapPoint(const Eigen::Vector3f &Pos, Map* pMap, Frame* pFrame, const int &idxF):
@@ -116,6 +128,10 @@ MapPoint::MapPoint(const Eigen::Vector3f &Pos, Map* pMap, Frame* pFrame, const i
     // MapPoints can be created from Tracking and Local Mapping. This mutex avoid conflicts with id.
     unique_lock<mutex> lock(mpMap->mMutexPointCreation);
     mnId=nNextId++;
+
+    if (MappingKernelController::is_active) {
+        CudaMapPointStorage::addCudaMapPoint(this);
+    }
 }
 
 void MapPoint::SetWorldPos(const Eigen::Vector3f &Pos) {
@@ -168,7 +184,10 @@ void MapPoint::AddObservation(KeyFrame* pKF, int idx)
         nObs++;
 
     if (MappingKernelController::is_active) {
-        CudaMapPointStorage::setCudaMapPointObservations(mnId, this);
+        MAPPING_DATA_WRAPPER::CudaMapPoint* d_mp = CudaMapPointStorage::getCudaMapPoint(mnId);
+        if (d_mp) {
+            CudaMapPointStorage::setCudaMapPointObservations(mnId, nObs, mObservations);
+        }
     }
 }
 
@@ -204,7 +223,10 @@ void MapPoint::EraseObservation(KeyFrame* pKF)
     }
 
     if (MappingKernelController::is_active) {
-        CudaMapPointStorage::setCudaMapPointObservations(mnId, this);
+        MAPPING_DATA_WRAPPER::CudaMapPoint* d_mp = CudaMapPointStorage::getCudaMapPoint(mnId);
+        if (d_mp) {
+            CudaMapPointStorage::setCudaMapPointObservations(mnId, nObs, mObservations);
+        }
     }
 
     if(bBad)
@@ -247,6 +269,10 @@ void MapPoint::SetBadFlag()
     }
 
     mpMap->EraseMapPoint(this);
+    
+    if (MappingKernelController::is_active) {
+        CudaMapPointStorage::eraseCudaMapPoint(this);
+    }
 }
 
 MapPoint* MapPoint::GetReplaced()
@@ -308,6 +334,10 @@ void MapPoint::Replace(MapPoint* pMP)
     pMP->ComputeDistinctiveDescriptors();
 
     mpMap->EraseMapPoint(this);
+
+    if (MappingKernelController::is_active) {
+        CudaMapPointStorage::replaceCudaMapPoint(mnId, pMP);
+    }
 }
 
 bool MapPoint::isBad()

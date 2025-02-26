@@ -123,7 +123,7 @@ void CudaKeyFrameDrawer::eraseCudaKeyFrame(ORB_SLAM3::KeyFrame* KF){
     std::unique_lock<std::mutex> lock(mtx);
     auto it = mnId_to_idx.find(KF->mnId);
     if (it == mnId_to_idx.end()) {
-        cout << "CudaKeyFrameDrawer::eraseCudaKeyFrame: ] KF not in GPU storage!\n";
+        cout << "CudaKeyFrameDrawer::eraseCudaKeyFrame: ] KF " << KF->mnId << " not in GPU storage!\n";
         return;        
     }
     ckd_buffer_index_t idx = it->second;

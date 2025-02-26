@@ -86,6 +86,18 @@ namespace MAPPING_DATA_WRAPPER
             tmp_mvKeysUn[i].octave = KF->mvKeysUn[i].octave;
         }
         checkCudaError(cudaMemcpy(mvKeysUn, tmp_mvKeysUn.data(), mvKeysUn_size * sizeof(CudaKeyPoint), cudaMemcpyHostToDevice), "CudaKeyFrame:: Failed to copy mvKeysUn to gpu");
+
+        vector<ORB_SLAM3::MapPoint*> h_mapPoints = KF->GetMapPointMatches();
+        mvpMapPoints_size = h_mapPoints.size();
+        CudaMapPoint* d_mp;
+        for (int i = 0; i < mvpMapPoints_size; ++i) {
+            if (h_mapPoints[i]) {
+                d_mp = CudaMapPointStorage::getCudaMapPoint(h_mapPoints[i]->mnId);
+            } else {
+                d_mp = nullptr;
+            }
+            checkCudaError(cudaMemcpy(&mvpMapPoints[i], &d_mp, sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint*), cudaMemcpyHostToDevice), "[CudaKeyFrame::setMvpMapPoints: ] Failed to copy mvpmapPoints");
+        }
     }
 
     void CudaKeyFrame::addMapPoint(MAPPING_DATA_WRAPPER::CudaMapPoint* d_mp, int idx) {

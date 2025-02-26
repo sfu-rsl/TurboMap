@@ -53,21 +53,22 @@ MAPPING_DATA_WRAPPER::CudaMapPoint* CudaMapPointStorage::replaceCudaMapPoint(lon
     return ret;
 }
 
-void CudaMapPointStorage::setCudaMapPointObservations(long unsigned int mnId, ORB_SLAM3::MapPoint* mp) {
-    mtx.lock();
+void CudaMapPointStorage::setCudaMapPointObservations(long unsigned int mnId, int nObs, map<ORB_SLAM3::KeyFrame*, tuple<int,int>> observations) {
+    // mtx.lock();
     int idx;
     auto it = mnId_to_idx.find(mnId);
     if (it == mnId_to_idx.end()) {
-        mtx.unlock(); // TODO: avoid unlock + relock in addCudaMapPoint
+        // mtx.unlock(); // TODO: avoid unlock + relock in addCudaMapPoint
         cout << "[ERROR] CudaMapPointStorage::setCudaMapPointObservations: ] mp not in GPU storage!\n";
         return;    
     }
     idx = it->second;
 
-    h_mappoints[idx].setObservations(mp);
+    h_mappoints[idx].setObservations(nObs, observations);
     checkCudaError(cudaMemcpy(&d_mappoints[idx], &h_mappoints[idx], sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint), cudaMemcpyHostToDevice), "[CudaMapPointStorage:: Modify Map Point] Failed to modify mappoint");
 
-    mtx.unlock();
+    DEBUG_PRINT("setCudaMapPointObservations: " << mnId << endl);
+    // mtx.unlock();
     return;
 }
 

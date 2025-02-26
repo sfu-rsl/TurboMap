@@ -53,7 +53,7 @@ class CudaMapPoint {
         CudaMapPoint(ORB_SLAM3::MapPoint* mp);
         void initialize();
         void setMemory(ORB_SLAM3::MapPoint* mp);
-        void setObservations(ORB_SLAM3::MapPoint* mp);
+        void setObservations(int nObs, map<ORB_SLAM3::KeyFrame*, tuple<int,int>> observations);
         void setAsEmpty() { isEmpty = true; };
         void freeMemory();
 

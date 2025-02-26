@@ -403,9 +403,6 @@ void LocalMapping::ProcessNewKeyFrame()
                 if(!pMP->IsInKeyFrame(mpCurrentKeyFrame))
                 {
                     pMP->AddObservation(mpCurrentKeyFrame, i);
-                    // if (MappingKernelController::is_active) {
-                    //     CudaMapPointStorage::replaceCudaMapPoint(pMP->mnId, pMP);
-                    // }
                     pMP->UpdateNormalAndDepth();
                     pMP->ComputeDistinctiveDescriptors();
                 }
@@ -422,10 +419,7 @@ void LocalMapping::ProcessNewKeyFrame()
 
     // Insert Keyframe in Map
     mpAtlas->AddKeyFrame(mpCurrentKeyFrame);
-    // cout << "Inside process new keyframe\n";
-    // if (MappingKernelController::is_active) {
-    //     MappingKernelController::addKeyframeToGPU(mpCurrentKeyFrame);
-    // }
+
 }
 
 void LocalMapping::EmptyQueue()
@@ -458,17 +452,11 @@ void LocalMapping::MapPointCulling()
         else if(pMP->GetFoundRatio()<0.25f)
         {
             pMP->SetBadFlag();
-            if (MappingKernelController::is_active) {
-                CudaMapPointStorage::eraseCudaMapPoint(pMP);
-            }
             lit = mlpRecentAddedMapPoints.erase(lit);
         }
         else if(((int)nCurrentKFid-(int)pMP->mnFirstKFid)>=2 && pMP->Observations()<=cnThObs)
         {
             pMP->SetBadFlag();
-            if (MappingKernelController::is_active) {
-                CudaMapPointStorage::eraseCudaMapPoint(pMP);
-            }
             lit = mlpRecentAddedMapPoints.erase(lit);
         }
         else if(((int)nCurrentKFid-(int)pMP->mnFirstKFid)>=3)
@@ -806,16 +794,9 @@ void LocalMapping::CreateNewMapPoints()
             pMP->AddObservation(mpCurrentKeyFrame,idx1);
             pMP->AddObservation(pKF2,idx2);
             
-            if (MappingKernelController::is_active) {
-                CudaMapPointStorage::addCudaMapPoint(pMP);
-            }
 
             mpCurrentKeyFrame->AddMapPoint(pMP,idx1);
             pKF2->AddMapPoint(pMP,idx2);
-            if (MappingKernelController::is_active) {
-                CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(mpCurrentKeyFrame->mnId, pMP, idx1);
-                CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(pKF2->mnId, pMP, idx2);
-            }
 
             pMP->ComputeDistinctiveDescriptors();
 
@@ -1162,9 +1143,6 @@ void LocalMapping::KeyFrameCulling()
                         pKF->mNextKF = NULL;
                         pKF->mPrevKF = NULL;
                         pKF->SetBadFlag();
-                        if (MappingKernelController::is_active) {
-                            CudaKeyFrameDrawer::eraseCudaKeyFrame(pKF);
-                        }
                     }
                     else if(!mpCurrentKeyFrame->GetMap()->GetIniertialBA2() && ((pKF->GetImuPosition()-pKF->mPrevKF->GetImuPosition()).norm()<0.02) && (t<3))
                     {
@@ -1174,18 +1152,12 @@ void LocalMapping::KeyFrameCulling()
                         pKF->mNextKF = NULL;
                         pKF->mPrevKF = NULL;
                         pKF->SetBadFlag();
-                        if (MappingKernelController::is_active) {
-                            CudaKeyFrameDrawer::eraseCudaKeyFrame(pKF);
-                        }
                     }
                 }
             }
             else
             {
                 pKF->SetBadFlag();
-                if (MappingKernelController::is_active) {
-                    CudaKeyFrameDrawer::eraseCudaKeyFrame(pKF);
-                }
             }
         }
 
@@ -1239,180 +1211,16 @@ void LocalMapping::KeyFrameCulling()
     int values_nRedundantObservations[vpLocalKeyFrames_size];
     MappingKernelController::launchKeyframeCullingKernel(vpLocalKeyFrames, values_nMPs, values_nRedundantObservations);
 
-    // std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
-    // for(int i = 0; i < vpLocalKeyFrames.size(); i++) {
-
-    //     count++;
-    //     KeyFrame* pKF = vpLocalKeyFrames[i];
-        
-    //     if((pKF->mnId==pKF->GetMap()->GetInitKFid()) || pKF->isBad())
-    //         continue;
-
-    //     if(values_nRedundantObservations[i] > redundant_th * values_nMPs[i])
-    //     {
-    //         if (mbInertial)
-    //         {
-    //             if (mpAtlas->KeyFramesInMap()<=Nd)
-    //                 continue;
-
-    //             if(pKF->mnId>(mpCurrentKeyFrame->mnId-2))
-    //                 continue;
-
-    //             if(pKF->mPrevKF && pKF->mNextKF)
-    //             {
-    //                 const float t = pKF->mNextKF->mTimeStamp-pKF->mPrevKF->mTimeStamp;
-
-    //                 if((bInitImu && (pKF->mnId<last_ID) && t<3.) || (t<0.5))
-    //                 {
-    //                     pKF->mNextKF->mpImuPreintegrated->MergePrevious(pKF->mpImuPreintegrated);
-    //                     pKF->mNextKF->mPrevKF = pKF->mPrevKF;
-    //                     pKF->mPrevKF->mNextKF = pKF->mNextKF;
-    //                     pKF->mNextKF = NULL;
-    //                     pKF->mPrevKF = NULL;
-    //                     pKF->SetBadFlag();
-    //                     if (MappingKernelController::is_active) {
-    //                         CudaKeyFrameDrawer::eraseCudaKeyFrame(pKF);
-    //                     }
-    //                 }
-    //                 else if(!mpCurrentKeyFrame->GetMap()->GetIniertialBA2() && ((pKF->GetImuPosition()-pKF->mPrevKF->GetImuPosition()).norm()<0.02) && (t<3))
-    //                 {
-    //                     pKF->mNextKF->mpImuPreintegrated->MergePrevious(pKF->mpImuPreintegrated);
-    //                     pKF->mNextKF->mPrevKF = pKF->mPrevKF;
-    //                     pKF->mPrevKF->mNextKF = pKF->mNextKF;
-    //                     pKF->mNextKF = NULL;
-    //                     pKF->mPrevKF = NULL;
-    //                     pKF->SetBadFlag();
-    //                     if (MappingKernelController::is_active) {
-    //                         CudaKeyFrameDrawer::eraseCudaKeyFrame(pKF);
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //         else
-    //         {
-    //             pKF->SetBadFlag();
-    //             if (MappingKernelController::is_active) {
-    //                 CudaKeyFrameDrawer::eraseCudaKeyFrame(pKF);
-    //             }
-    //         }
-    //     }
-    //     if((count > 20 && mbAbortBA) || count>100)
-    //     {
-    //         break;
-    //     }       
-    // }
-    for(vector<KeyFrame*>::iterator vit=vpLocalKeyFrames.begin(), vend=vpLocalKeyFrames.end(); vit!=vend; vit++)
-    {
-
-        std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
+    for(int i = 0; i < vpLocalKeyFrames.size(); i++) {
 
         count++;
-        KeyFrame* pKF = *vit;
-        size_t idx = std::distance(vpLocalKeyFrames.begin(), vit);
-
+        KeyFrame* pKF = vpLocalKeyFrames[i];
+        
         if((pKF->mnId==pKF->GetMap()->GetInitKFid()) || pKF->isBad())
             continue;
-        const vector<MapPoint*> vpMapPoints = pKF->GetMapPointMatches();
 
-        int nObs = 3;
-        const int thObs=nObs;
-        int nRedundantObservations=0;
-        int nMPs=0;
-        std::chrono::steady_clock::time_point t7 = std::chrono::steady_clock::now();
-        for(size_t i=0, iend=vpMapPoints.size(); i<iend; i++)
-        {
-            MapPoint* pMP = vpMapPoints[i];
-            if(pMP)
-            {   
-                if (pKF->mnId == 1) {
-                    cout << " ,[" << i << ": " << pMP->mnId << "]";
-                }
-
-                if(!pMP->isBad())
-                {
-                    if(!mbMonocular)
-                    {
-                        if(pKF->mvDepth[i]>pKF->mThDepth || pKF->mvDepth[i]<0)
-                            continue;
-                    }
-
-                    // cout << "[**CPU RUN**] [nMPs++] KF: " << pKF->mnId << ", MP: " << pMP->mnId << endl;
-                    nMPs++;
-
-                    if(pMP->Observations()>thObs)
-                    {
-                        const int &scaleLevel = (pKF -> NLeft == -1) ? pKF->mvKeysUn[i].octave
-                                                                     : (i < pKF -> NLeft) ? pKF -> mvKeys[i].octave
-                                                                                          : pKF -> mvKeysRight[i].octave;
-                        const map<KeyFrame*, tuple<int,int>> observations = pMP->GetObservations();
-                        int nObs=0;
-                        int j = 0;
-                        for(map<KeyFrame*, tuple<int,int>>::const_iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)
-                        {
-                            j++;
-                            KeyFrame* pKFi = mit->first;
-                            if(pKFi==pKF)
-                                continue;
-                            tuple<int,int> indexes = mit->second;
-                            int leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);
-                            int scaleLeveli = -1;
-                            if(pKFi -> NLeft == -1)
-                                scaleLeveli = pKFi->mvKeysUn[leftIndex].octave;
-                            else {
-                                if (leftIndex != -1) {
-                                    scaleLeveli = pKFi->mvKeys[leftIndex].octave;
-                                }
-                                if (rightIndex != -1) {
-                                    int rightLevel = pKFi->mvKeysRight[rightIndex - pKFi->NLeft].octave;
-                                    scaleLeveli = (scaleLeveli == -1 || scaleLeveli > rightLevel) ? rightLevel
-                                                                                                  : scaleLeveli;
-                                }
-                            }
-
-                            // if(pKF->mnId == 4 && pMP->mnId == 12) {
-                            //     printf("[**CPU RUN**] KF: %lu, MP: %lu, j: %d, pKFi: %lu, leftIndex: %d, rightIndex: %d\n", pKF->mnId, pMP->mnId, j, pKFi->mnId, leftIndex, rightIndex);
-                            //     cout << "[**CPU RUN**] KF: " << pKF->mnId << ", MP: " << pMP->mnId << ", j:" << j << ", scaleLeveli: " << scaleLeveli << ", scaleLevel: " << scaleLevel << endl;
-                            // }
-                            // if(pKF->mnId == 4 && pMP->mnId == 13) {
-                            //     printf("[**CPU RUN**] KF: %lu, MP: %lu, j: %d, pKFi: %lu, leftIndex: %d, rightIndex: %d\n", pKF->mnId, pMP->mnId, j, pKFi->mnId, leftIndex, rightIndex);
-                            //     cout << "[**CPU RUN**] KF: " << pKF->mnId << ", MP: " << pMP->mnId << ", j:" << j << ", scaleLeveli: " << scaleLeveli << ", scaleLevel: " << scaleLevel << endl;
-                            // }
-
-                            if(scaleLeveli<=scaleLevel+1)
-                            {
-                                nObs++;
-                                if(nObs>thObs)
-                                    break;
-                            }
-                        }
-
-                        if(nObs>thObs)
-                        {
-                            // cout << "[**CPU RUN**] [nRedundantObservations++] KF: " << pKF->mnId << ", MP: " << pMP->mnId << endl;
-                            nRedundantObservations++;
-                        }
-                    }
-                }
-            }
-        }
-        cout << "\n************CPU**************" << endl;
-        // std::chrono::steady_clock::time_point t8 = std::chrono::steady_clock::now();
-        // double mp_loop = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t8 - t7).count();
-
-        // int index = std::distance(vpLocalKeyFrames.begin(), vit); 
-        // cout << "KF" << index << "-> gpu: " << h_results[index] << " | cpu: " << nRedundantObservations << endl;
-
-
-        // if( 
-        // (nRedundantObservations>redundant_th*nMPs && values_nRedundantObservations[idx]<=redundant_th*values_nMPs[idx]) ||
-        //  (nRedundantObservations<=redundant_th*nMPs && values_nRedundantObservations[idx]>redundant_th*values_nMPs[idx]) ) {
-        //     cout << "Discrepency: " << endl;
-        //     cout << "==GPU RUN== KF: " << idx << " nRedundantObservations: " << values_nRedundantObservations[idx] << " nMPs: " << values_nMPs[idx] << endl;
-        //     cout << "**CPU RUN** KF: " << idx << " nRedundantObservations: " << nRedundantObservations << " nMPs: " << nMPs << endl;
-        // }
-
-
-        if(nRedundantObservations>redundant_th*nMPs)
+        if(values_nRedundantObservations[i] > redundant_th * values_nMPs[i])
         {
             if (mbInertial)
             {
@@ -1454,13 +1262,8 @@ void LocalMapping::KeyFrameCulling()
         if((count > 20 && mbAbortBA) || count>100)
         {
             break;
-        }
-    }
-    // std::chrono::steady_clock::time_point t4 = std::chrono::steady_clock::now();
-    // double outer_loop = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t4 - t3).count();
-    // double total = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t4 - t1).count();
-
-    // cout << "[KFCulling]=> total: " << total << ", update_covisibles: " << update_covisibles << ", kf_loop: " << outer_loop << ", mp_loop_portion: " << sum/itr << ", num_kf:" << vpLocalKeyFrames.size() << endl;        
+        }       
+    }     
     }
 }
 
@@ -1825,9 +1628,6 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
     for(list<KeyFrame*>::iterator lit = mlNewKeyFrames.begin(), lend=mlNewKeyFrames.end(); lit!=lend; lit++)
     {
         (*lit)->SetBadFlag();
-        if (MappingKernelController::is_active) {
-            CudaKeyFrameDrawer::eraseCudaKeyFrame((*lit));
-        }
         delete *lit;
     }
     mlNewKeyFrames.clear();
@@ -1897,9 +1697,6 @@ void LocalMapping::ScaleRefinement()
     for(list<KeyFrame*>::iterator lit = mlNewKeyFrames.begin(), lend=mlNewKeyFrames.end(); lit!=lend; lit++)
     {
         (*lit)->SetBadFlag();
-        if (MappingKernelController::is_active) {
-            CudaKeyFrameDrawer::eraseCudaKeyFrame((*lit));
-        }
         delete *lit;
     }
     mlNewKeyFrames.clear();
