@@ -50,6 +50,9 @@ namespace MAPPING_DATA_WRAPPER
         } else {
             checkCudaError(cudaMalloc((void**)&mDescriptors, nFeatures * DESCRIPTOR_SIZE * sizeof(uint8_t)), "Frame::failed to allocate memory for mDescriptors");
         }
+
+        checkCudaError(cudaMalloc((void**)&mFeatVec, MAX_FEAT_PER_WORD*MAX_FEAT_VEC_SIZE*sizeof(unsigned int)), "KeyFrame::failed to allocate memory for mFeatVec");
+        checkCudaError(cudaMalloc((void**)&mFeatVecStartIndexes, MAX_FEAT_VEC_SIZE*sizeof(int)), "KeyFrame::failed to allocate memory for mFeatVecStartIndexes");
     }
 
     CudaKeyFrame::CudaKeyFrame() {
@@ -222,12 +225,63 @@ namespace MAPPING_DATA_WRAPPER
                 }
             }
         }
+
+        copyGPUCamera(&camera1, KF->mpCamera);
+        copyGPUCamera(&camera2, KF->mpCamera2);
     }
 
     void CudaKeyFrame::addMapPoint(ORB_SLAM3::MapPoint* mp, int idx) {
         CudaMapPoint* d_mp = CudaMapPointStorage::getCudaMapPoint(mp->mnId);
         h_mvpMapPoints[idx] = d_mp;
         checkCudaError(cudaMemcpy(&mvpMapPoints[idx], &h_mvpMapPoints[idx], sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint*), cudaMemcpyHostToDevice), "[CudaKeyFrame::updateMvpMapPoints: ] Failed to update idx ");
+    }
+
+    void CudaKeyFrame::addFeatureVector(DBoW2::FeatureVector featVec) {
+        mFeatCount = featVec.size();
+        unsigned int tmp_mFeatVec[mFeatCount * MAX_FEAT_PER_WORD];
+        int tmp_mFeatVecStartIndexes[mFeatCount];
+        copyFeatVec(tmp_mFeatVec, tmp_mFeatVecStartIndexes, featVec);
+        int mFeatVecSize = tmp_mFeatVecStartIndexes[mFeatCount-1];
+
+        // DBoW2::FeatureVector::const_iterator f1it = featVec.begin();
+        // for (int i = 0; i < featVec.size(); i++) {
+        //     cout << "(" << f1it->second.size() << ", " << f1it->second[0] << ", " << f1it->second[1] << "), ";
+        //     f1it++;
+        // }
+        // cout << "\n";
+
+        // for (int i = 0; i < featVec.size(); i++) {
+        //     int idx = (i == 0) ? 0 : tmp_mFeatVecStartIndexes[i-1];
+        //     int size = (i == 0) ? tmp_mFeatVecStartIndexes[i] : tmp_mFeatVecStartIndexes[i] - tmp_mFeatVecStartIndexes[i-1];
+        //     cout << "(" << size << ", " << (unsigned int) tmp_mFeatVec[idx] << ", " << (unsigned int) tmp_mFeatVec[idx+1] << "), ";
+        // }
+        // cout << "\n";
+
+        checkCudaError(cudaMemcpy(mFeatVec, tmp_mFeatVec, mFeatVecSize*sizeof(unsigned int), cudaMemcpyHostToDevice), "CudaKeyFrame:: Failed to copy mFeatVec to gpu");
+        checkCudaError(cudaMemcpy(mFeatVecStartIndexes, tmp_mFeatVecStartIndexes, mFeatCount*sizeof(int), cudaMemcpyHostToDevice), "CudaKeyFrame:: Failed to copy mFeatVecStartIndexes to gpu");
+    }
+
+    void CudaKeyFrame::copyGPUCamera(CudaCamera *out, ORB_SLAM3::GeometricCamera *camera) {
+        out->isAvailable = (bool) camera;
+        if (!out->isAvailable)
+            return;
+    
+        memcpy(out->mvParameters, camera->getParameters().data(), sizeof(float)*camera->getParameters().size());
+        out->toK = camera->toK_();
+    }
+
+    void CudaKeyFrame::copyFeatVec(unsigned int *out, int *outIndexes, DBoW2::FeatureVector inp) {
+        DBoW2::FeatureVector::const_iterator f1it = inp.begin();
+        DBoW2::FeatureVector::const_iterator f1end = inp.end();
+        int outFeatureVecSize = 0, counter = 0;
+
+        while (f1it != f1end) {
+            memcpy(out + outFeatureVecSize, f1it->second.data(), f1it->second.size()*sizeof(unsigned int));
+            outFeatureVecSize += f1it->second.size();
+            outIndexes[counter] = outFeatureVecSize;
+            counter++;
+            f1it++;
+        }
     }
 
     void CudaKeyFrame::freeMemory(){
@@ -240,5 +294,7 @@ namespace MAPPING_DATA_WRAPPER
         checkCudaError(cudaFree((void*)mvKeys),"Failed to free keyframe memory: mvKeys");
         checkCudaError(cudaFree((void*)mvKeysRight),"Failed to free keyframe memory: mvKeysRight");
         checkCudaError(cudaFree((void*)mvKeysUn),"Failed to free keyframe memory: mvKeysUn");
+        checkCudaError(cudaFree((void*)mFeatVec),"Failed to free keyframe memory: mFeatVec");
+        checkCudaError(cudaFree((void*)mFeatVecStartIndexes),"Failed to free keyframe memory: mFeatVecStartIndexes");
     }
 }

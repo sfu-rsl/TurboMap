@@ -4,6 +4,7 @@
 #include "CudaUtils.h"
 #include "CudaWrappers/CudaKeyPoint.h"
 #include "CudaWrappers/CudaCamera.h"
+#include "CudaWrappers/CudaKeyFrame.h"
 #include "KernelInterface.h"
 #include <stdio.h>
 #include <fstream>
@@ -24,9 +25,6 @@
 #endif
 
 #define MAX_NEIGHBOUR_COUNT 11
-#define MAX_FEATURES_IN_WORD 100
-#define MAX_FEAT_VEC_SIZE 100
-#define MAP_POINT_COUNT_TH 50
 #define MATCH_TH_LOW 50
 #define CV_PI 3.1415926535897932384626433832795
 
@@ -42,10 +40,6 @@ public:
                 std::vector<std::vector<std::pair<size_t,size_t>>> &allvMatchedIndices, std::vector<size_t> &vpNeighKFsIndexes);
 
 private:
-    void copyGPUKeypoints(TRACKING_DATA_WRAPPER::CudaKeyPoint* out, const std::vector<cv::KeyPoint> keypoints);
-    void copyGPUCamera(MAPPING_DATA_WRAPPER::CudaCamera *out, ORB_SLAM3::GeometricCamera *camera);
-    void copyFrameFeatVec(ORB_SLAM3::KeyFrame* kf, unsigned int* outFeatureVec, size_t* outFeatureVecIdxs, 
-                          size_t* outFeatureVecLastIdx, size_t maxFeatVecSize);
     void convertToVectorOfPairs(int* gpuMatchedIdxs, int nn, int featVecSize, 
                                 std::vector<std::vector<std::pair<size_t,size_t>>> &allvMatchedIndices);
     void printMatchedIndices(const std::vector<std::vector<std::pair<size_t, size_t>>> &allvMatchedIndices);
@@ -55,7 +49,6 @@ private:
                                     std::vector<std::pair<size_t,size_t>> &vMatchedPairs, 
                                     const bool bOnlyStereo, const bool bCoarse);
     int origDescriptorDistance(const cv::Mat &a, const cv::Mat &b);
-
 
 private:
     std::vector<std::pair<long unsigned int, double>> data_wrap_time;
@@ -71,21 +64,12 @@ private:
 
 private:
     bool memory_is_initialized;
-    unsigned int *d_currFrameFeatVec, *d_neighFramesfeatVec;
-    size_t *d_currFrameFeatVecIdxs, *d_neighFramesfeatVecIdxs, *d_neighFramesFeatVecStartIdxs;
+    MAPPING_DATA_WRAPPER::CudaKeyFrame **d_neighKeyframes;
     size_t *d_currFrameFeatVecIdxCorrespondences, *d_neighFramesFeatVecIdxCorrespondences;
-    int *d_neighFramesNLeft;
     Eigen::Matrix3f *d_Rll, *d_Rlr, *d_Rrl, *d_Rrr;
     Eigen::Vector3f *d_tll, *d_tlr, *d_trl, *d_trr;
     Eigen::Matrix3f *d_R12;
     Eigen::Vector3f *d_t12;
-    bool *d_currFrameMapPointExists, *d_neighFramesMapPointExists;
-    uchar *d_currFrameDescriptors, *d_neighFramesDescriptors;
-    TRACKING_DATA_WRAPPER::CudaKeyPoint *d_currFrameMvKeysUn, *d_neighFramesMvKeysUn;
-    TRACKING_DATA_WRAPPER::CudaKeyPoint *d_currFrameMvKeys, *d_neighFramesMvKeys;
-    TRACKING_DATA_WRAPPER::CudaKeyPoint *d_currFrameMvKeysRight, *d_neighFramesMvKeysRight;
-    float *d_currFrameMvuRight, *d_neighFramesMvuRight;
-    MAPPING_DATA_WRAPPER::CudaCamera *d_neighFramesCamera1, *d_neighFramesCamera2;
     Eigen::Vector2f *d_ep;
 
     int *d_matchedPairIndexes;

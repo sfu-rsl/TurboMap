@@ -122,6 +122,21 @@ MAPPING_DATA_WRAPPER::CudaKeyFrame* CudaKeyFrameDrawer::getCudaKeyFrame(long uns
     return nullptr;
 }
 
+void CudaKeyFrameDrawer::addFeatureVector(long unsigned int KF_mnId, DBoW2::FeatureVector featVec) {
+    std::unique_lock<std::mutex> lock(mtx);
+    auto it = mnId_to_idx.find(KF_mnId);
+    if (it == mnId_to_idx.end()) {
+        cout << "[ERROR] CudaKeyFrameDrawer::addFeatureVector: ] KF not found!\n";
+        raise(SIGSEGV);        
+    }
+    int KF_idx = it->second;
+    
+    h_keyframes[KF_idx].addFeatureVector(featVec);
+    checkCudaError(cudaMemcpy(&d_keyframes[KF_idx], &h_keyframes[KF_idx], sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame), cudaMemcpyHostToDevice), "[CudaKeyFrameDrawer::addFeatureVector: ] Failed to add feature vector");
+
+    DEBUG_PRINT("addFeatureVector: " << KF_mnId << endl);
+}
+
 void CudaKeyFrameDrawer::shutdown() {
     std::unique_lock<std::mutex> lock(mtx);
     if (!memory_is_initialized) 

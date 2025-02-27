@@ -11,6 +11,11 @@
 #include <Eigen/Dense>
 #include <sophus/se3.hpp>
 #include "../StereoMatchKernel.h"
+#include "CudaCamera.h"
+#include "../CudaKeyFrameDrawer.h"
+
+#define MAX_FEAT_VEC_SIZE 100
+#define MAX_FEAT_PER_WORD 100
 
 namespace MAPPING_DATA_WRAPPER {
 
@@ -19,6 +24,8 @@ namespace MAPPING_DATA_WRAPPER {
 class CudaKeyFrame {
     private:
         void initializeMemory();
+        void copyGPUCamera(CudaCamera *out, ORB_SLAM3::GeometricCamera *camera);
+        void copyFeatVec(unsigned int *out, int *outIndexes, DBoW2::FeatureVector inp);
     
     public:
         CudaKeyFrame();
@@ -26,6 +33,7 @@ class CudaKeyFrame {
         void setMemory(ORB_SLAM3::KeyFrame* KF);
         void setGPUAddress(CudaKeyFrame* ptr);
         void addMapPoint(ORB_SLAM3::MapPoint* mp, int idx);
+        void addFeatureVector(DBoW2::FeatureVector featVec);
         void freeMemory();
     
     public:
@@ -68,6 +76,12 @@ class CudaKeyFrame {
         
         size_t flatMGridRight_size[FRAME_GRID_COLS * FRAME_GRID_ROWS];
         std::size_t flatMGridRight[FRAME_GRID_COLS * FRAME_GRID_ROWS * KEYPOINTS_PER_CELL];
+
+        CudaCamera camera1, camera2;
+
+        int mFeatCount;
+        unsigned int *mFeatVec;
+        int *mFeatVecStartIndexes;
         
     private:
         std::vector<CudaMapPoint*> h_mvpMapPoints;

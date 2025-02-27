@@ -23,6 +23,7 @@ class CudaKeyFrameDrawer {
         static MAPPING_DATA_WRAPPER::CudaKeyFrame* addCudaKeyFrame(ORB_SLAM3::KeyFrame* KF);
         static void updateCudaKeyFrameMapPoint(long unsigned int KF_Id, ORB_SLAM3::MapPoint* mp, int idx);
         static void eraseCudaKeyFrame(ORB_SLAM3::KeyFrame* KF);
+        static void addFeatureVector(long unsigned int KF_mnId, DBoW2::FeatureVector featVec);
         static void shutdown();
     public:
         static MAPPING_DATA_WRAPPER::CudaKeyFrame *d_keyframes, *h_keyframes;
