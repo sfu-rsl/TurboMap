@@ -37,27 +37,29 @@ double ttrack_tot = 0;
 int main(int argc, char **argv)
 {
 
-    int min_num_argc = 6 + 6;
+    int min_num_argc = 6 + 7;
     if(argc < min_num_argc)
     {
         cerr << endl << "Usage: ./stereo_tum_vi path_to_vocabulary path_to_settings path_to_image_folder1_1 path_to_image_folder2_1 path_to_times_file_1 (path_to_image_folder1_2 path_to_image_folder2_2 path_to_times_file_2 ... path_to_image_folder1_N path_to_image_folder2_N path_to_times_file_N) (trajectory_file_name)"
-                    << "strStatsFile OrbExtractionRunStatus StereoMatchRunStatus SearchLocalPointsRunStatus PoseEstimationRunStatus poseOptimizationStatus"  << endl;
+                    << "strStatsFile OrbExtractionRunStatus StereoMatchRunStatus SearchLocalPointsRunStatus PoseEstimationRunStatus poseOptimizationStatus SearchForTriangulationRunStatus"  << endl;
         return 1;
     }
 
-    bool RunPoseOptimization = (strcmp(argv[argc-1], "1") == 0);
-    bool RunPoseEstimationOnGPU = (strcmp(argv[argc-2], "1") == 0);
-    bool RunSearchLocalPointsOnGPU = (strcmp(argv[argc-3], "1") == 0);
-    bool RunStereoMatchOnGPU = (strcmp(argv[argc-4], "1") == 0);
-    bool RunOrbExtractionOnGPU = (strcmp(argv[argc-5], "1") == 0);
-    string strStatsFile = argv[argc-6];
-    argc-=6;
+    bool SearchForTriangulationRunStatus = (strcmp(argv[argc-1], "1") == 0);
+    bool RunPoseOptimization = (strcmp(argv[argc-2], "1") == 0);
+    bool RunPoseEstimationOnGPU = (strcmp(argv[argc-3], "1") == 0);
+    bool RunSearchLocalPointsOnGPU = (strcmp(argv[argc-4], "1") == 0);
+    bool RunStereoMatchOnGPU = (strcmp(argv[argc-5], "1") == 0);
+    bool RunOrbExtractionOnGPU = (strcmp(argv[argc-6], "1") == 0);
+    string strStatsFile = argv[argc-7];
+    argc-=7;
 
     cout << "[Kernels Run Status::] ORB Extraction: " << RunOrbExtractionOnGPU <<
             " Stereo Match: " << RunStereoMatchOnGPU <<
             " Search Local Points: " << RunSearchLocalPointsOnGPU <<
             " Pose Estimation: " << RunPoseEstimationOnGPU <<
-            " Pose Optimization: " << RunPoseOptimization << endl;
+            " Pose Optimization: " << RunPoseOptimization << 
+            " Search For Triangulation: " << SearchForTriangulationRunStatus << endl;
 
     TrackingKernelController::setGPURunMode(RunOrbExtractionOnGPU, RunStereoMatchOnGPU, RunSearchLocalPointsOnGPU, RunPoseEstimationOnGPU, RunPoseOptimization);
 

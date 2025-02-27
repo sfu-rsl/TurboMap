@@ -69,6 +69,11 @@ class CudaMapPoint {
         CudaKeyFrame** mObservations_dkf;
         int mObservations_leftIdx[MAX_NUM_OBSERVATIONS];
         int mObservations_rightIdx[MAX_NUM_OBSERVATIONS];
+        Eigen::Vector3f mWorldPos;
+        float mfMaxDistance;
+        float mfMinDistance;
+        Eigen::Vector3f mNormalVector;
+        uint8_t mDescriptor[32];
     };
 }
 

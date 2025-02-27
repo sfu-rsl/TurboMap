@@ -3450,6 +3450,7 @@ void Tracking::CreateNewKeyFrame()
                     
                     
                     pKF->AddMapPoint(pNewMP,i);
+
                     pNewMP->ComputeDistinctiveDescriptors();
                     pNewMP->UpdateNormalAndDepth();
                     mpAtlas->AddMapPoint(pNewMP);

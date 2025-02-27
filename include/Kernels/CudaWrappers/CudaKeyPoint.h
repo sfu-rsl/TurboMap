@@ -10,7 +10,8 @@ namespace TRACKING_DATA_WRAPPER {
         float pty;
         int octave;
     };
-} 
+}
+
 
 namespace MAPPING_DATA_WRAPPER {
 

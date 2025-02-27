@@ -58,8 +58,8 @@ __global__ void keyframeCullingKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame** d_key
             if(pMP->nObs <= thObs) continue;
 
             
-            int scaleLevel = (pKF->NLeft == -1) ? pKF->mvKeysUn[i].octave
-                                                            : (i < pKF->NLeft) ? pKF->mvKeys[i].octave
+            int scaleLevel = (pKF->Nleft == -1) ? pKF->mvKeysUn[i].octave
+                                                            : (i < pKF->Nleft) ? pKF->mvKeys[i].octave
                                                                                 : pKF->mvKeysRight[i].octave;
 
             int nObs=0;
@@ -78,14 +78,14 @@ __global__ void keyframeCullingKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame** d_key
                 int rightIndex =  pMP->mObservations_rightIdx[j];
                 int scaleLeveli = -1;
 
-                if(pKFi->NLeft == -1)
+                if(pKFi->Nleft == -1)
                     scaleLeveli = pKFi->mvKeysUn[leftIndex].octave;
                 else {
                     if (leftIndex != -1) {
                         scaleLeveli = pKFi->mvKeys[leftIndex].octave;
                     }
                     if (rightIndex != -1) {
-                        int rightLevel = pKFi->mvKeysRight[rightIndex - pKFi->NLeft].octave;
+                        int rightLevel = pKFi->mvKeysRight[rightIndex - pKFi->Nleft].octave;
                         scaleLeveli = (scaleLeveli == -1 || scaleLeveli > rightLevel) ? rightLevel
                                                                                         : scaleLeveli;
                     }

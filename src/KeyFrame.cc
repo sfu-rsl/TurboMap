@@ -412,6 +412,13 @@ MapPoint* KeyFrame::GetMapPoint(const size_t &idx)
     return mvpMapPoints[idx];
 }
 
+void KeyFrame::GetMapPointAvailabality(bool* mapPointAvailabalities)
+{
+    unique_lock<mutex> lock(mMutexFeatures);
+    for (int i = 0; i < mvpMapPoints.size(); i++)
+        mapPointAvailabalities[i] = (mvpMapPoints[i] != NULL);
+}
+
 void KeyFrame::UpdateConnections(bool upParent)
 {
     map<KeyFrame*,int> KFcounter;
@@ -1194,6 +1201,11 @@ void KeyFrame::SetORBVocabulary(ORBVocabulary* pORBVoc)
 void KeyFrame::SetKeyFrameDatabase(KeyFrameDatabase* pKFDB)
 {
     mpKeyFrameDB = pKFDB;
+}
+
+const std::vector<std::vector<std::vector<size_t>>>& KeyFrame::getMGrid() const
+{
+    return mGrid;
 }
 
 } //namespace ORB_SLAM

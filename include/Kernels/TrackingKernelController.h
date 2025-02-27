@@ -5,7 +5,9 @@
 #include "PoseEstimationKernel.h"
 #include "StereoMatchKernel.h"
 #include "CudaWrappers/CudaFrame.h"
+#include "CudaWrappers/CudaKeyFrame.h"
 #include "CudaUtils.h"
+#include "CameraModels/GeometricCamera.h"
 #include "../Stats/TrackingStats.h"
 #include <memory> 
 using namespace std; 

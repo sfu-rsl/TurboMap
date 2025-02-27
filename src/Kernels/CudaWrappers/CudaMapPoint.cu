@@ -52,15 +52,25 @@ namespace MAPPING_DATA_WRAPPER
     CudaMapPoint::CudaMapPoint(ORB_SLAM3::MapPoint* mp) {
         isEmpty = false;
         mnId = mp->mnId;
+        mWorldPos = mp->GetWorldPos();
+        mfMaxDistance = mp->GetMaxDistanceInvariance();
+        mfMinDistance = mp->GetMinDistanceInvariance();
+        mNormalVector = mp->GetNormal();
+        const cv::Mat& descriptor = mp->GetDescriptor();
+        std::memcpy(mDescriptor, descriptor.ptr<uint8_t>(0), descriptor.cols * sizeof(uint8_t));
         mbBad = mp->isBad();
-        // setObservations(mp);
     }
 
     void CudaMapPoint::setMemory(ORB_SLAM3::MapPoint* mp) {
         isEmpty = false;
         mnId = mp->mnId;
+        mWorldPos = mp->GetWorldPos();
+        mfMaxDistance = mp->GetMaxDistanceInvariance();
+        mfMinDistance = mp->GetMinDistanceInvariance();
+        mNormalVector = mp->GetNormal();
+        const cv::Mat& descriptor = mp->GetDescriptor();
+        std::memcpy(mDescriptor, descriptor.ptr<uint8_t>(0), descriptor.cols * sizeof(uint8_t));
         mbBad = mp->isBad();
-        // setObservations(mp);
     }
 
     void CudaMapPoint::setObservations(int _nObs, map<ORB_SLAM3::KeyFrame*, tuple<int,int>> observations) {
@@ -75,13 +85,8 @@ namespace MAPPING_DATA_WRAPPER
 
             CudaKeyFrame* d_kf = CudaKeyFrameDrawer::getCudaKeyFrame(key->mnId);
             if (d_kf != nullptr) {
-                // mObservations_dkf[itr] = d_kf;
                 checkCudaError(cudaMemcpy(&mObservations_dkf[itr], &d_kf, sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame*), cudaMemcpyHostToDevice), "[CudaMapPoint::setObservations: ] Failed to add d_kf");
             } 
-            // else {
-            //     cout << "MapPoint Error: KF " << key->mnId << " is not in the drawer.\n";
-            // }
-
             itr++;
         }        
     }

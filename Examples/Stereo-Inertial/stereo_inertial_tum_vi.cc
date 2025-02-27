@@ -86,7 +86,7 @@ int main(int argc, char **argv)
 
     if (FastMap_mode) {
         MappingKernelController::activate();
-        MappingKernelController::setGPURunMode(1);
+        // MappingKernelController::setGPURunMode(1, 1, 1);
     }
 
     const int num_seq = (argc-3)/4;

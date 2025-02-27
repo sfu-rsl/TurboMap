@@ -256,6 +256,7 @@ public:
     std::vector<MapPoint*> GetMapPointMatches();
     int TrackedMapPoints(const int &minObs);
     MapPoint* GetMapPoint(const size_t &idx);
+    void GetMapPointAvailabality(bool* mapPointAvailabalities);
 
     // KeyPoint functions
     std::vector<size_t> GetFeaturesInArea(const float &x, const float  &y, const float  &r, const bool bRight = false) const;
@@ -536,6 +537,7 @@ public:
         cout << "Point distribution in KeyFrame: left-> " << left << " --- right-> " << right << endl;
     }
 
+    const std::vector<std::vector<std::vector<size_t>>>& getMGrid() const;
 
 };
 

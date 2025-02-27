@@ -34,7 +34,7 @@ void CudaKeyFrameDrawer::eraseCudaKeyFrameMapPoint(long unsigned int KF_mnId, in
     std::unique_lock<std::mutex> lock(mtx);
     auto it = mnId_to_idx.find(KF_mnId);
     if (it == mnId_to_idx.end()) {
-        cout << "[ERROR] CudaKeyFrameDrawer::modifyCudaKeyFrame: ] KF not found!\n";
+        cout << "[ERROR] CudaKeyFrameDrawer::eraseCudaKeyFrameMapPoint: ] KF " << KF_mnId << " not found!\n";
         raise(SIGSEGV);        
     }
     int KF_idx = it->second;
@@ -50,35 +50,20 @@ void CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(long unsigned int KF_mnId, O
     std::unique_lock<std::mutex> lock(mtx);
     auto it = mnId_to_idx.find(KF_mnId);
     if (it == mnId_to_idx.end()) {
-        cout << "[ERROR] CudaKeyFrameDrawer::modifyCudaKeyFrame: ] KF not found!\n";
+        cout << "[ERROR] CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint: ] KF " << KF_mnId << " not found!\n";
         raise(SIGSEGV);        
     }
     int KF_idx = it->second;
 
-    // cout << "CudaKeyframeDrawer adding: " << endl;
-    // cout << "KF: " << KF_mnId << ", mp: " << mp->mnId << ", idx: " << idx << endl;
-
-    // printMPCPU(mp);
-
     MAPPING_DATA_WRAPPER::CudaMapPoint* d_mp = CudaMapPointStorage::getCudaMapPoint(mp->mnId);
-
-    // printMPSingleGPU<<<1,1>>>(d_mp);
-    // cudaDeviceSynchronize();
-
     h_keyframes[KF_idx].addMapPoint(d_mp, idx);
     checkCudaError(cudaMemcpy(&d_keyframes[KF_idx], &h_keyframes[KF_idx], sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame), cudaMemcpyHostToDevice), "[CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint: ] Failed");
-    
-    // printKFSingleGPU<<<1,1>>>(&d_keyframes[KF_idx]);
-    // cudaDeviceSynchronize();
-
-    // cout << "CudaKeyframeDrawer adding is done.\n" << endl;
 
     DEBUG_PRINT("updateCudaKeyFrameMapPoint: " << KF_mnId << endl);
 }
 
 MAPPING_DATA_WRAPPER::CudaKeyFrame* CudaKeyFrameDrawer::addCudaKeyFrame(ORB_SLAM3::KeyFrame* KF){
     std::unique_lock<std::mutex> lock(mtx);
-
     if (!memory_is_initialized) {
         cout << "[ERROR] CudaKeyFrameDrawer::addCudaKeyFrame: ] memory not initialized!\n";
         raise(SIGSEGV);
@@ -113,9 +98,6 @@ MAPPING_DATA_WRAPPER::CudaKeyFrame* CudaKeyFrameDrawer::addCudaKeyFrame(ORB_SLAM
 
     DEBUG_PRINT("addCudaKeyFrame: " << KF->mnId << endl);
 
-    // cout << "+ KF: " << KF->mnId << endl;
-    // printDrawerKeyframes();
-
     return &d_keyframes[new_kf_idx];
 }
 
@@ -132,9 +114,6 @@ void CudaKeyFrameDrawer::eraseCudaKeyFrame(ORB_SLAM3::KeyFrame* KF){
     mnId_to_idx.erase(KF->mnId);
     free_idx.push(idx);
     num_keyframes--;
-
-    // cout << "- KF: " << KF->mnId << endl;
-    // printDrawerKeyframes();
 
     DEBUG_PRINT("eraseCudaKeyFrame: " << KF->mnId << endl);
 }
@@ -154,6 +133,21 @@ void CudaKeyFrameDrawer::printDrawerKeyframes() {
         std::cout << pair.first << ", ";
     }
     cout << "]\n";
+}
+
+void CudaKeyFrameDrawer::addFeatureVector(long unsigned int KF_mnId, DBoW2::FeatureVector featVec) {
+    std::unique_lock<std::mutex> lock(mtx);
+    auto it = mnId_to_idx.find(KF_mnId);
+    if (it == mnId_to_idx.end()) {
+        cout << "[ERROR] CudaKeyFrameDrawer::addFeatureVector: ] KF not found!\n";
+        raise(SIGSEGV);        
+    }
+    int KF_idx = it->second;
+    
+    h_keyframes[KF_idx].addFeatureVector(featVec);
+    checkCudaError(cudaMemcpy(&d_keyframes[KF_idx], &h_keyframes[KF_idx], sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame), cudaMemcpyHostToDevice), "[CudaKeyFrameDrawer::addFeatureVector: ] Failed to add feature vector");
+
+    DEBUG_PRINT("addFeatureVector: " << KF_mnId << endl);
 }
 
 void CudaKeyFrameDrawer::shutdown() {
