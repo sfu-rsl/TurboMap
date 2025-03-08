@@ -28,7 +28,7 @@ void MappingKernelController::setCUDADevice(int deviceID) {
 
 void MappingKernelController::activate() {
     is_active = true;
-    MappingKernelController::setGPURunMode(0, 0, 1);
+    // MappingKernelController::setGPURunMode(0, 1, 0);
 }
 
 void MappingKernelController::setGPURunMode(bool _keyframeCulling, bool _fuseStatus, bool _searchForTriangulation) {

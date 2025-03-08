@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ $# -lt 2 ]; then
-    echo "Usage: $0 <dataset_name> <[0] for ORB-SLAM3, [1] for FastTrack, [2] for FastMap> <save_stream>"
+    echo "Usage: $0 <dataset_name> <[0] for ORB-SLAM3, [1] for FastTrack, [2] for FastMap> <save_stream> <FastMap Mode>"
     exit 1
 fi
 
@@ -13,20 +13,10 @@ if [ "$mode" -eq 2 ]; then
 fi
 
 if [ "$mode" -eq 1 ]; then
-    # orbExtractionRunstatus=1
-    # stereoMatchRunstatus=1
-    # searchLocalPointsRunstatus=1
-    # poseEstimationRunstatus=1
-    # poseOptimizationRunstatus=0
     version='FastTrack'
 fi
 
 if [ "$mode" -eq 0 ]; then
-    # orbExtractionRunstatus=0
-    # stereoMatchRunstatus=0
-    # searchLocalPointsRunstatus=0
-    # poseEstimationRunstatus=0
-    # poseOptimizationRunstatus=1
     version='ORB-SLAM3'
 fi
 
@@ -34,6 +24,12 @@ if [ $# -ge 3 ]; then
     save_ostream=$3
 else
     save_ostream=0
+fi
+
+if [ $# -eq 4 ]; then
+    fastmap_mode=$4
+else
+    fastmap_mode='000'
 fi
 
 tumvi_datasets=("corridor1" "corridor2" "corridor3" "corridor4" "corridor5" "outdoors1" "outdoors5" "room1" "room2" "room3" "room4" "room5" "room6" "magistrale2" "magistrale6")
@@ -59,10 +55,10 @@ done
 if [ "$save_ostream" -eq 0 ]; then
     if $found_in_euroc; then
         cd Examples/
-        ./euroc_eval_examples.sh "$mode" "$dataset_name" "$version" 
+        ./euroc_eval_examples.sh "$mode" "$fastmap_mode" "$dataset_name" "$version" 
     elif $found_in_tumvi; then
         cd Examples/
-        ./tum_vi_eval_examples.sh "$mode" "$dataset_name" "$version" 
+        ./tum_vi_eval_examples.sh "$mode" "$fastmap_mode" "$dataset_name" "$version" 
     else
         echo "Invalid dataset: $dataset_name"
         exit 1
@@ -75,10 +71,10 @@ else
     fi
     if $found_in_euroc; then
         cd Examples/
-        ./euroc_eval_examples.sh "$mode" "$dataset_name" "$version" > "../${statsDir}/ostream.txt" 
+        ./euroc_eval_examples.sh "$mode" "$fastmap_mode" "$dataset_name" "$version" > "../${statsDir}/ostream.txt" 
     elif $found_in_tumvi; then
         cd Examples/
-        ./tum_vi_eval_examples.sh "$mode" "$dataset_name" "$version" > "../${statsDir}/ostream.txt" 
+        ./tum_vi_eval_examples.sh "$mode" "$fastmap_mode" "$dataset_name" "$version" > "../${statsDir}/ostream.txt" 
     else
         echo "Invalid dataset: $dataset_name"
         exit 1

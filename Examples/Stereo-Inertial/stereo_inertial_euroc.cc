@@ -45,60 +45,39 @@ void LoadIMU(const string &strImuPath, vector<double> &vTimeStamps, vector<cv::P
 
 
 int main(int argc, char **argv)
-{
-    // int min_num_argc = 5 + 6;
-
-    // if(argc < min_num_argc)
-    // {
-    //     cerr << endl << "Usage: ./stereo_inertial_euroc path_to_vocabulary path_to_settings path_to_sequence_folder_1 path_to_times_file_1 (path_to_image_folder_2 path_to_times_file_2 ... path_to_image_folder_N path_to_times_file_N) " 
-    //         << "strStatsFile OrbExtractionRunStatus StereoMatchRunStatus SearchLocalPointsRunStatus PoseEstimationRunStatus PoseOptimizationRunStatus"  << endl;
-    //     return 1;
-    // }
-
-    // bool RunPoseOptimization = (strcmp(argv[argc-1], "1") == 0);
-    // bool RunPoseEstimationOnGPU = (strcmp(argv[argc-2], "1") == 0);
-    // bool RunSearchLocalPointsOnGPU = (strcmp(argv[argc-3], "1") == 0);
-    // bool RunStereoMatchOnGPU = (strcmp(argv[argc-4], "1") == 0);
-    // bool RunOrbExtractionOnGPU = (strcmp(argv[argc-5], "1") == 0);
-    // string strStatsFile = argv[argc-6];
-    // argc-=6;
-
-    // cout << "[Kernels Run Status::] ORB Extraction: " << RunOrbExtractionOnGPU <<
-    //         " Stereo Match: " << RunStereoMatchOnGPU <<
-    //         " Search Local Points: " << RunSearchLocalPointsOnGPU <<
-    //         " Pose Estimation: " << RunPoseEstimationOnGPU <<
-    //         " Pose Optimization: " << RunPoseOptimization << endl;
-
-    // TrackingKernelController::setGPURunMode(RunOrbExtractionOnGPU, RunStereoMatchOnGPU, RunSearchLocalPointsOnGPU, RunPoseEstimationOnGPU, RunPoseOptimization);
-    
-    int min_num_argc = 5 + 2;
+{   
+    int min_num_argc = 5 + 3;
 
     if(argc < min_num_argc)
     {
         cerr << endl << "Usage: ./stereo_inertial_euroc path_to_vocabulary path_to_settings path_to_sequence_folder_1 path_to_times_file_1 (path_to_image_folder_2 path_to_times_file_2 ... path_to_image_folder_N path_to_times_file_N) " 
-            << "strStatsFile <[0] for ORB-SLAM3, [1] for FastTrack, [2] for FastMap>"  << endl;
+            << "strStatsFile <[0] for ORB-SLAM3, [1] for FastTrack, [2] for FastMap> FastMapMode"  << endl;
         return 1;
     }
 
-    bool ORBSLAM_mode = (strcmp(argv[argc-1], "0") == 0);
-    bool FastTrack_mode = (strcmp(argv[argc-1], "1") == 0);
-    bool FastMap_mode = (strcmp(argv[argc-1], "2") == 0);
-    string strStatsFile = argv[argc-2];
-    argc-=2;
-
-    cout << "Mode:" << ORBSLAM_mode << FastTrack_mode << FastMap_mode << endl;
-
-    if (FastTrack_mode) {
+    bool run_ORBSLAM = (strcmp(argv[argc-2], "0") == 0);
+    bool run_FastTrack = (strcmp(argv[argc-2], "1") == 0);
+    bool run_FastMap = (strcmp(argv[argc-2], "2") == 0);
+    string strStatsFile = argv[argc-3];
+    
+    cout << "Mode:" << run_ORBSLAM << run_FastTrack << run_FastMap << endl;
+    
+    if (run_FastTrack) {
         TrackingKernelController::activate();
         // TrackingKernelController::setGPURunMode(1,1,1,1,0);
     }
-
-    if (FastMap_mode) {
+    
+    if (run_FastMap) {
         MappingKernelController::activate();
-        // MappingKernelController::setGPURunMode(1);
+        bool keyframeCullingEnabled = (argv[argc-1][0] == '1');
+        bool fuseStatusEnabled = (argv[argc-1][1] == '1');
+        bool searchForTriangulationEnabled = (argv[argc-1][2] == '1');
+        cout << "Fast Map Run Mode is: (" << keyframeCullingEnabled << ", " << fuseStatusEnabled << ", " << searchForTriangulationEnabled << ")\n";
+        
+        MappingKernelController::setGPURunMode(keyframeCullingEnabled, fuseStatusEnabled, searchForTriangulationEnabled);
     }
-
-
+    
+    argc-=3;
     const int num_seq = (argc-3)/2;
 
     cout << "num_seq = " << num_seq << endl;

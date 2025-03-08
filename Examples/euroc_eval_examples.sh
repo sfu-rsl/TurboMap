@@ -3,14 +3,9 @@
 pathDatasetEuroc=$HOME/SLAM/Datasets/EuRoc
 
 mode=$1
-dataset_name=$2
-version=$3
-
-# if [ "$poseOptimizationRunstatus" -eq 1 ]; then
-#     statsDir="../Results/poseOptimization_on/${orbExtractionRunstatus}${stereoMatchRunstatus}${searchLocalPointsRunstatus}${poseEstimationRunstatus}/${dataset_name}/${version}"
-# else
-#     statsDir="../Results/poseOptimization_off/${orbExtractionRunstatus}${stereoMatchRunstatus}${searchLocalPointsRunstatus}${poseEstimationRunstatus}/${dataset_name}/${version}"
-# fi
+fastmap_mode=$2
+dataset_name=$3
+version=$4
 
 statsDir="../Results/${version}/${dataset_name}"
 
@@ -53,7 +48,7 @@ echo "Launching $dataset_name with Stereo-Inertial sensor"
 # gdb -ex "set args $ARGS" -ex "run" $EXECUTABLE
 
 #without gdb
-./Stereo-Inertial/stereo_inertial_euroc ../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${mode}
+./Stereo-Inertial/stereo_inertial_euroc ../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${mode} ${fastmap_mode}
 # compute-sanitizer --tool memcheck --report-api-errors all --show-backtrace no ./Stereo-Inertial/stereo_inertial_euroc ../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${mode}
 
 # EXECUTABLE=./Stereo/stereo_euroc 
