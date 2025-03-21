@@ -138,6 +138,12 @@ void MapPoint::SetWorldPos(const Eigen::Vector3f &Pos) {
     unique_lock<mutex> lock2(mGlobalMutex);
     unique_lock<mutex> lock(mMutexPos);
     mWorldPos = Pos;
+    if (MappingKernelController::is_active) {
+        MAPPING_DATA_WRAPPER::CudaMapPoint* d_mp = CudaMapPointStorage::getCudaMapPoint(mnId);
+        if (d_mp) {
+            CudaMapPointStorage::updateCudaMapPointWorldPos(mnId, mWorldPos);
+        }
+    }
 }
 
 Eigen::Vector3f MapPoint::GetWorldPos() {
@@ -186,7 +192,7 @@ void MapPoint::AddObservation(KeyFrame* pKF, int idx)
     if (MappingKernelController::is_active) {
         MAPPING_DATA_WRAPPER::CudaMapPoint* d_mp = CudaMapPointStorage::getCudaMapPoint(mnId);
         if (d_mp) {
-            CudaMapPointStorage::setCudaMapPointObservations(mnId, nObs, mObservations);
+            CudaMapPointStorage::updateCudaMapPointObservations(mnId, nObs, mObservations);
         }
     }
 }
@@ -225,7 +231,7 @@ void MapPoint::EraseObservation(KeyFrame* pKF)
     if (MappingKernelController::is_active) {
         MAPPING_DATA_WRAPPER::CudaMapPoint* d_mp = CudaMapPointStorage::getCudaMapPoint(mnId);
         if (d_mp) {
-            CudaMapPointStorage::setCudaMapPointObservations(mnId, nObs, mObservations);
+            CudaMapPointStorage::updateCudaMapPointObservations(mnId, nObs, mObservations);
         }
     }
 
@@ -441,6 +447,13 @@ void MapPoint::ComputeDistinctiveDescriptors()
         unique_lock<mutex> lock(mMutexFeatures);
         mDescriptor = vDescriptors[BestIdx].clone();
     }
+
+    if (MappingKernelController::is_active) {
+        MAPPING_DATA_WRAPPER::CudaMapPoint* d_mp = CudaMapPointStorage::getCudaMapPoint(mnId);
+        if (d_mp) {
+            CudaMapPointStorage::updateCudaMapPointDescriptor(mnId, mDescriptor);
+        }
+    }
 }
 
 cv::Mat MapPoint::GetDescriptor()
@@ -532,6 +545,13 @@ void MapPoint::UpdateNormalAndDepth()
         mfMinDistance = mfMaxDistance/pRefKF->mvScaleFactors[nLevels-1];
         mNormalVector = normal/n;
     }
+
+    if (MappingKernelController::is_active) {
+        MAPPING_DATA_WRAPPER::CudaMapPoint* d_mp = CudaMapPointStorage::getCudaMapPoint(mnId);
+        if (d_mp) {
+            CudaMapPointStorage::updateCudaMapNormalAndDepth(mnId, GetMinDistance(), GetMaxDistance(), GetNormal());
+        }
+    }
 }
 
 void MapPoint::SetNormalVector(const Eigen::Vector3f& normal)
@@ -550,6 +570,18 @@ float MapPoint::GetMaxDistanceInvariance()
 {
     unique_lock<mutex> lock(mMutexPos);
     return 1.2f * mfMaxDistance;
+}
+
+float MapPoint::GetMinDistance()
+{
+    unique_lock<mutex> lock(mMutexPos);
+    return mfMinDistance;
+}
+
+float MapPoint::GetMaxDistance()
+{
+    unique_lock<mutex> lock(mMutexPos);
+    return mfMaxDistance;
 }
 
 int MapPoint::PredictScale(const float &currentDist, KeyFrame* pKF)

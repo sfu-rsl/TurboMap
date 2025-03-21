@@ -54,6 +54,11 @@ class CudaMapPoint {
         void initialize();
         void setMemory(ORB_SLAM3::MapPoint* mp);
         void setObservations(int nObs, map<ORB_SLAM3::KeyFrame*, tuple<int,int>> observations);
+        void setDescriptor(cv::Mat descriptor);
+        void setMinDistance(float mfMinDistance);
+        void setMaxDistance(float mfMaxDistance);
+        void setNormalVector(Eigen::Vector3f mNormalVector);
+        void setWorldPos(Eigen::Vector3f pos); 
         void setAsEmpty() { isEmpty = true; };
         void freeMemory();
 

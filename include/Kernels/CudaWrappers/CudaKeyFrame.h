@@ -38,13 +38,16 @@ class CudaKeyFrame {
         float mfLogScaleFactor;
         int mnScaleLevels;
         float mnMinX;
+        float mnMaxX;
         float mnMinY;
+        float mnMaxY;
         float mfGridElementWidthInv;
         float mfGridElementHeightInv;
         int mnGridCols;
         int mnGridRows;
         float mThDepth;
         float* mvDepth;
+        float mbf;
 
         size_t mvpMapPoints_size;
         CudaMapPoint** mvpMapPoints;

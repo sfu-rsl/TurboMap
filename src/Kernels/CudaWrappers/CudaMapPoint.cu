@@ -53,8 +53,8 @@ namespace MAPPING_DATA_WRAPPER
         isEmpty = false;
         mnId = mp->mnId;
         mWorldPos = mp->GetWorldPos();
-        mfMaxDistance = mp->GetMaxDistanceInvariance();
-        mfMinDistance = mp->GetMinDistanceInvariance();
+        mfMaxDistance = mp->GetMaxDistance();
+        mfMinDistance = mp->GetMinDistance();
         mNormalVector = mp->GetNormal();
         const cv::Mat& descriptor = mp->GetDescriptor();
         std::memcpy(mDescriptor, descriptor.ptr<uint8_t>(0), descriptor.cols * sizeof(uint8_t));
@@ -65,8 +65,8 @@ namespace MAPPING_DATA_WRAPPER
         isEmpty = false;
         mnId = mp->mnId;
         mWorldPos = mp->GetWorldPos();
-        mfMaxDistance = mp->GetMaxDistanceInvariance();
-        mfMinDistance = mp->GetMinDistanceInvariance();
+        mfMaxDistance = mp->GetMaxDistance();
+        mfMinDistance = mp->GetMinDistance();
         mNormalVector = mp->GetNormal();
         const cv::Mat& descriptor = mp->GetDescriptor();
         std::memcpy(mDescriptor, descriptor.ptr<uint8_t>(0), descriptor.cols * sizeof(uint8_t));
@@ -89,6 +89,26 @@ namespace MAPPING_DATA_WRAPPER
             } 
             itr++;
         }        
+    }
+
+    void CudaMapPoint::setDescriptor(cv::Mat descriptor) {
+        std::memcpy(mDescriptor, descriptor.ptr<uint8_t>(0), descriptor.cols * sizeof(uint8_t));
+    }
+
+    void CudaMapPoint::setMinDistance(float _mfMinDistance) {
+        mfMinDistance = _mfMinDistance;
+    }
+
+    void CudaMapPoint::setMaxDistance(float _mfMaxDistance) {
+        mfMaxDistance = _mfMaxDistance;
+    }
+
+    void CudaMapPoint::setNormalVector(Eigen::Vector3f _mNormalVector) {
+        mNormalVector = _mNormalVector;
+    }
+
+    void CudaMapPoint::setWorldPos(Eigen::Vector3f pos) {
+        mWorldPos = pos;
     }
 
     void CudaMapPoint::freeMemory() {

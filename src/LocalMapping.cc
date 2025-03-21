@@ -347,8 +347,13 @@ void LocalMapping::Run()
             {
                 usleep(3000);
             }
-            if(CheckFinish())
+            if(CheckFinish()) {
+                if (MappingKernelController::is_active) {
+                    MappingKernelController::shutdownKernels();
+                }
+                CudaUtils::shutdown();
                 break;
+            }
         }
 
         ResetIfRequested();
@@ -356,8 +361,13 @@ void LocalMapping::Run()
         // Tracking will see that Local Mapping is busy
         SetAcceptKeyFrames(true);
 
-        if(CheckFinish())
+        if(CheckFinish()) {
+            if (MappingKernelController::is_active) {
+                MappingKernelController::shutdownKernels();
+            }
+            CudaUtils::shutdown();
             break;
+        }
 
         usleep(3000);
     }
@@ -914,7 +924,10 @@ void LocalMapping::SearchInNeighbors()
         KeyFrame* pKFi = *vit;
 
         auto start12 = std::chrono::high_resolution_clock::now();
-        matcher.Fuse(pKFi,vpMapPointMatches);
+        if (MappingKernelController::fuseOnGPU == 1)
+            matcher.GPUFuse(pKFi, mpCurrentKeyFrame);
+        else
+            matcher.Fuse(pKFi,vpMapPointMatches);
         auto end12 = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double, std::milli> elapsed12 = end12 - start12;
         first_fuse += elapsed12.count();

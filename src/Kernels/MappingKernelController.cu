@@ -10,7 +10,7 @@
 
 bool MappingKernelController::is_active = false;
 bool MappingKernelController::keyframeCullingOnGPU;
-bool MappingKernelController::fuseKernelRunStatus;
+bool MappingKernelController::fuseOnGPU;
 bool MappingKernelController::searchForTriangulationOnGPU;
 bool MappingKernelController::memory_is_initialized = false;
 std::unique_ptr<KFCullingKernel> MappingKernelController::mpKFCullingKernel = std::make_unique<KFCullingKernel>();
@@ -33,7 +33,7 @@ void MappingKernelController::activate() {
 
 void MappingKernelController::setGPURunMode(bool _keyframeCulling, bool _fuseStatus, bool _searchForTriangulation) {
     keyframeCullingOnGPU = _keyframeCulling;
-    fuseKernelRunStatus = _fuseStatus;
+    fuseOnGPU = _fuseStatus;
     searchForTriangulationOnGPU = _searchForTriangulation;
 }
 
@@ -47,10 +47,10 @@ void MappingKernelController::initializeKernels(){
 
     cudaKeyFramePtr = new MAPPING_DATA_WRAPPER::CudaKeyFrame();
 
-    if(keyframeCullingOnGPU == 1)
+    if (keyframeCullingOnGPU == 1)
         mpKFCullingKernel->initialize();
     
-    if(fuseKernelRunStatus == 1)
+    if (fuseOnGPU == 1)
         mpFuseKernel->initialize();
 
     if (searchForTriangulationOnGPU)
@@ -69,11 +69,11 @@ void MappingKernelController::shutdownKernels(){
         CudaMapPointStorage::shutdown();
         cudaKeyFramePtr->freeMemory();
         delete cudaKeyFramePtr;
-        if(keyframeCullingOnGPU == 1)
+        if (keyframeCullingOnGPU == 1)
             mpKFCullingKernel->shutdown();
-        if(fuseKernelRunStatus == 1)
+        if (fuseOnGPU == 1)
             mpFuseKernel->shutdown();
-        if (searchForTriangulationOnGPU)
+        if (searchForTriangulationOnGPU == 1)
             mpSearchForTriangulationKernel->shutdown();
     }
 }
@@ -94,14 +94,13 @@ void MappingKernelController::launchKeyframeCullingKernel(vector<ORB_SLAM3::KeyF
     mpKFCullingKernel->launch(vpLocalKeyFrames, h_nMPs, h_nRedundantObservations);
 }
 
-void MappingKernelController::launchFuseKernel(ORB_SLAM3::KeyFrame &KF, const vector<ORB_SLAM3::MapPoint*> &vpMapPoints,
-                                                    const float th, const bool bRight, int* h_bestDist, int* h_bestIdx,
-                                                    ORB_SLAM3::GeometricCamera* pCamera, Sophus::SE3f Tcw, Eigen::Vector3f Ow) {
+void MappingKernelController::launchFuseKernel(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currKF,
+                                               const float th, const bool bRight, int* h_bestDist, int* h_bestIdx,
+                                               ORB_SLAM3::GeometricCamera* pCamera, Sophus::SE3f Tcw, Eigen::Vector3f Ow) {
 
-    cudaKeyFramePtr->setMemory(KF);
-    mpFuseKernel->setKeyFrame(cudaKeyFramePtr);
+    DEBUG_PRINT("Launching Fuse Kernel");
     
-    mpFuseKernel->launch(KF, vpMapPoints, th, bRight, h_bestDist, h_bestIdx, pCamera, Tcw, Ow);
+    mpFuseKernel->launch(neighKF, currKF, th, bRight, h_bestDist, h_bestIdx, pCamera, Tcw, Ow);
 }
 
 void MappingKernelController::launchSearchForTriangulationKernel(

@@ -60,88 +60,6 @@ namespace MAPPING_DATA_WRAPPER
         gpuAddr = ptr;
     }
 
-    void CudaKeyFrame::setMemory(ORB_SLAM3::KeyFrame &KF) {
-        DEBUG_PRINT("Filling CudaKeyFrame Memory With KeyFrame Data...");
-
-        mnId = KF.mnId;
-        Nleft = KF.NLeft;
-        mThDepth = KF.mThDepth;
-        mfLogScaleFactor = KF.mfLogScaleFactor;
-        mnScaleLevels = KF.mnScaleLevels;
-        mnMinX = KF.mnMinX;
-        mnMinY = KF.mnMinY;
-        mfGridElementWidthInv = KF.mfGridElementWidthInv;
-        mfGridElementHeightInv = KF.mfGridElementHeightInv;
-        mnGridCols = KF.mnGridCols;
-        mnGridRows = KF.mnGridRows;
-
-
-        mvScaleFactors_size = KF.mvScaleFactors.size();
-        mvKeys_size = KF.mvKeys.size();
-        mvKeysRight_size = KF.mvKeysRight.size();
-        mvKeysUn_size = KF.mvKeysUn.size();
-        mvuRight_size = KF.mvuRight.size();
-        mvInvLevelSigma2_size = KF.mvInvLevelSigma2.size();
-        mDescriptor_rows = KF.mDescriptors.rows;
-
-        checkCudaError(cudaMemcpy(mvDepth, KF.mvDepth.data(), KF.mvDepth.size() * sizeof(float), cudaMemcpyHostToDevice), "CudaKeyFrame:: Failed to copy mvDepth to gpu");
-
-        checkCudaError(cudaMemcpy(mvScaleFactors, KF.mvScaleFactors.data(), mvScaleFactors_size * sizeof(float), cudaMemcpyHostToDevice), "CudaKeyFrame:: Failed to copy mvScaleFactors to gpu");
-
-        checkCudaError(cudaMemcpy(mvInvLevelSigma2, KF.mvInvLevelSigma2.data(), mvInvLevelSigma2_size * sizeof(float), cudaMemcpyHostToDevice), "CudaKeyFrame:: Failed to copy mvInvLevelSigma2 to gpu");
-
-        checkCudaError(cudaMemcpy(mvuRight, KF.mvuRight.data(), mvuRight_size * sizeof(float), cudaMemcpyHostToDevice), "CudaKeyFrame:: Failed to copy mvuRight to gpu");
-        
-        checkCudaError(cudaMemcpy((void*) mDescriptors, KF.mDescriptors.data,  KF.mDescriptors.rows * DESCRIPTOR_SIZE * sizeof(uint8_t), cudaMemcpyHostToDevice), "CudaKeyFrame:: Failed to copy mDescriptors to gpu"); 
-        
-        std::vector<CudaKeyPoint> tmp_mvKeys(mvKeys_size);
-        for (int i = 0; i < mvKeys_size; ++i){
-            tmp_mvKeys[i].ptx = KF.mvKeys[i].pt.x;
-            tmp_mvKeys[i].pty = KF.mvKeys[i].pt.y;
-            tmp_mvKeys[i].octave = KF.mvKeys[i].octave;
-        }
-        checkCudaError(cudaMemcpy((void*) mvKeys, tmp_mvKeys.data(), mvKeys_size * sizeof(CudaKeyPoint), cudaMemcpyHostToDevice), "CudaKeyFrame:: Failed to copy mvKeys to gpu");
-
-        std::vector<CudaKeyPoint> tmp_mvKeysRight(mvKeysRight_size);        
-        for (int i = 0; i < mvKeysRight_size; ++i){
-            tmp_mvKeysRight[i].ptx = KF.mvKeysRight[i].pt.x;
-            tmp_mvKeysRight[i].pty = KF.mvKeysRight[i].pt.y;
-            tmp_mvKeysRight[i].octave = KF.mvKeysRight[i].octave;
-        }
-        checkCudaError(cudaMemcpy((void*) mvKeysRight, tmp_mvKeysRight.data(), mvKeysRight_size * sizeof(CudaKeyPoint), cudaMemcpyHostToDevice), "CudaKeyFrame:: Failed to copy mvKeysRight to gpu");
-
-        std::vector<CudaKeyPoint> tmp_mvKeysUn(mvKeysUn_size);   
-        for (int i = 0; i < mvKeysUn_size; ++i){
-            tmp_mvKeysUn[i].ptx = KF.mvKeysUn[i].pt.x;
-            tmp_mvKeysUn[i].pty = KF.mvKeysUn[i].pt.y;
-            tmp_mvKeysUn[i].octave = KF.mvKeysUn[i].octave;
-        }
-        checkCudaError(cudaMemcpy(mvKeysUn, tmp_mvKeysUn.data(), mvKeysUn_size * sizeof(CudaKeyPoint), cudaMemcpyHostToDevice), "CudaKeyFrame:: Failed to copy mvKeysUn to gpu");
-
-        int keypoints_per_cell = CudaUtils::keypointsPerCell;
-        for (int i = 0; i < mnGridCols; ++i) {
-            for (int j = 0; j < mnGridRows; ++j) {
-                size_t num_keypoints = KF.getMGrid()[i][j].size();
-                if (num_keypoints > 0) {
-                    std::memcpy(&flatMGrid[(i * mnGridRows + j) * keypoints_per_cell], KF.getMGrid()[i][j].data(), num_keypoints * sizeof(std::size_t));
-                }
-                flatMGrid_size[i * mnGridRows + j] = num_keypoints;
-            }
-        }
-
-        if (!KF.mGridRight.empty()) {
-            for (int i = 0; i < mnGridCols; ++i) {
-                for (int j = 0; j < mnGridRows; ++j) {
-                    size_t num_keypoints = KF.mGridRight[i][j].size();
-                    if (num_keypoints > 0) {
-                        std::memcpy(&flatMGridRight[(i * mnGridRows + j) * KEYPOINTS_PER_CELL], KF.mGridRight[i][j].data(), num_keypoints * sizeof(std::size_t));
-                    }
-                    flatMGridRight_size[i * mnGridRows + j] = num_keypoints;
-                }
-            }
-        }
-    }
-
     void CudaKeyFrame::setMemory(ORB_SLAM3::KeyFrame* KF) {
         DEBUG_PRINT("Filling CudaKeyFrame Memory With KeyFrame Data...");
 
@@ -151,11 +69,14 @@ namespace MAPPING_DATA_WRAPPER
         mfLogScaleFactor = KF->mfLogScaleFactor;
         mnScaleLevels = KF->mnScaleLevels;
         mnMinX = KF->mnMinX;
+        mnMaxX = KF->mnMaxX;
         mnMinY = KF->mnMinY;
+        mnMaxY = KF->mnMaxY;
         mfGridElementWidthInv = KF->mfGridElementWidthInv;
         mfGridElementHeightInv = KF->mfGridElementHeightInv;
         mnGridCols = KF->mnGridCols;
         mnGridRows = KF->mnGridRows;
+        mbf = KF->mbf;
 
         checkCudaError(cudaMemcpy(mvDepth, KF->mvDepth.data(), KF->mvDepth.size() * sizeof(float), cudaMemcpyHostToDevice), "CudaKeyFrame:: Failed to copy mvDepth to gpu");
         
@@ -272,12 +193,12 @@ namespace MAPPING_DATA_WRAPPER
     }
 
     void CudaKeyFrame::addMapPoint(MAPPING_DATA_WRAPPER::CudaMapPoint* d_mp, int idx) {
-        checkCudaError(cudaMemcpy(&mvpMapPoints[idx], &d_mp, sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint*), cudaMemcpyHostToDevice), "[CudaKeyFrame::updateMvpMapPoints: ] Failed to update idx ");
+        checkCudaError(cudaMemcpy(&mvpMapPoints[idx], &d_mp, sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint*), cudaMemcpyHostToDevice), "[CudaKeyFrame::addMapPoint: ] Failed to update idx ");
     }
 
     void CudaKeyFrame::eraseMapPoint(int idx) {
         CudaMapPoint* d_mp = nullptr;
-        checkCudaError(cudaMemcpy(&mvpMapPoints[idx], &d_mp, sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint*), cudaMemcpyHostToDevice), "[CudaKeyFrame::updateMvpMapPoints: ] Failed to update idx ");
+        checkCudaError(cudaMemcpy(&mvpMapPoints[idx], &d_mp, sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint*), cudaMemcpyHostToDevice), "[CudaKeyFrame::eraseMapPoint: ] Failed to update idx ");
     }
 
     void CudaKeyFrame::freeMemory(){

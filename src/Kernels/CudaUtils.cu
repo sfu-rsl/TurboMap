@@ -1,4 +1,6 @@
 #include "Kernels/CudaUtils.h"
+#include "Kernels/TrackingKernelController.h"
+#include "Kernels/MappingKernelController.h"
 
 int CudaUtils::nFeatures_with_th;
 int CudaUtils::nLevels; 
@@ -58,34 +60,53 @@ __global__ void printKFListGPU(MAPPING_DATA_WRAPPER::CudaKeyFrame** d_keyframes,
 
 void printMPCPU(ORB_SLAM3::MapPoint* mp) {
     printf("[*CPU*] mp mnId: %lu\n", mp->mnId);
-    map<ORB_SLAM3::KeyFrame*, tuple<int,int>> observations = mp->GetObservations();
-    for (const auto& pair : observations) {
-        ORB_SLAM3::KeyFrame* key = pair.first;
-        printf("    pKFi mnId: %lu\n", key->mnId);
-    }     
+    cv::Mat mDescriptor = mp->GetDescriptor();
+    cout << mDescriptor.rows << ", " << mDescriptor.cols << std::endl;
+    for (int i = 0; i < mDescriptor.rows; i++) {
+        for (int j = 0; j < mDescriptor.cols; j++) {
+            printf("%u,", mDescriptor.at<uint8_t>(i, j));
+        }
+        printf("\n");
+    }
+    // map<ORB_SLAM3::KeyFrame*, tuple<int,int>> observations = mp->GetObservations();
+    // for (const auto& pair : observations) {
+    //     ORB_SLAM3::KeyFrame* key = pair.first;
+    //     printf("    pKFi mnId: %lu\n", key->mnId);
+    // }     
 }
 
 __device__ void printMPGPU(MAPPING_DATA_WRAPPER::CudaMapPoint* mp) {
     printf("[=GPU=] mp mnId: %lu\n", mp->mnId);
-    MAPPING_DATA_WRAPPER::CudaKeyFrame** mObservations_dkf = mp->mObservations_dkf;
-    for (int j = 0; j < mp->mObservations_size; ++j) {
-        MAPPING_DATA_WRAPPER::CudaKeyFrame* pKFi = mp->mObservations_dkf[j];
-        // printf("    pKFi mnId: %lu\n", pKFi->mnId);
-        printf("    pKFi ptr: %p\n", (void*)pKFi);
-    }    
+    printf("mDescriptor: ");
+    for (int i = 0; i < 32; i++) {
+        printf("%u,", mp->mDescriptor[i]);
+    }
+    printf("\n");
+    // MAPPING_DATA_WRAPPER::CudaKeyFrame** mObservations_dkf = mp->mObservations_dkf;
+    // for (int j = 0; j < mp->mObservations_size; ++j) {
+    //     MAPPING_DATA_WRAPPER::CudaKeyFrame* pKFi = mp->mObservations_dkf[j];
+    //     // printf("    pKFi mnId: %lu\n", pKFi->mnId);
+    //     printf("    pKFi ptr: %p\n", (void*)pKFi);
+    // }    
 }
 
 __global__ void printMPSingleGPU(MAPPING_DATA_WRAPPER::CudaMapPoint* mp) {
     printMPGPU(mp);
 }
 
-__global__ void printMPListGPU(MAPPING_DATA_WRAPPER::CudaMapPoint** d_mapPoints, int idx) {
-    MAPPING_DATA_WRAPPER::CudaMapPoint* mp = d_mapPoints[idx];
-    printMPGPU(mp);
+__global__ void printMPListGPU(MAPPING_DATA_WRAPPER::CudaMapPoint* d_mapPoints, int idx) {
+    MAPPING_DATA_WRAPPER::CudaMapPoint mp = d_mapPoints[idx];
+    printMPGPU(&mp);
 }
 
 void checkCudaError(cudaError_t err, const char* msg) {
     if (err != cudaSuccess) {
+        if (TrackingKernelController::is_active)
+            TrackingKernelController::shutdownKernels();
+        if (MappingKernelController::is_active)
+            MappingKernelController::shutdownKernels();
+        CudaUtils::shutdown();
+
         std::cerr << msg << ": " << cudaGetErrorString(err) << ", status code: " << err << std::endl;
         exit(EXIT_FAILURE);
     }

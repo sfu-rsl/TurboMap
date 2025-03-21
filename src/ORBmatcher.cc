@@ -1274,288 +1274,315 @@ namespace ORB_SLAM3
         int nFused=0;
 
         const int nMPs = vpMapPoints.size();
-        
-        if (MappingKernelController::fuseKernelRunStatus == 0) {
 
-            // For debbuging
-            int count_notMP = 0, count_bad=0, count_isinKF = 0, count_negdepth = 0, count_notinim = 0, count_dist = 0, count_normal=0, count_notidx = 0, count_thcheck = 0;
+        // For debbuging
+        int count_notMP = 0, count_bad=0, count_isinKF = 0, count_negdepth = 0, count_notinim = 0, count_dist = 0, count_normal=0, count_notidx = 0, count_thcheck = 0;
 
-            for(int i=0; i<nMPs; i++)
+        for(int i=0; i<nMPs; i++)
+        {
+            MapPoint* pMP = vpMapPoints[i];
+
+            if(!pMP)
             {
-                MapPoint* pMP = vpMapPoints[i];
+                count_notMP++;
+                continue;
+            }
 
-                if(!pMP)
-                {
-                    count_notMP++;
+            if(pMP->isBad())
+            {
+                count_bad++;
+                continue;
+            }
+
+            else if(pMP->IsInKeyFrame(pKF))
+            {
+                count_isinKF++;
+                continue;
+            }
+
+            Eigen::Vector3f p3Dw = pMP->GetWorldPos();
+            Eigen::Vector3f p3Dc = Tcw * p3Dw;
+
+            // Depth must be positive
+            if(p3Dc(2)<0.0f)
+            {
+                count_negdepth++;
+                continue;
+            }
+
+            const float invz = 1/p3Dc(2);
+
+            const Eigen::Vector2f uv = pCamera->project(p3Dc);
+
+            // Point must be inside the image
+            if(!pKF->IsInImage(uv(0),uv(1)))
+            {
+                count_notinim++;
+                continue;
+            }
+
+            const float ur = uv(0)-bf*invz;
+
+            const float maxDistance = pMP->GetMaxDistanceInvariance();
+            const float minDistance = pMP->GetMinDistanceInvariance();
+            Eigen::Vector3f PO = p3Dw-Ow;
+            const float dist3D = PO.norm();
+
+            // Depth must be inside the scale pyramid of the image
+            if(dist3D<minDistance || dist3D>maxDistance) {
+                count_dist++;
+                continue;
+            }
+
+            // Viewing angle must be less than 60 deg
+            Eigen::Vector3f Pn = pMP->GetNormal();
+
+            if(PO.dot(Pn)<0.5*dist3D)
+            {
+                count_normal++;
+                continue;
+            }
+
+            int nPredictedLevel = pMP->PredictScale(dist3D,pKF);
+
+            // Search in a radius
+            const float radius = th*pKF->mvScaleFactors[nPredictedLevel];
+
+            const vector<size_t> vIndices = pKF->GetFeaturesInArea(uv(0),uv(1),radius,bRight);
+
+            if(vIndices.empty())
+            {
+                count_notidx++;
+                continue;
+            }
+
+            // Match to the most similar keypoint in the radius
+
+            const cv::Mat dMP = pMP->GetDescriptor();
+
+            int bestDist = 256;
+            int bestIdx = -1;
+            for(vector<size_t>::const_iterator vit=vIndices.begin(), vend=vIndices.end(); vit!=vend; vit++)
+            {
+                size_t idx = *vit;
+                const cv::KeyPoint &kp = (pKF -> NLeft == -1) ? pKF->mvKeysUn[idx]
+                                                            : (!bRight) ? pKF -> mvKeys[idx]
+                                                                        : pKF -> mvKeysRight[idx];
+
+                const int &kpLevel= kp.octave;
+
+                if(kpLevel<nPredictedLevel-1 || kpLevel>nPredictedLevel){
                     continue;
                 }
 
-                if(pMP->isBad())
+                if(pKF->mvuRight[idx]>=0)
                 {
-                    count_bad++;
-                    continue;
-                }
+                    // Check reprojection error in stereo
+                    const float &kpx = kp.pt.x;
+                    const float &kpy = kp.pt.y;
+                    const float &kpr = pKF->mvuRight[idx];
+                    const float ex = uv(0)-kpx;
+                    const float ey = uv(1)-kpy;
+                    const float er = ur-kpr;
+                    const float e2 = ex*ex+ey*ey+er*er;
 
-                else if(pMP->IsInKeyFrame(pKF))
-                {
-                    count_isinKF++;
-                    continue;
-                }
-
-                Eigen::Vector3f p3Dw = pMP->GetWorldPos();
-                Eigen::Vector3f p3Dc = Tcw * p3Dw;
-
-                // Depth must be positive
-                if(p3Dc(2)<0.0f)
-                {
-                    count_negdepth++;
-                    continue;
-                }
-
-                const float invz = 1/p3Dc(2);
-
-                const Eigen::Vector2f uv = pCamera->project(p3Dc);
-
-                // Point must be inside the image
-                if(!pKF->IsInImage(uv(0),uv(1)))
-                {
-                    count_notinim++;
-                    continue;
-                }
-
-                const float ur = uv(0)-bf*invz;
-
-                const float maxDistance = pMP->GetMaxDistanceInvariance();
-                const float minDistance = pMP->GetMinDistanceInvariance();
-                Eigen::Vector3f PO = p3Dw-Ow;
-                const float dist3D = PO.norm();
-
-                // Depth must be inside the scale pyramid of the image
-                if(dist3D<minDistance || dist3D>maxDistance) {
-                    count_dist++;
-                    continue;
-                }
-
-                // Viewing angle must be less than 60 deg
-                Eigen::Vector3f Pn = pMP->GetNormal();
-
-                if(PO.dot(Pn)<0.5*dist3D)
-                {
-                    count_normal++;
-                    continue;
-                }
-
-                int nPredictedLevel = pMP->PredictScale(dist3D,pKF);
-
-                // Search in a radius
-                const float radius = th*pKF->mvScaleFactors[nPredictedLevel];
-
-                const vector<size_t> vIndices = pKF->GetFeaturesInArea(uv(0),uv(1),radius,bRight);
-
-                if(vIndices.empty())
-                {
-                    count_notidx++;
-                    continue;
-                }
-
-                // Match to the most similar keypoint in the radius
-
-                const cv::Mat dMP = pMP->GetDescriptor();
-
-                int bestDist = 256;
-                int bestIdx = -1;
-                for(vector<size_t>::const_iterator vit=vIndices.begin(), vend=vIndices.end(); vit!=vend; vit++)
-                {
-                    size_t idx = *vit;
-                    const cv::KeyPoint &kp = (pKF -> NLeft == -1) ? pKF->mvKeysUn[idx]
-                                                                : (!bRight) ? pKF -> mvKeys[idx]
-                                                                            : pKF -> mvKeysRight[idx];
-
-                    const int &kpLevel= kp.octave;
-
-                    if(kpLevel<nPredictedLevel-1 || kpLevel>nPredictedLevel){
+                    if(e2*pKF->mvInvLevelSigma2[kpLevel]>7.8){
                         continue;
                     }
-
-                    if(pKF->mvuRight[idx]>=0)
-                    {
-                        // Check reprojection error in stereo
-                        const float &kpx = kp.pt.x;
-                        const float &kpy = kp.pt.y;
-                        const float &kpr = pKF->mvuRight[idx];
-                        const float ex = uv(0)-kpx;
-                        const float ey = uv(1)-kpy;
-                        const float er = ur-kpr;
-                        const float e2 = ex*ex+ey*ey+er*er;
-
-                        if(e2*pKF->mvInvLevelSigma2[kpLevel]>7.8){
-                            continue;
-                        }
-                    }
-                    else
-                    {
-                        const float &kpx = kp.pt.x;
-                        const float &kpy = kp.pt.y;
-                        const float ex = uv(0)-kpx;
-                        const float ey = uv(1)-kpy;
-                        const float e2 = ex*ex+ey*ey;
-
-                        if(e2*pKF->mvInvLevelSigma2[kpLevel]>5.99){
-                            continue;
-                        }
-                    }
-
-                    if(bRight) idx += pKF->NLeft;
-
-                    const cv::Mat &dKF = pKF->mDescriptors.row(idx);
-
-                    const int dist = DescriptorDistance(dMP,dKF);
-
-                    if(dist<bestDist)
-                    {
-                        bestDist = dist;
-                        bestIdx = idx;
-                    }
                 }
-
-                // If there is already a MapPoint replace otherwise add new measurement
-                if(bestDist<=TH_LOW)
+                else
                 {
-                    MapPoint* pMPinKF = pKF->GetMapPoint(bestIdx);
-                    if(pMPinKF)
-                    {
-                        if(!pMPinKF->isBad())
-                        {
-                            if(pMPinKF->Observations()>pMP->Observations()) {
-                                pMP->Replace(pMPinKF);
-                            }
-                            else {
-                                pMPinKF->Replace(pMP);
-                            }   
-                        }
+                    const float &kpx = kp.pt.x;
+                    const float &kpy = kp.pt.y;
+                    const float ex = uv(0)-kpx;
+                    const float ey = uv(1)-kpy;
+                    const float e2 = ex*ex+ey*ey;
+
+                    if(e2*pKF->mvInvLevelSigma2[kpLevel]>5.99){
+                        continue;
                     }
-                    else
-                    {
-                        pMP->AddObservation(pKF,bestIdx);
-                        pKF->AddMapPoint(pMP,bestIdx);
-                    }
-                    nFused++;
                 }
-                else{
-                    count_thcheck++;
+
+                if(bRight) idx += pKF->NLeft;
+
+                const cv::Mat &dKF = pKF->mDescriptors.row(idx);
+
+                const int dist = DescriptorDistance(dMP,dKF);
+
+                if(dist<bestDist)
+                {
+                    bestDist = dist;
+                    bestIdx = idx;
                 }
             }
-        }
-        
-        else if (MappingKernelController::fuseKernelRunStatus == 1){
-            int numPoints = vpMapPoints.size();
-            int h_bestDist[numPoints];
-            int h_bestIdx[numPoints];
-            int count_notMP = 0, count_bad=0, count_notidx=0, count_isinKF = 0, count_thcheck = 0, count_negdepth = 0, count_notinim = 0, count_dist = 0, count_normal=0;
 
-            MappingKernelController::launchFuseKernel(*pKF, vpMapPoints, th,  bRight, h_bestDist, h_bestIdx, pCamera, Tcw, Ow);
-
-            for(size_t iMP=0; iMP<numPoints; iMP++) {
-
-                MapPoint* pMP = vpMapPoints[iMP];
-                int bestDist = h_bestDist[iMP];
-                int bestIdx = h_bestIdx[iMP];
-
-                if(!pMP)
+            // If there is already a MapPoint replace otherwise add new measurement
+            if(bestDist<=TH_LOW)
+            {
+                MapPoint* pMPinKF = pKF->GetMapPoint(bestIdx);
+                if(pMPinKF)
                 {
-                    count_notMP++;
-                    continue;
-                }
-
-                if(pMP->isBad())
-                {
-                    count_bad++;
-                    continue;
-                }
-
-                else if(pMP->IsInKeyFrame(pKF))
-                {
-                    count_isinKF++;
-                    continue;
-                }
-
-                Eigen::Vector3f p3Dw = pMP->GetWorldPos();
-                Eigen::Vector3f p3Dc = Tcw * p3Dw;
-
-                // Depth must be positive
-                if(p3Dc(2)<0.0f)
-                {
-                    count_negdepth++;
-                    continue;
-                }
-
-                const float invz = 1/p3Dc(2);
-
-                const Eigen::Vector2f uv = pCamera->project(p3Dc);
-
-                // Point must be inside the image
-                if(!pKF->IsInImage(uv(0),uv(1)))
-                {
-                    count_notinim++;
-                    continue;
-                }
-
-                const float ur = uv(0)-bf*invz;
-
-                const float maxDistance = pMP->GetMaxDistanceInvariance();
-                const float minDistance = pMP->GetMinDistanceInvariance();
-                Eigen::Vector3f PO = p3Dw-Ow;
-                const float dist3D = PO.norm();
-
-                // Depth must be inside the scale pyramid of the image
-                if(dist3D<minDistance || dist3D>maxDistance) {
-                    count_dist++;
-                    continue;
-                }
-
-                // Viewing angle must be less than 60 deg
-                Eigen::Vector3f Pn = pMP->GetNormal();
-
-                if(PO.dot(Pn)<0.5*dist3D)
-                {
-                    count_normal++;
-                    continue;
-                }
-                int nPredictedLevel = pMP->PredictScale(dist3D,pKF);
-
-                const float radius = th*pKF->mvScaleFactors[nPredictedLevel];
-
-                const vector<size_t> vIndices = pKF->GetFeaturesInArea(uv(0),uv(1),radius,bRight);
-
-                if(vIndices.empty())
-                {
-                    count_notidx++;
-                    continue;
-                }
-
-                if (bestDist<=TH_LOW)
-                {
-                    MapPoint* pMPinKF = pKF->GetMapPoint(bestIdx);
-                    if(pMPinKF)
+                    if(!pMPinKF->isBad())
                     {
-                        if(!pMPinKF->isBad())
-                        {
-                            if(pMPinKF->Observations()>pMP->Observations()) {
-                                pMP->Replace(pMPinKF);
-                            }
-                            else {
-                                pMPinKF->Replace(pMP);
-                            }   
+                        if(pMPinKF->Observations()>pMP->Observations()) {
+                            pMP->Replace(pMPinKF);
                         }
+                        else {
+                            pMPinKF->Replace(pMP);
+                        }   
                     }
                 }
                 else
                 {
                     pMP->AddObservation(pKF,bestIdx);
                     pKF->AddMapPoint(pMP,bestIdx);
-                    count_thcheck++;
-                }                
+                }
+                nFused++;
             }
+            else{
+                count_thcheck++;
+            }
+        }
+
+        return nFused;
+    }
+
+    int ORBmatcher::GPUFuse(KeyFrame *neighKF, KeyFrame *currKF, const float th, const bool bRight)
+    {
+        GeometricCamera* pCamera;
+        Sophus::SE3f Tcw;
+        Eigen::Vector3f Ow;
+
+        if(bRight){
+            Tcw = neighKF->GetRightPose();
+            Ow = neighKF->GetRightCameraCenter();
+            pCamera = neighKF->mpCamera2;
+        }
+        else{
+            Tcw = neighKF->GetPose();
+            Ow = neighKF->GetCameraCenter();
+            pCamera = neighKF->mpCamera;
+        }
+
+        const float &fx = neighKF->fx;
+        const float &fy = neighKF->fy;
+        const float &cx = neighKF->cx;
+        const float &cy = neighKF->cy;
+        const float &bf = neighKF->mbf;
+
+        int nFused=0;
+        
+        vector<MapPoint*> vpMapPoints = currKF->GetMapPointMatches();
+        int numPoints = vpMapPoints.size();
+        int h_bestDist[numPoints];
+        int h_bestIdx[numPoints];
+        int count_notMP = 0, count_bad=0, count_notidx=0, count_isinKF = 0, count_thcheck = 0, count_negdepth = 0, count_notinim = 0, count_dist = 0, count_normal=0;
+
+        MappingKernelController::launchFuseKernel(neighKF, currKF, th,  bRight, h_bestDist, h_bestIdx, pCamera, Tcw, Ow);
+
+        for(size_t iMP=0; iMP<numPoints; iMP++) {
+
+            MapPoint* pMP = vpMapPoints[iMP];
+            int bestDist = h_bestDist[iMP];
+            int bestIdx = h_bestIdx[iMP];
+
+            if(!pMP)
+            {
+                count_notMP++;
+                continue;
+            }
+
+            if(pMP->isBad())
+            {
+                count_bad++;
+                continue;
+            }
+
+            else if(pMP->IsInKeyFrame(neighKF))
+            {
+                count_isinKF++;
+                continue;
+            }
+
+            Eigen::Vector3f p3Dw = pMP->GetWorldPos();
+            Eigen::Vector3f p3Dc = Tcw * p3Dw;
+
+            // Depth must be positive
+            if(p3Dc(2)<0.0f)
+            {
+                count_negdepth++;
+                continue;
+            }
+
+            const float invz = 1/p3Dc(2);
+
+            const Eigen::Vector2f uv = pCamera->project(p3Dc);
+
+            // Point must be inside the image
+            if(!neighKF->IsInImage(uv(0),uv(1)))
+            {
+                count_notinim++;
+                continue;
+            }
+
+            const float ur = uv(0)-bf*invz;
+
+            const float maxDistance = pMP->GetMaxDistanceInvariance();
+            const float minDistance = pMP->GetMinDistanceInvariance();
+            Eigen::Vector3f PO = p3Dw-Ow;
+            const float dist3D = PO.norm();
+
+            // Depth must be inside the scale pyramid of the image
+            if(dist3D<minDistance || dist3D>maxDistance) {
+                count_dist++;
+                continue;
+            }
+
+            // Viewing angle must be less than 60 deg
+            Eigen::Vector3f Pn = pMP->GetNormal();
+
+            if(PO.dot(Pn)<0.5*dist3D)
+            {
+                count_normal++;
+                continue;
+            }
+            int nPredictedLevel = pMP->PredictScale(dist3D,neighKF);
+
+            const float radius = th*neighKF->mvScaleFactors[nPredictedLevel];
+
+            const vector<size_t> vIndices = neighKF->GetFeaturesInArea(uv(0),uv(1),radius,bRight);
+
+            if(vIndices.empty())
+            {
+                count_notidx++;
+                continue;
+            }
+
+            if (bestDist<=TH_LOW)
+            {
+                MapPoint* pMPinKF = neighKF->GetMapPoint(bestIdx);
+                if(pMPinKF)
+                {
+                    if(!pMPinKF->isBad())
+                    {
+                        if(pMPinKF->Observations()>pMP->Observations()) {
+                            pMP->Replace(pMPinKF);
+                        }
+                        else {
+                            pMPinKF->Replace(pMP);
+                        }   
+                    }
+                }
+                else
+                {
+                    pMP->AddObservation(neighKF,bestIdx);
+                    neighKF->AddMapPoint(pMP,bestIdx);
+                }    
+                nFused++;
+            }
+            else {
+                count_thcheck++;
+            }   
         }
 
         return nFused;

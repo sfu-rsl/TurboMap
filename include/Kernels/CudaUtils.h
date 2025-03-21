@@ -53,6 +53,6 @@ __device__ void printKeyframeGPU(MAPPING_DATA_WRAPPER::CudaKeyFrame* KF);
 void printMPCPU(ORB_SLAM3::MapPoint* mp);
 __device__ void printMPGPU(MAPPING_DATA_WRAPPER::CudaMapPoint* mp);
 __global__ void printMPSingleGPU(MAPPING_DATA_WRAPPER::CudaMapPoint* mp);
-__global__ void printMPListGPU(MAPPING_DATA_WRAPPER::CudaMapPoint** d_mapPoints, int idx);
+__global__ void printMPListGPU(MAPPING_DATA_WRAPPER::CudaMapPoint* d_mapPoints, int idx);
 
 #endif // CUDA_UTILS_H

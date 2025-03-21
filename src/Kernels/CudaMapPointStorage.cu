@@ -53,13 +53,13 @@ MAPPING_DATA_WRAPPER::CudaMapPoint* CudaMapPointStorage::replaceCudaMapPoint(lon
     return ret;
 }
 
-void CudaMapPointStorage::setCudaMapPointObservations(long unsigned int mnId, int nObs, map<ORB_SLAM3::KeyFrame*, tuple<int,int>> observations) {
+void CudaMapPointStorage::updateCudaMapPointObservations(long unsigned int mnId, int nObs, map<ORB_SLAM3::KeyFrame*, tuple<int,int>> observations) {
     // mtx.lock();
     int idx;
     auto it = mnId_to_idx.find(mnId);
     if (it == mnId_to_idx.end()) {
         // mtx.unlock(); // TODO: avoid unlock + relock in addCudaMapPoint
-        cout << "[ERROR] CudaMapPointStorage::setCudaMapPointObservations: ] mp not in GPU storage!\n";
+        cout << "[ERROR] CudaMapPointStorage::updateCudaMapPointObservations: ] mp not in GPU storage!\n";
         return;    
     }
     idx = it->second;
@@ -67,7 +67,66 @@ void CudaMapPointStorage::setCudaMapPointObservations(long unsigned int mnId, in
     h_mappoints[idx].setObservations(nObs, observations);
     checkCudaError(cudaMemcpy(&d_mappoints[idx], &h_mappoints[idx], sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint), cudaMemcpyHostToDevice), "[CudaMapPointStorage:: Modify Map Point] Failed to modify mappoint");
 
-    DEBUG_PRINT("setCudaMapPointObservations: " << mnId << endl);
+    DEBUG_PRINT("updateCudaMapPointObservations: " << mnId << endl);
+    // mtx.unlock();
+    return;
+}
+
+void CudaMapPointStorage::updateCudaMapPointWorldPos(long unsigned int mnId, Eigen::Vector3f Pos) {
+    // mtx.lock();
+    int idx;
+    auto it = mnId_to_idx.find(mnId);
+    if (it == mnId_to_idx.end()) {
+        // mtx.unlock(); // TODO: avoid unlock + relock in addCudaMapPoint
+        cout << "[ERROR] CudaMapPointStorage::updateCudaMapPointWorldPos: ] mp not in GPU storage!\n";
+        return;    
+    }
+    idx = it->second;
+
+    h_mappoints[idx].setWorldPos(Pos);
+    checkCudaError(cudaMemcpy(&d_mappoints[idx], &h_mappoints[idx], sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint), cudaMemcpyHostToDevice), "[CudaMapPointStorage:: Modify Map Point] Failed to modify mappoint");
+
+    DEBUG_PRINT("updateCudaMapPointWorldPos: " << mnId << endl);
+    // mtx.unlock();
+    return;
+} 
+
+void CudaMapPointStorage::updateCudaMapNormalAndDepth(long unsigned int mnId, float mfMinDistance, float mfMaxDistance, Eigen::Vector3f mNormalVector) {
+    // mtx.lock();
+    int idx;
+    auto it = mnId_to_idx.find(mnId);
+    if (it == mnId_to_idx.end()) {
+        // mtx.unlock(); // TODO: avoid unlock + relock in addCudaMapPoint
+        cout << "[ERROR] CudaMapPointStorage::updateCudaMapNormalAndDepth: ] mp not in GPU storage!\n";
+        return;    
+    }
+    idx = it->second;
+
+    h_mappoints[idx].setMinDistance(mfMinDistance);
+    h_mappoints[idx].setMaxDistance(mfMaxDistance);
+    h_mappoints[idx].setNormalVector(mNormalVector);
+    checkCudaError(cudaMemcpy(&d_mappoints[idx], &h_mappoints[idx], sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint), cudaMemcpyHostToDevice), "[CudaMapPointStorage:: Modify Map Point] Failed to modify mappoint");
+
+    DEBUG_PRINT("updateCudaMapNormalAndDepth: " << mnId << endl);
+    // mtx.unlock();
+    return;
+}
+
+void CudaMapPointStorage::updateCudaMapPointDescriptor(long unsigned int mnId, cv::Mat mDescriptor) {
+    // mtx.lock();
+    int idx;
+    auto it = mnId_to_idx.find(mnId);
+    if (it == mnId_to_idx.end()) {
+        // mtx.unlock(); // TODO: avoid unlock + relock in addCudaMapPoint
+        cout << "[ERROR] CudaMapPointStorage::updateCudaMapPointDescriptor: ] mp not in GPU storage!\n";
+        return;    
+    }
+    idx = it->second;
+
+    h_mappoints[idx].setDescriptor(mDescriptor);
+    checkCudaError(cudaMemcpy(&d_mappoints[idx], &h_mappoints[idx], sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint), cudaMemcpyHostToDevice), "[CudaMapPointStorage:: Modify Map Point] Failed to modify mappoint");
+
+    DEBUG_PRINT("updateCudaMapPointDescriptor: " << mnId << endl);
     // mtx.unlock();
     return;
 }

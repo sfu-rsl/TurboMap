@@ -8,7 +8,7 @@
 #include <queue>
 #include <mutex>
 
-#define CUDA_MAP_POINT_STORAGE_SIZE 500000
+#define CUDA_MAP_POINT_STORAGE_SIZE 50000
 
 using cmp_buffer_index_t = int;
 
@@ -21,7 +21,10 @@ class CudaMapPointStorage {
         static void initializeMemory();
         static MAPPING_DATA_WRAPPER::CudaMapPoint* getCudaMapPoint(long unsigned int mnId);
         static MAPPING_DATA_WRAPPER::CudaMapPoint* replaceCudaMapPoint(long unsigned int mnId, ORB_SLAM3::MapPoint* new_MP); 
-        static void setCudaMapPointObservations(long unsigned int mnId, int nObs, map<ORB_SLAM3::KeyFrame*, tuple<int,int>> observations);
+        static void updateCudaMapPointObservations(long unsigned int mnId, int nObs, map<ORB_SLAM3::KeyFrame*, tuple<int,int>> observations);
+        static void updateCudaMapNormalAndDepth(long unsigned int mnId, float mfMinDistance, float mfMaxDistance, Eigen::Vector3f mNormalVector);
+        static void updateCudaMapPointWorldPos(long unsigned int mnId, Eigen::Vector3f Pos);
+        static void updateCudaMapPointDescriptor(long unsigned int mnId, cv::Mat mDescriptor);
         static MAPPING_DATA_WRAPPER::CudaMapPoint* addCudaMapPoint(ORB_SLAM3::MapPoint* MP);
         static void eraseCudaMapPoint(ORB_SLAM3::MapPoint* MP);
         static void printStorageMapPoints();

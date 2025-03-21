@@ -21,7 +21,7 @@ public:
     static void activate();
 
     static bool keyframeCullingOnGPU;
-    static bool fuseKernelRunStatus;
+    static bool fuseOnGPU;
     static bool searchForTriangulationOnGPU;
 
     static void setGPURunMode(bool keyframeCulling, bool FuseStatus, bool searchForTriangulation);
@@ -34,7 +34,7 @@ public:
     
     static void launchKeyframeCullingKernel(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int* h_nMPs, int* h_nRedundantObservations);
     
-    static void launchFuseKernel(ORB_SLAM3::KeyFrame &KF, const vector<ORB_SLAM3::MapPoint*> &vpMapPoints,
+    static void launchFuseKernel(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currKF,
                                  const float th, const bool bRight, int* h_bestDist, int* h_bestIdx,
                                  ORB_SLAM3::GeometricCamera* pCamera, Sophus::SE3f Tcw, Eigen::Vector3f Ow);
 

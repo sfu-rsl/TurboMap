@@ -548,10 +548,10 @@ void System::Shutdown()
     if (TrackingKernelController::is_active) {
         TrackingKernelController::shutdownKernels();
     }
-    if (MappingKernelController::is_active) {
-        MappingKernelController::shutdownKernels();
-    }
-    CudaUtils::shutdown();
+    // if (MappingKernelController::is_active) {
+    //     MappingKernelController::shutdownKernels();
+    // }
+    // CudaUtils::shutdown();
 
     /*if(mpViewer)
     {
