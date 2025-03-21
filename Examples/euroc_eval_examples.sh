@@ -44,8 +44,8 @@ echo "Launching $dataset_name with Stereo-Inertial sensor"
 #with gdb
 # file_name="dataset-${dataset_name}_stereoi"
 # EXECUTABLE=./Stereo-Inertial/stereo_inertial_euroc
-# ARGS="../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${mode}"
-# gdb -ex "set args $ARGS" -ex "run" $EXECUTABLE
+# ARGS="../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${mode} ${fastmap_mode}"
+# gdb -ex "set print thread-events off" -ex "set args $ARGS" -ex "run" $EXECUTABLE
 
 #without gdb
 ./Stereo-Inertial/stereo_inertial_euroc ../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${mode} ${fastmap_mode}
