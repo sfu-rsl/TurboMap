@@ -20,7 +20,7 @@ std::queue<cmp_buffer_index_t> CudaMapPointStorage::free_idx;
 
 
 void CudaMapPointStorage::initializeMemory(){   
-    std::unique_lock<std::mutex> lock(mtx);
+    // std::unique_lock<std::mutex> lock(mtx);
     if (memory_is_initialized) return;
     checkCudaError(cudaMallocHost((void**)&h_mappoints, CUDA_MAP_POINT_STORAGE_SIZE * sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint)), "[CudaMapPointStorage::] Failed to allocate memory for h_mappoints");  
     for (int i = 0; i < CUDA_MAP_POINT_STORAGE_SIZE; ++i) {
@@ -31,7 +31,7 @@ void CudaMapPointStorage::initializeMemory(){
 }
 
 MAPPING_DATA_WRAPPER::CudaMapPoint* CudaMapPointStorage::replaceCudaMapPoint(long unsigned int mnId, ORB_SLAM3::MapPoint* new_MP) {
-    mtx.lock();
+    // mtx.lock();
     int idx;
     auto it = mnId_to_idx.find(mnId);
     if (it == mnId_to_idx.end()) {
@@ -49,7 +49,7 @@ MAPPING_DATA_WRAPPER::CudaMapPoint* CudaMapPointStorage::replaceCudaMapPoint(lon
     DEBUG_PRINT("replaceCudaMapPoint: " << mnId << " (mappoints on gpu: " << num_mappoints << ")" << endl);
     
     auto ret = &d_mappoints[idx];
-    mtx.unlock();
+    // mtx.unlock();
     // return &d_mappoints[idx];
     return ret;
 }
@@ -133,7 +133,7 @@ void CudaMapPointStorage::updateCudaMapPointDescriptor(long unsigned int mnId, c
 }
 
 MAPPING_DATA_WRAPPER::CudaMapPoint* CudaMapPointStorage::addCudaMapPoint(ORB_SLAM3::MapPoint* MP){
-    std::unique_lock<std::mutex> lock(mtx);
+    // std::unique_lock<std::mutex> lock(mtx);
     if (!memory_is_initialized) {
         cout << "[ERROR] CudaMapPointStorage::addCudaMapPoint: ] memory not initialized!\n";
         MappingKernelController::shutdownKernels(true, true);
@@ -174,7 +174,7 @@ MAPPING_DATA_WRAPPER::CudaMapPoint* CudaMapPointStorage::addCudaMapPoint(ORB_SLA
 }
 
 void CudaMapPointStorage::eraseCudaMapPoint(ORB_SLAM3::MapPoint* MP){
-    std::unique_lock<std::mutex> lock(mtx);
+    // std::unique_lock<std::mutex> lock(mtx);
     auto it = mnId_to_idx.find(MP->mnId);
     if (it == mnId_to_idx.end()) {
         cout << "[ERROR] CudaMapPointStorage::eraseCudaMapPoint: ] mp not in GPU storage!\n";
@@ -192,7 +192,7 @@ void CudaMapPointStorage::eraseCudaMapPoint(ORB_SLAM3::MapPoint* MP){
 }
 
 MAPPING_DATA_WRAPPER::CudaMapPoint* CudaMapPointStorage::getCudaMapPoint(long unsigned int mnId){
-    std::unique_lock<std::mutex> lock(mtx);
+    // std::unique_lock<std::mutex> lock(mtx);
     auto it = mnId_to_idx.find(mnId);
     if (it != mnId_to_idx.end()) {
         return &d_mappoints[it->second];
@@ -209,7 +209,7 @@ void CudaMapPointStorage::printStorageMapPoints() {
 }
 
 void CudaMapPointStorage::shutdown() {
-    std::unique_lock<std::mutex> lock(mtx);
+    // std::unique_lock<std::mutex> lock(mtx);
     if (!memory_is_initialized) 
         return;
     cout << "CudaMapPointStorage::shutdown() start" << endl;

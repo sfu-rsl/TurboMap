@@ -20,7 +20,7 @@ std::queue<ckd_buffer_index_t> CudaKeyFrameStorage::free_idx;
 
 
 void CudaKeyFrameStorage::initializeMemory(){   
-    std::unique_lock<std::mutex> lock(mtx);
+    // std::unique_lock<std::mutex> lock(mtx);
     if (memory_is_initialized) return;
     checkCudaError(cudaMallocHost((void**)&h_keyframes, CUDA_KEYFRAME_STORAGE_SIZE * sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame)), "[CudaKeyFrameStorage::] Failed to allocate memory for h_keyframes");  
     for (int i = 0; i < CUDA_KEYFRAME_STORAGE_SIZE; ++i) {
@@ -32,7 +32,7 @@ void CudaKeyFrameStorage::initializeMemory(){
 }
 
 void CudaKeyFrameStorage::eraseCudaKeyFrameMapPoint(long unsigned int KF_mnId, int idx) {
-    std::unique_lock<std::mutex> lock(mtx);
+    // std::unique_lock<std::mutex> lock(mtx);
     auto it = mnId_to_idx.find(KF_mnId);
     if (it == mnId_to_idx.end()) {
         cout << "[ERROR] CudaKeyFrameStorage::eraseCudaKeyFrameMapPoint: ] KF " << KF_mnId << " not found!\n";
@@ -49,7 +49,7 @@ void CudaKeyFrameStorage::eraseCudaKeyFrameMapPoint(long unsigned int KF_mnId, i
 }
 
 void CudaKeyFrameStorage::updateCudaKeyFrameMapPoint(long unsigned int KF_mnId, ORB_SLAM3::MapPoint* mp, int idx) {
-    std::unique_lock<std::mutex> lock(mtx);
+    // std::unique_lock<std::mutex> lock(mtx);
     auto it = mnId_to_idx.find(KF_mnId);
     if (it == mnId_to_idx.end()) {
         cout << "[ERROR] CudaKeyFrameStorage::updateCudaKeyFrameMapPoint: ] KF " << KF_mnId << " not found!\n";
@@ -66,7 +66,7 @@ void CudaKeyFrameStorage::updateCudaKeyFrameMapPoint(long unsigned int KF_mnId, 
 }
 
 MAPPING_DATA_WRAPPER::CudaKeyFrame* CudaKeyFrameStorage::addCudaKeyFrame(ORB_SLAM3::KeyFrame* KF){
-    std::unique_lock<std::mutex> lock(mtx);
+    // std::unique_lock<std::mutex> lock(mtx);
     if (!memory_is_initialized) {
         cout << "[ERROR] CudaKeyFrameStorage::addCudaKeyFrame: ] memory not initialized!\n";
         MappingKernelController::shutdownKernels(true, true);
@@ -107,7 +107,7 @@ MAPPING_DATA_WRAPPER::CudaKeyFrame* CudaKeyFrameStorage::addCudaKeyFrame(ORB_SLA
 }
 
 void CudaKeyFrameStorage::eraseCudaKeyFrame(ORB_SLAM3::KeyFrame* KF){
-    std::unique_lock<std::mutex> lock(mtx);
+    // std::unique_lock<std::mutex> lock(mtx);
     auto it = mnId_to_idx.find(KF->mnId);
     if (it == mnId_to_idx.end()) {
         cout << "CudaKeyFrameStorage::eraseCudaKeyFrame: ] KF " << KF->mnId << " not in GPU storage!\n";
@@ -124,7 +124,7 @@ void CudaKeyFrameStorage::eraseCudaKeyFrame(ORB_SLAM3::KeyFrame* KF){
 }
 
 MAPPING_DATA_WRAPPER::CudaKeyFrame* CudaKeyFrameStorage::getCudaKeyFrame(long unsigned int mnId){
-    std::unique_lock<std::mutex> lock(mtx);
+    // std::unique_lock<std::mutex> lock(mtx);
     auto it = mnId_to_idx.find(mnId);
     if (it != mnId_to_idx.end()) {
         return &d_keyframes[it->second];
@@ -141,7 +141,7 @@ void CudaKeyFrameStorage::printStorageKeyframes() {
 }
 
 void CudaKeyFrameStorage::addFeatureVector(long unsigned int KF_mnId, DBoW2::FeatureVector featVec) {
-    std::unique_lock<std::mutex> lock(mtx);
+    // std::unique_lock<std::mutex> lock(mtx);
     auto it = mnId_to_idx.find(KF_mnId);
     if (it == mnId_to_idx.end()) {
         cout << "[ERROR] CudaKeyFrameStorage::addFeatureVector: ] KF not found!\n";
@@ -157,7 +157,7 @@ void CudaKeyFrameStorage::addFeatureVector(long unsigned int KF_mnId, DBoW2::Fea
 }
 
 void CudaKeyFrameStorage::shutdown() {
-    std::unique_lock<std::mutex> lock(mtx);
+    // std::unique_lock<std::mutex> lock(mtx);
     if (!memory_is_initialized) 
     return;
 
