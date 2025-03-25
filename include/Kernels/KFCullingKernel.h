@@ -24,6 +24,7 @@ class KFCullingKernel: public KernelInterface {
         void saveStats(const std::string &file_path) override {};
         void launch() override { std::cout << "[KFCullingKernel:] provide input for kernel launch.\n"; };
         void launch(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int* h_nMPs, int* h_nRedundantObservations);
+        void KFCullingOrig(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int thObs, bool mbMonocular);
     
     private:
         bool memory_is_initialized;

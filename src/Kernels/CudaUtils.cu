@@ -34,18 +34,18 @@ void printKeyframeCPU(ORB_SLAM3::KeyFrame* KF) {
 }
 
 __device__ void printKeyframeGPU(MAPPING_DATA_WRAPPER::CudaKeyFrame* KF) {
-    printf("[=GPU=] KF mnId: %lu\n", KF->mnId);
-    for (int i = 0; i < KF->mvpMapPoints_size; ++i) {
-        MAPPING_DATA_WRAPPER::CudaMapPoint* mp = KF->mvpMapPoints[i];
-        if (mp == nullptr) continue;
-        printf("    i:%d, mp mnId: %lu\n", i, mp->mnId);
-        MAPPING_DATA_WRAPPER::CudaKeyFrame** mObservations_dkf = mp->mObservations_dkf;
-        for (int j = 0; j < mp->mObservations_size; ++j) {
-            MAPPING_DATA_WRAPPER::CudaKeyFrame* pKFi = mp->mObservations_dkf[j];
-            // printf("        j:%d, pKFi mnId: %lu\n", j, pKFi->mnId);
-            printf("     j:%d, pKFi ptr: %p\n", j, (void*)pKFi);
-        }
-    }
+    printf("KF mnId: %lu\n", KF->mnId);
+    // for (int i = 0; i < KF->mvpMapPoints_size; ++i) {
+    //     MAPPING_DATA_WRAPPER::CudaMapPoint* mp = KF->mvpMapPoints[i];
+    //     if (mp == nullptr) continue;
+    //     printf("    i:%d, mp mnId: %lu\n", i, mp->mnId);
+    //     MAPPING_DATA_WRAPPER::CudaKeyFrame** mObservations_dkf = mp->mObservations_dkf;
+    //     for (int j = 0; j < mp->mObservations_size; ++j) {
+    //         MAPPING_DATA_WRAPPER::CudaKeyFrame* pKFi = mp->mObservations_dkf[j];
+    //         // printf("        j:%d, pKFi mnId: %lu\n", j, pKFi->mnId);
+    //         printf("     j:%d, pKFi ptr: %p\n", j, (void*)pKFi);
+    //     }
+    // }
 }
 
 
@@ -53,9 +53,21 @@ __global__ void printKFSingleGPU(MAPPING_DATA_WRAPPER::CudaKeyFrame* KF) {
     printKeyframeGPU(KF);
 }
 
-__global__ void printKFListGPU(MAPPING_DATA_WRAPPER::CudaKeyFrame** d_keyframes, int idx) {
+__global__ void printKFSingleGPU(MAPPING_DATA_WRAPPER::CudaKeyFrame** d_keyframes, int idx) {
     MAPPING_DATA_WRAPPER::CudaKeyFrame* KF = d_keyframes[idx];
     printKeyframeGPU(KF);
+}
+
+__global__ void printKFListGPU(MAPPING_DATA_WRAPPER::CudaKeyFrame** d_keyframes, int size) {
+    for (int i = 0; i < size; i++) {
+        MAPPING_DATA_WRAPPER::CudaKeyFrame* KF = d_keyframes[i];
+        if (KF == nullptr) {
+            printf("d_keyframes[%d]: \nnullptr\n", i);
+            continue;
+        }
+        printf("d_keyframes[%d]: \n", i);
+        printKeyframeGPU(KF);
+    }
 }
 
 void printMPCPU(ORB_SLAM3::MapPoint* mp) {
