@@ -548,6 +548,15 @@ void System::Shutdown()
     if (TrackingKernelController::is_active) {
         TrackingKernelController::shutdownKernels();
     }
+
+    while(!mpLocalMapper->isFinished() || !mpLoopCloser->isFinished())
+    {
+        if(!mpLocalMapper->isFinished())
+            cout << "mpLocalMapper is not finished" << endl;
+        if(!mpLoopCloser->isFinished())
+            cout << "mpLoopCloser is not finished" << endl;
+        usleep(100000);
+    }
     // if (MappingKernelController::is_active) {
     //     MappingKernelController::shutdownKernels();
     // }

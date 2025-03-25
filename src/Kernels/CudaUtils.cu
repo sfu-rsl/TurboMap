@@ -101,13 +101,14 @@ __global__ void printMPListGPU(MAPPING_DATA_WRAPPER::CudaMapPoint* d_mapPoints, 
 
 void checkCudaError(cudaError_t err, const char* msg) {
     if (err != cudaSuccess) {
+        std::cerr << msg << ": " << cudaGetErrorString(err) << ", status code: " << err << std::endl;
+        
         if (TrackingKernelController::is_active)
             TrackingKernelController::shutdownKernels();
         if (MappingKernelController::is_active)
-            MappingKernelController::shutdownKernels();
+            MappingKernelController::shutdownKernels(true, true);
         CudaUtils::shutdown();
 
-        std::cerr << msg << ": " << cudaGetErrorString(err) << ", status code: " << err << std::endl;
         exit(EXIT_FAILURE);
     }
 }

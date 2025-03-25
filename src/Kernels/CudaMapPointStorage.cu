@@ -41,7 +41,7 @@ MAPPING_DATA_WRAPPER::CudaMapPoint* CudaMapPointStorage::replaceCudaMapPoint(lon
     idx = it->second;
 
     h_mappoints[idx].setMemory(new_MP);
-    checkCudaError(cudaMemcpy(&d_mappoints[idx], &h_mappoints[idx], sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint), cudaMemcpyHostToDevice), "[CudaMapPointStorage:: Modify Map Point] Failed to modify mappoint");
+    checkCudaError(cudaMemcpy(&d_mappoints[idx], &h_mappoints[idx], sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint), cudaMemcpyHostToDevice), "[CudaMapPointStorage:: Modify Map Point] Failed to replace mappoint");
     mnId_to_idx.erase(mnId);
     mnId_to_idx.emplace(new_MP->mnId, idx);
 
@@ -65,7 +65,7 @@ void CudaMapPointStorage::updateCudaMapPointObservations(long unsigned int mnId,
     idx = it->second;
 
     h_mappoints[idx].setObservations(nObs, observations);
-    checkCudaError(cudaMemcpy(&d_mappoints[idx], &h_mappoints[idx], sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint), cudaMemcpyHostToDevice), "[CudaMapPointStorage:: Modify Map Point] Failed to modify mappoint");
+    checkCudaError(cudaMemcpy(&d_mappoints[idx], &h_mappoints[idx], sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint), cudaMemcpyHostToDevice), "[CudaMapPointStorage:: Modify Map Point] Failed to update mappoint");
 
     DEBUG_PRINT("updateCudaMapPointObservations: " << mnId << endl);
     // mtx.unlock();
@@ -84,7 +84,7 @@ void CudaMapPointStorage::updateCudaMapPointWorldPos(long unsigned int mnId, Eig
     idx = it->second;
 
     h_mappoints[idx].setWorldPos(Pos);
-    checkCudaError(cudaMemcpy(&d_mappoints[idx], &h_mappoints[idx], sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint), cudaMemcpyHostToDevice), "[CudaMapPointStorage:: Modify Map Point] Failed to modify mappoint");
+    checkCudaError(cudaMemcpy(&d_mappoints[idx], &h_mappoints[idx], sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint), cudaMemcpyHostToDevice), "[CudaMapPointStorage:: Modify Map Point] Failed to update mappoint world pos");
 
     DEBUG_PRINT("updateCudaMapPointWorldPos: " << mnId << endl);
     // mtx.unlock();
@@ -105,7 +105,7 @@ void CudaMapPointStorage::updateCudaMapNormalAndDepth(long unsigned int mnId, fl
     h_mappoints[idx].setMinDistance(mfMinDistance);
     h_mappoints[idx].setMaxDistance(mfMaxDistance);
     h_mappoints[idx].setNormalVector(mNormalVector);
-    checkCudaError(cudaMemcpy(&d_mappoints[idx], &h_mappoints[idx], sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint), cudaMemcpyHostToDevice), "[CudaMapPointStorage:: Modify Map Point] Failed to modify mappoint");
+    checkCudaError(cudaMemcpy(&d_mappoints[idx], &h_mappoints[idx], sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint), cudaMemcpyHostToDevice), "[CudaMapPointStorage:: Modify Map Point] Failed to update mappoint normal and depth");
 
     DEBUG_PRINT("updateCudaMapNormalAndDepth: " << mnId << endl);
     // mtx.unlock();

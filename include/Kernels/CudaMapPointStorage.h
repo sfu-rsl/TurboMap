@@ -8,7 +8,7 @@
 #include <queue>
 #include <mutex>
 
-#define CUDA_MAP_POINT_STORAGE_SIZE 50000
+#define CUDA_MAP_POINT_STORAGE_SIZE 100000
 
 using cmp_buffer_index_t = int;
 

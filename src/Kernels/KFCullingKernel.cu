@@ -113,6 +113,10 @@ void KFCullingKernel::launch(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int*
 
     int KF_count = 0;
     int vpLocalKeyFrames_size = vpLocalKeyFrames.size();
+
+    if (vpLocalKeyFrames_size == 0)
+        return;
+
     for(int i=0; i < vpLocalKeyFrames_size; i++) {
 
         ORB_SLAM3::KeyFrame* pKF = vpLocalKeyFrames[i];
@@ -129,7 +133,6 @@ void KFCullingKernel::launch(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int*
         // cout << endl;
 
         MAPPING_DATA_WRAPPER::CudaKeyFrame* d_kf = CudaKeyFrameDrawer::getCudaKeyFrame(pKF->mnId);
-        cudaDeviceSynchronize();
         if (d_kf == nullptr) {
             cout << "[ERROR] KFCullingKernel::launch: ] CudaKeyFrameDrawer doesn't have the keyframe: " << pKF->mnId << "\n";
             raise(SIGSEGV);
@@ -155,7 +158,8 @@ void KFCullingKernel::launch(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int*
     int blockSize = 128;
     int numBlocks = (KF_count + blockSize - 1) / blockSize;
     keyframeCullingKernel<<<numBlocks, blockSize>>>(d_keyframes, vpLocalKeyFrames_size, thObs, CudaUtils::isMonocular, d_nMPs, d_nRedundantObservations);
-    checkCudaError(cudaDeviceSynchronize(), "[KFCullingKernel:] Kernel launch failed");  
+    checkCudaError(cudaGetLastError(), "[KFCullingKernel:] Failed to launch kernel");
+    checkCudaError(cudaDeviceSynchronize(), "[KFCullingKernel:] cudaDeviceSynchronize after kernel launch failed");  
 
     checkCudaError(cudaMemcpy(h_nMPs, d_nMPs, vpLocalKeyFrames_size * sizeof(int), cudaMemcpyDeviceToHost), "[KFCullingKernel::] Failed to copy d_nMPs to h_nMPs");
     checkCudaError(cudaMemcpy(h_nRedundantObservations, d_nRedundantObservations, vpLocalKeyFrames_size * sizeof(int), cudaMemcpyDeviceToHost), "[KFCullingKernel::] Failed to copy d_nRedundantObservations to h_nRedundantObservations");

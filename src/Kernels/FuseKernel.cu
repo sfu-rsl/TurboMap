@@ -244,7 +244,9 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currK
     int blockSize = 256;
     int numBlocks = (numPoints + blockSize -1) / blockSize;
     fuseKernel<<<numBlocks, blockSize>>>(d_neighKF, d_currKF, numPoints, CudaUtils::cameraIsFisheye, Ow, Tcw, th, bRight, d_bestDist, d_bestIdx);
-    checkCudaError(cudaDeviceSynchronize(), "[fuseKernel:] Kernel launch failed");  
+
+    checkCudaError(cudaGetLastError(), "[fuseKernel:] Failed to launch kernel");
+    checkCudaError(cudaDeviceSynchronize(), "[fuseKernel:] cudaDeviceSynchronize failed after kernel launch");  
     
     checkCudaError(cudaMemcpy(h_bestDist, d_bestDist, numPoints * sizeof(int), cudaMemcpyDeviceToHost), "Failed to copy d_bestDist back to host");
     checkCudaError(cudaMemcpy(h_bestIdx, d_bestIdx, numPoints * sizeof(int), cudaMemcpyDeviceToHost), "Failed to copy d_bestIdx back to host");

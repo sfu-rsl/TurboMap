@@ -45,7 +45,7 @@ echo "Launching $dataset_name with Stereo-Inertial sensor"
 # file_name="dataset-${dataset_name}_stereoi"
 # EXECUTABLE=./Stereo-Inertial/stereo_inertial_euroc
 # ARGS="../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${mode} ${fastmap_mode}"
-# gdb -ex "set print thread-events off" -ex "set args $ARGS" -ex "run" $EXECUTABLE
+# gdb -ex "set print thread-events off" -ex "set args $ARGS" -ex "directory /home/parsa/Applications/FastMap/src" -ex "break /home/parsa/Applications/FastMap/src/Kernels/CudaUtils.cu:103" -ex "run" $EXECUTABLE
 
 #without gdb
 ./Stereo-Inertial/stereo_inertial_euroc ../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${mode} ${fastmap_mode}
@@ -60,7 +60,7 @@ echo "------------------------------------"
 echo "Evaluation of ${dataset_name} trajectory with Stereo-Inertial sensor"
 python3 -W ignore ../evaluation/evaluate3.py ${pathDatasetEuroc}/${dataset_name}/mav0/state_groundtruth_estimate0/data.csv f_${file_name}.txt --plot ${dataset_name}_stereoi.pdf --verbose
 # echo "Plotting data"
-python3 ../plot.py "${statsDir}"
+# python3 ../plot.py "${statsDir}"
 
 files=("f_dataset-${dataset_name}_stereoi.csv"
 "f_dataset-${dataset_name}_stereoi.txt"

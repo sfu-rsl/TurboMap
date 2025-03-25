@@ -38,8 +38,7 @@ void LocalMapping::signalHandler(int signum) {
     std::cout << "[LocalMapping::] Interrupt signal (" << signum << ") received.\n";
 
     // Release resources here
-    MappingKernelController::shutdownKernels();
-    CudaUtils::shutdown();
+    MappingKernelController::shutdownKernels(true, true);
     // Exit the program
     std::exit(signum);
 }
@@ -348,10 +347,8 @@ void LocalMapping::Run()
                 usleep(3000);
             }
             if(CheckFinish()) {
-                if (MappingKernelController::is_active) {
-                    MappingKernelController::shutdownKernels();
-                }
-                CudaUtils::shutdown();
+                if (MappingKernelController::is_active)
+                    MappingKernelController::shutdownKernels(true, false);
                 break;
             }
         }
@@ -362,10 +359,8 @@ void LocalMapping::Run()
         SetAcceptKeyFrames(true);
 
         if(CheckFinish()) {
-            if (MappingKernelController::is_active) {
-                MappingKernelController::shutdownKernels();
-            }
-            CudaUtils::shutdown();
+            if (MappingKernelController::is_active)
+                MappingKernelController::shutdownKernels(true, false);
             break;
         }
 

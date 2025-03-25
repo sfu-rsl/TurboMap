@@ -28,7 +28,7 @@ public:
 
     static void initializeKernels();
     
-    static void shutdownKernels();
+    static void shutdownKernels(bool _localMappingFinished, bool _loopClosingFinished);
     
     static void saveKernelsStats(const std::string &file_path);
     
@@ -45,11 +45,12 @@ public:
     );
 
 private:
-    static bool memory_is_initialized;
+    static bool memory_is_initialized, memory_is_freed, localMappingFinished, loopClosingFinished;
     static MAPPING_DATA_WRAPPER::CudaKeyFrame *cudaKeyFramePtr;
     static std::unique_ptr<KFCullingKernel> mpKFCullingKernel;
     static std::unique_ptr<FuseKernel> mpFuseKernel;
     static std::unique_ptr<SearchForTriangulationKernel> mpSearchForTriangulationKernel;
+    static std::mutex shutDownMutex;
 };
 
 #endif

@@ -303,6 +303,8 @@ void LoopClosing::Run()
         ResetIfRequested();
 
         if(CheckFinish()){
+            if (MappingKernelController::is_active)
+                MappingKernelController::shutdownKernels(false, true);
             break;
         }
 

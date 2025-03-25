@@ -13,11 +13,14 @@ bool MappingKernelController::keyframeCullingOnGPU;
 bool MappingKernelController::fuseOnGPU;
 bool MappingKernelController::searchForTriangulationOnGPU;
 bool MappingKernelController::memory_is_initialized = false;
+bool MappingKernelController::memory_is_freed = false;
+bool MappingKernelController::localMappingFinished = false;
+bool MappingKernelController::loopClosingFinished = false;
 std::unique_ptr<KFCullingKernel> MappingKernelController::mpKFCullingKernel = std::make_unique<KFCullingKernel>();
 std::unique_ptr<FuseKernel> MappingKernelController::mpFuseKernel = std::make_unique<FuseKernel>();
 std::unique_ptr<SearchForTriangulationKernel> MappingKernelController::mpSearchForTriangulationKernel = std::make_unique<SearchForTriangulationKernel>();
 MAPPING_DATA_WRAPPER::CudaKeyFrame* MappingKernelController::cudaKeyFramePtr;
-
+std::mutex MappingKernelController::shutDownMutex;
 
 void MappingKernelController::setCUDADevice(int deviceID) {
     cudaSetDevice(deviceID);
@@ -60,9 +63,17 @@ void MappingKernelController::initializeKernels(){
     memory_is_initialized = true;
 }
 
-void MappingKernelController::shutdownKernels(){
+void MappingKernelController::shutdownKernels(bool _localMappingFinished, bool _loopClosingFinished) {
 
-    DEBUG_PRINT("Shutting Kernels Down");
+    unique_lock<mutex> lock(shutDownMutex);
+
+    localMappingFinished = _localMappingFinished ? true : localMappingFinished;
+    loopClosingFinished = _localMappingFinished ? true : loopClosingFinished;
+    
+    if (!localMappingFinished || !loopClosingFinished || memory_is_freed)
+        return;
+
+    cout << "Shutting kernels down...\n";
 
     if (memory_is_initialized) {
         CudaKeyFrameDrawer::shutdown();
@@ -76,6 +87,10 @@ void MappingKernelController::shutdownKernels(){
         if (searchForTriangulationOnGPU == 1)
             mpSearchForTriangulationKernel->shutdown();
     }
+
+    CudaUtils::shutdown();
+    cudaDeviceSynchronize();
+    memory_is_freed = true;
 }
 
 void MappingKernelController::saveKernelsStats(const std::string &file_path){
