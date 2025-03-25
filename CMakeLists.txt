@@ -104,7 +104,7 @@ src/Kernels/SearchForTriangulationKernel.cu
 src/Kernels/TrackingKernelController.cu
 src/Kernels/MappingKernelController.cu
 src/Kernels/KFCullingKernel.cu
-src/Kernels/CudaKeyFrameDrawer.cu
+src/Kernels/CudaKeyFrameStorage.cu
 src/Kernels/CudaMapPointStorage.cu
 src/Kernels/FuseKernel.cu
 include/System.h
@@ -160,7 +160,7 @@ include/Kernels/FuseKernel.h
 include/Kernels/TrackingKernelController.h
 include/Kernels/MappingKernelController.h
 include/Kernels/KFCullingKernel.h
-include/Kernels/CudaKeyFrameDrawer.h
+include/Kernels/CudaKeyFrameStorage.h
 include/Kernels/CudaMapPointStorage.h
 )
 

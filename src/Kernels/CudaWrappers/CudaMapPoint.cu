@@ -1,5 +1,5 @@
 #include "Kernels/CudaWrappers/CudaMapPoint.h"
-#include "Kernels/CudaKeyFrameDrawer.h"
+#include "Kernels/CudaKeyFrameStorage.h"
 #include <iostream>
 #include <map>
 #include <tuple>
@@ -83,7 +83,7 @@ namespace MAPPING_DATA_WRAPPER
             mObservations_leftIdx[itr] = std::get<0>(value);
             mObservations_rightIdx[itr] = std::get<1>(value);
 
-            CudaKeyFrame* d_kf = CudaKeyFrameDrawer::getCudaKeyFrame(key->mnId);
+            CudaKeyFrame* d_kf = CudaKeyFrameStorage::getCudaKeyFrame(key->mnId);
             if (d_kf != nullptr) {
                 checkCudaError(cudaMemcpy(&mObservations_dkf[itr], &d_kf, sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame*), cudaMemcpyHostToDevice), "[CudaMapPoint::setObservations: ] Failed to add d_kf");
             } 

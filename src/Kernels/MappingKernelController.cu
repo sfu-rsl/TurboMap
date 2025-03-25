@@ -44,7 +44,7 @@ void MappingKernelController::initializeKernels(){
 
     DEBUG_PRINT("Initializing Kernels");
     
-    CudaKeyFrameDrawer::initializeMemory();
+    CudaKeyFrameStorage::initializeMemory();
 
     CudaMapPointStorage::initializeMemory();
 
@@ -77,7 +77,7 @@ void MappingKernelController::shutdownKernels(bool _localMappingFinished, bool _
     cout << "Shutting kernels down...\n";
 
     if (memory_is_initialized) {
-        CudaKeyFrameDrawer::shutdown();
+        CudaKeyFrameStorage::shutdown();
         CudaMapPointStorage::shutdown();
         cudaKeyFramePtr->freeMemory();
         delete cudaKeyFramePtr;

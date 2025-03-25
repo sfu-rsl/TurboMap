@@ -19,7 +19,7 @@
 #include "KeyFrame.h"
 #include "Converter.h"
 #include "ImuTypes.h"
-#include "Kernels/CudaKeyFrameDrawer.h"
+#include "Kernels/CudaKeyFrameStorage.h"
 #include "Kernels/CudaMapPointStorage.h"
 #include "Kernels/MappingKernelController.h"
 #include<mutex>
@@ -98,7 +98,7 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
     mnOriginMapId = pMap->GetId();
 
     if (MappingKernelController::is_active) {
-        CudaKeyFrameDrawer::addCudaKeyFrame(this);
+        CudaKeyFrameStorage::addCudaKeyFrame(this);
     }
 }
 
@@ -306,9 +306,9 @@ void KeyFrame::AddMapPoint(MapPoint *pMP, const size_t &idx)
     unique_lock<mutex> lock(mMutexFeatures);
     mvpMapPoints[idx]=pMP;
     if (MappingKernelController::is_active) {
-        MAPPING_DATA_WRAPPER::CudaKeyFrame* d_kf = CudaKeyFrameDrawer::getCudaKeyFrame(mnId);
+        MAPPING_DATA_WRAPPER::CudaKeyFrame* d_kf = CudaKeyFrameStorage::getCudaKeyFrame(mnId);
         if (d_kf) {
-            CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(mnId, pMP, idx);
+            CudaKeyFrameStorage::updateCudaKeyFrameMapPoint(mnId, pMP, idx);
         }
     }
 
@@ -321,9 +321,9 @@ void KeyFrame::EraseMapPointMatch(const int &idx)
     unique_lock<mutex> lock(mMutexFeatures);
     mvpMapPoints[idx]=static_cast<MapPoint*>(NULL);
     if(MappingKernelController::is_active) {
-        MAPPING_DATA_WRAPPER::CudaKeyFrame* d_kf = CudaKeyFrameDrawer::getCudaKeyFrame(mnId);
+        MAPPING_DATA_WRAPPER::CudaKeyFrame* d_kf = CudaKeyFrameStorage::getCudaKeyFrame(mnId);
         if (d_kf) {
-            CudaKeyFrameDrawer::eraseCudaKeyFrameMapPoint(mnId, idx);
+            CudaKeyFrameStorage::eraseCudaKeyFrameMapPoint(mnId, idx);
         }
     }
 }
@@ -335,13 +335,13 @@ void KeyFrame::EraseMapPointMatch(MapPoint* pMP)
     if(leftIndex != -1) {
         mvpMapPoints[leftIndex]=static_cast<MapPoint*>(NULL);
         if(MappingKernelController::is_active) {
-            CudaKeyFrameDrawer::eraseCudaKeyFrameMapPoint(mnId, leftIndex);
+            CudaKeyFrameStorage::eraseCudaKeyFrameMapPoint(mnId, leftIndex);
         }
     }
     if(rightIndex != -1) {
         mvpMapPoints[rightIndex]=static_cast<MapPoint*>(NULL);
         if(MappingKernelController::is_active) {
-            CudaKeyFrameDrawer::eraseCudaKeyFrameMapPoint(mnId, rightIndex);
+            CudaKeyFrameStorage::eraseCudaKeyFrameMapPoint(mnId, rightIndex);
         }
     }
 }
@@ -351,9 +351,9 @@ void KeyFrame::ReplaceMapPointMatch(const int &idx, MapPoint* pMP)
 {
     mvpMapPoints[idx]=pMP;
     if (MappingKernelController::is_active) {
-        MAPPING_DATA_WRAPPER::CudaKeyFrame* d_kf = CudaKeyFrameDrawer::getCudaKeyFrame(mnId);
+        MAPPING_DATA_WRAPPER::CudaKeyFrame* d_kf = CudaKeyFrameStorage::getCudaKeyFrame(mnId);
         if (d_kf) {
-            CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(mnId, pMP, idx);
+            CudaKeyFrameStorage::updateCudaKeyFrameMapPoint(mnId, pMP, idx);
         }
     }
 }
@@ -721,7 +721,7 @@ void KeyFrame::SetBadFlag()
     mpKeyFrameDB->erase(this);
 
     if (MappingKernelController::is_active) {
-        CudaKeyFrameDrawer::eraseCudaKeyFrame(this);
+        CudaKeyFrameStorage::eraseCudaKeyFrame(this);
     }
 }
 

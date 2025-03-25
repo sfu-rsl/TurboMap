@@ -230,16 +230,16 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currK
 
     int numPoints = currKF->GetMapPointMatches().size();
 
-    MAPPING_DATA_WRAPPER::CudaKeyFrame* d_neighKF = CudaKeyFrameDrawer::getCudaKeyFrame(neighKF->mnId);
+    MAPPING_DATA_WRAPPER::CudaKeyFrame* d_neighKF = CudaKeyFrameStorage::getCudaKeyFrame(neighKF->mnId);
     if (d_neighKF == nullptr) {
-        cerr << "[ERROR] FuseKernel::launch: ] CudaKeyFrameDrawer doesn't have the keyframe: " << neighKF->mnId << "\n";
+        cerr << "[ERROR] FuseKernel::launch: ] CudaKeyFrameStorage doesn't have the keyframe: " << neighKF->mnId << "\n";
         MappingKernelController::shutdownKernels(true, true);
         exit(EXIT_FAILURE);
     }
 
-    MAPPING_DATA_WRAPPER::CudaKeyFrame* d_currKF = CudaKeyFrameDrawer::getCudaKeyFrame(currKF->mnId);
+    MAPPING_DATA_WRAPPER::CudaKeyFrame* d_currKF = CudaKeyFrameStorage::getCudaKeyFrame(currKF->mnId);
     if (d_currKF == nullptr) {
-        cerr << "[ERROR] FuseKernel::launch: ] CudaKeyFrameDrawer doesn't have the keyframe: " << currKF->mnId << "\n";
+        cerr << "[ERROR] FuseKernel::launch: ] CudaKeyFrameStorage doesn't have the keyframe: " << currKF->mnId << "\n";
         MappingKernelController::shutdownKernels(true, true);
         exit(EXIT_FAILURE);
     }

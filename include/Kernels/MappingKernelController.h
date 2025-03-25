@@ -3,7 +3,7 @@
 
 #include "KFCullingKernel.h"
 #include "CudaWrappers/CudaKeyFrame.h"
-#include "CudaKeyFrameDrawer.h"
+#include "CudaKeyFrameStorage.h"
 #include "CudaMapPointStorage.h"
 #include "CudaUtils.h"
 #include "FuseKernel.h"

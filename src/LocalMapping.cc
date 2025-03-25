@@ -26,7 +26,7 @@
 #include "Stats/LocalMappingStats.h"
 #include "Kernels/MappingKernelController.h"
 #include "Kernels/CudaMapPointStorage.h"
-#include "Kernels/CudaKeyFrameDrawer.h"
+#include "Kernels/CudaKeyFrameStorage.h"
 #include<mutex>
 #include<chrono>
 #include <csignal>
@@ -395,7 +395,7 @@ void LocalMapping::ProcessNewKeyFrame()
     // Compute Bags of Words structures
     mpCurrentKeyFrame->ComputeBoW();
     if (MappingKernelController::is_active) {
-        CudaKeyFrameDrawer::addFeatureVector(mpCurrentKeyFrame->mnId, mpCurrentKeyFrame->mFeatVec);
+        CudaKeyFrameStorage::addFeatureVector(mpCurrentKeyFrame->mnId, mpCurrentKeyFrame->mFeatVec);
     }
 
     // Associate MapPoints to the new keyframe and update normal and descriptor

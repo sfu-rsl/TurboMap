@@ -34,7 +34,7 @@
 #include "Stats/TrackingStats.h"
 #include "Stats/LocalMappingStats.h"
 #include "Kernels/CudaMapPointStorage.h"
-#include "Kernels/CudaKeyFrameDrawer.h"
+#include "Kernels/CudaKeyFrameStorage.h"
 
 using namespace std;
 

@@ -1,5 +1,5 @@
-#ifndef CUDA_KEYFRAME_DRAWER_H
-#define CUDA_KEYFRAME_DRAWER_H
+#ifndef CUDA_KEYFRAME_STORAGE_H
+#define CUDA_KEYFRAME_STORAGE_H
 
 #include <vector>
 #include "KeyFrame.h"
@@ -9,7 +9,7 @@
 #include <mutex>
 #include <queue>
 
-#define CUDA_KEYFRAME_DRAWER_STORAGE 1000
+#define CUDA_KEYFRAME_STORAGE_SIZE 1000
 
 namespace MAPPING_DATA_WRAPPER {
     class CudaKeyFrame;
@@ -22,7 +22,7 @@ namespace ORB_SLAM3 {
 
 using ckd_buffer_index_t = int;
 
-class CudaKeyFrameDrawer {
+class CudaKeyFrameStorage {
     public:
         static void initializeMemory();
         static MAPPING_DATA_WRAPPER::CudaKeyFrame* getCudaKeyFrame(long unsigned int mnId);
@@ -30,7 +30,7 @@ class CudaKeyFrameDrawer {
         static void eraseCudaKeyFrame(ORB_SLAM3::KeyFrame* KF);
         static void updateCudaKeyFrameMapPoint(long unsigned int KF_Id, ORB_SLAM3::MapPoint* mp, int idx);
         static void eraseCudaKeyFrameMapPoint(long unsigned int KF_mnId, int idx);
-        static void printDrawerKeyframes();
+        static void printStorageKeyframes();
         static void addFeatureVector(long unsigned int KF_mnId, DBoW2::FeatureVector featVec);
         static void shutdown();
     public:

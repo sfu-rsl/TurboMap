@@ -5,7 +5,7 @@
 #include "CudaUtils.h"
 #include "../KeyFrame.h"
 #include "CudaWrappers/CudaKeyFrame.h"
-#include "CudaKeyFrameDrawer.h"
+#include "CudaKeyFrameStorage.h"
 #include <map>
 #include <stdio.h>
 #include <fstream>
