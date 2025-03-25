@@ -2,6 +2,7 @@
 #include <fstream>
 
 #include "Kernels/SearchForTriangulationKernel.h"
+#include "Kernels/MappingKernelController.h"
 #include "Thirdparty/DBoW2/DBoW2/FeatureVector.h"
 #include "sophus/sim3.hpp"
 #include <cusolverDn.h>
@@ -509,7 +510,8 @@ void SearchForTriangulationKernel::launch(ORB_SLAM3::KeyFrame* mpCurrentKeyFrame
     MAPPING_DATA_WRAPPER::CudaKeyFrame* currKeyframeOnGPU = CudaKeyFrameDrawer::getCudaKeyFrame(mpCurrentKeyFrame->mnId);
     if (currKeyframeOnGPU == nullptr) {
         cerr << "[ERROR] SearchForTriangulationKernel::launch: ] CudaKeyFrameDrawer doesn't have the keyframe: " << mpCurrentKeyFrame->mnId << "\n";
-        raise(SIGSEGV);
+        MappingKernelController::shutdownKernels(true, true);
+        exit(EXIT_FAILURE);
     }
 
     MAPPING_DATA_WRAPPER::CudaKeyFrame* neighKeyframesOnGPU[nn];
@@ -517,7 +519,8 @@ void SearchForTriangulationKernel::launch(ORB_SLAM3::KeyFrame* mpCurrentKeyFrame
         neighKeyframesOnGPU[i] = CudaKeyFrameDrawer::getCudaKeyFrame(vpNeighKFs[vpNeighKFsIndexes[i]]->mnId);
         if (neighKeyframesOnGPU[i] == nullptr) {
             cerr << "[ERROR] SearchForTriangulationKernel::launch: ] CudaKeyFrameDrawer doesn't have the keyframe: " << vpNeighKFs[vpNeighKFsIndexes[i]]->mnId << "\n";
-            raise(SIGSEGV);
+            MappingKernelController::shutdownKernels(true, true);
+            exit(EXIT_FAILURE);
         }
     }
         

@@ -45,7 +45,7 @@ public:
     );
 
 private:
-    static bool memory_is_initialized, memory_is_freed, localMappingFinished, loopClosingFinished;
+    static bool memory_is_initialized, isShuttingDown, localMappingFinished, loopClosingFinished;
     static MAPPING_DATA_WRAPPER::CudaKeyFrame *cudaKeyFramePtr;
     static std::unique_ptr<KFCullingKernel> mpKFCullingKernel;
     static std::unique_ptr<FuseKernel> mpFuseKernel;

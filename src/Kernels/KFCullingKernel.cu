@@ -1,4 +1,5 @@
 #include "Kernels/KFCullingKernel.h"
+#include "Kernels/MappingKernelController.h"
 #include <csignal> 
 
 void KFCullingKernel::initialize(){
@@ -135,7 +136,8 @@ void KFCullingKernel::launch(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int*
         MAPPING_DATA_WRAPPER::CudaKeyFrame* d_kf = CudaKeyFrameDrawer::getCudaKeyFrame(pKF->mnId);
         if (d_kf == nullptr) {
             cout << "[ERROR] KFCullingKernel::launch: ] CudaKeyFrameDrawer doesn't have the keyframe: " << pKF->mnId << "\n";
-            raise(SIGSEGV);
+            MappingKernelController::shutdownKernels(true, true);
+            exit(EXIT_FAILURE);
         }
 
         // cout << "\nBefore copy: d_kf " << endl;

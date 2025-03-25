@@ -1,5 +1,6 @@
 #include <iostream>
 #include "Kernels/FuseKernel.h"
+#include "Kernels/MappingKernelController.h"
 
 void FuseKernel::initialize() {
     if (memory_is_initialized)
@@ -232,13 +233,15 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currK
     MAPPING_DATA_WRAPPER::CudaKeyFrame* d_neighKF = CudaKeyFrameDrawer::getCudaKeyFrame(neighKF->mnId);
     if (d_neighKF == nullptr) {
         cerr << "[ERROR] FuseKernel::launch: ] CudaKeyFrameDrawer doesn't have the keyframe: " << neighKF->mnId << "\n";
-        raise(SIGSEGV);
+        MappingKernelController::shutdownKernels(true, true);
+        exit(EXIT_FAILURE);
     }
 
     MAPPING_DATA_WRAPPER::CudaKeyFrame* d_currKF = CudaKeyFrameDrawer::getCudaKeyFrame(currKF->mnId);
     if (d_currKF == nullptr) {
         cerr << "[ERROR] FuseKernel::launch: ] CudaKeyFrameDrawer doesn't have the keyframe: " << currKF->mnId << "\n";
-        raise(SIGSEGV);
+        MappingKernelController::shutdownKernels(true, true);
+        exit(EXIT_FAILURE);
     }
 
     int blockSize = 256;

@@ -13,7 +13,7 @@ bool MappingKernelController::keyframeCullingOnGPU;
 bool MappingKernelController::fuseOnGPU;
 bool MappingKernelController::searchForTriangulationOnGPU;
 bool MappingKernelController::memory_is_initialized = false;
-bool MappingKernelController::memory_is_freed = false;
+bool MappingKernelController::isShuttingDown = false;
 bool MappingKernelController::localMappingFinished = false;
 bool MappingKernelController::loopClosingFinished = false;
 std::unique_ptr<KFCullingKernel> MappingKernelController::mpKFCullingKernel = std::make_unique<KFCullingKernel>();
@@ -64,14 +64,15 @@ void MappingKernelController::initializeKernels(){
 }
 
 void MappingKernelController::shutdownKernels(bool _localMappingFinished, bool _loopClosingFinished) {
-
     unique_lock<mutex> lock(shutDownMutex);
 
     localMappingFinished = _localMappingFinished ? true : localMappingFinished;
     loopClosingFinished = _localMappingFinished ? true : loopClosingFinished;
     
-    if (!localMappingFinished || !loopClosingFinished || memory_is_freed)
+    if (!localMappingFinished || !loopClosingFinished || isShuttingDown)
         return;
+
+    isShuttingDown = true;
 
     cout << "Shutting kernels down...\n";
 
@@ -90,7 +91,6 @@ void MappingKernelController::shutdownKernels(bool _localMappingFinished, bool _
 
     CudaUtils::shutdown();
     cudaDeviceSynchronize();
-    memory_is_freed = true;
 }
 
 void MappingKernelController::saveKernelsStats(const std::string &file_path){

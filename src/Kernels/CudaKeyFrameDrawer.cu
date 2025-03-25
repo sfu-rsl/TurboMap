@@ -1,4 +1,5 @@
 #include "Kernels/CudaKeyFrameDrawer.h"
+#include "Kernels/MappingKernelController.h"
 #include <csignal> 
 
 // #define DEBUG
@@ -35,7 +36,8 @@ void CudaKeyFrameDrawer::eraseCudaKeyFrameMapPoint(long unsigned int KF_mnId, in
     auto it = mnId_to_idx.find(KF_mnId);
     if (it == mnId_to_idx.end()) {
         cout << "[ERROR] CudaKeyFrameDrawer::eraseCudaKeyFrameMapPoint: ] KF " << KF_mnId << " not found!\n";
-        raise(SIGSEGV);        
+        MappingKernelController::shutdownKernels(true, true);
+        exit(EXIT_FAILURE);
     }
     int KF_idx = it->second;
 
@@ -51,7 +53,8 @@ void CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint(long unsigned int KF_mnId, O
     auto it = mnId_to_idx.find(KF_mnId);
     if (it == mnId_to_idx.end()) {
         cout << "[ERROR] CudaKeyFrameDrawer::updateCudaKeyFrameMapPoint: ] KF " << KF_mnId << " not found!\n";
-        raise(SIGSEGV);        
+        MappingKernelController::shutdownKernels(true, true);
+        exit(EXIT_FAILURE);       
     }
     int KF_idx = it->second;
 
@@ -66,11 +69,13 @@ MAPPING_DATA_WRAPPER::CudaKeyFrame* CudaKeyFrameDrawer::addCudaKeyFrame(ORB_SLAM
     std::unique_lock<std::mutex> lock(mtx);
     if (!memory_is_initialized) {
         cout << "[ERROR] CudaKeyFrameDrawer::addCudaKeyFrame: ] memory not initialized!\n";
-        raise(SIGSEGV);
+        MappingKernelController::shutdownKernels(true, true);
+        exit(EXIT_FAILURE);
     }
     if (num_keyframes >= CUDA_KEYFRAME_DRAWER_STORAGE) {
         cout << "[ERROR] CudaKeyFrameDrawer::addCudaKeyFrame: ] number of keyframes: " << num_keyframes << " is greater than CUDA_KEYFRAME_DRAWER_STORAGE: " << CUDA_KEYFRAME_DRAWER_STORAGE << "\n";
-        raise(SIGSEGV);
+        MappingKernelController::shutdownKernels(true, true);
+        exit(EXIT_FAILURE);
     }
 
     auto it = mnId_to_idx.find(KF->mnId);
@@ -140,7 +145,8 @@ void CudaKeyFrameDrawer::addFeatureVector(long unsigned int KF_mnId, DBoW2::Feat
     auto it = mnId_to_idx.find(KF_mnId);
     if (it == mnId_to_idx.end()) {
         cout << "[ERROR] CudaKeyFrameDrawer::addFeatureVector: ] KF not found!\n";
-        raise(SIGSEGV);        
+        MappingKernelController::shutdownKernels(true, true);
+        exit(EXIT_FAILURE);        
     }
     int KF_idx = it->second;
     

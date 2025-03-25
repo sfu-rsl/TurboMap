@@ -1,4 +1,5 @@
 #include "Kernels/CudaMapPointStorage.h"
+#include "Kernels/MappingKernelController.h"
 #include <csignal> 
 
 // #define DEBUG
@@ -135,12 +136,14 @@ MAPPING_DATA_WRAPPER::CudaMapPoint* CudaMapPointStorage::addCudaMapPoint(ORB_SLA
     std::unique_lock<std::mutex> lock(mtx);
     if (!memory_is_initialized) {
         cout << "[ERROR] CudaMapPointStorage::addCudaMapPoint: ] memory not initialized!\n";
-        raise(SIGSEGV);
+        MappingKernelController::shutdownKernels(true, true);
+        exit(EXIT_FAILURE);
     }
 
     if (num_mappoints >= CUDA_MAP_POINT_STORAGE_SIZE) {
         cout << "[ERROR] CudaMapPointStorage::addCudaMapPoint: ] number of mappoints: " << num_mappoints << " is greater than CUDA_MAP_POINT_STORAGE_SIZE: " << CUDA_MAP_POINT_STORAGE_SIZE << "\n";
-        raise(SIGSEGV);
+        MappingKernelController::shutdownKernels(true, true);
+        exit(EXIT_FAILURE);
     }
 
     auto it = mnId_to_idx.find(MP->mnId);

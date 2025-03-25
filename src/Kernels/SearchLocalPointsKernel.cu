@@ -358,7 +358,7 @@ void SearchLocalPointsKernel::launch(ORB_SLAM3::Frame &F, const vector<ORB_SLAM3
     int numPoints = vmp.size();
     if(numPoints > MAX_NUM_MAPPOINTS) {
         cout << "[ERROR] SearchLocalPointsKernel::launchKernel: ] number of mappoints: " << numPoints << " is greater than MAX_NUM_MAPPOINTS: " << MAX_NUM_MAPPOINTS << "\n";
-        raise(SIGSEGV);
+        exit(EXIT_FAILURE);
     }
 
 #ifdef REGISTER_TRACKING_STATS
