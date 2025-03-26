@@ -14,7 +14,8 @@
 class FuseKernel: public KernelInterface {
 
     public:
-        FuseKernel() { memory_is_initialized = false; };
+        FuseKernel() { memory_is_initialized = false; 
+                       frameCounter = 0; };
         void initialize() override;
         void shutdown() override;
         void launch() override { std::cout << "[FuseKernel:] provide input for kernel launch.\n"; };
@@ -28,6 +29,11 @@ class FuseKernel: public KernelInterface {
         bool memory_is_initialized;
         int *h_bestDist, *h_bestIdx;
         int *d_bestDist, *d_bestIdx;
+        
+        std::vector<std::pair<long unsigned int, double>> kernel_exec_time;
+        std::vector<std::pair<long unsigned int, double>> output_data_transfer_time;
+        std::vector<std::pair<long unsigned int, double>> total_exec_time;
+        long unsigned int frameCounter;
 };
 
 #endif 

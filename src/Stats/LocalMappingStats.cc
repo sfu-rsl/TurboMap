@@ -18,7 +18,7 @@ void LocalMappingStats::saveStats(const string &file_path) {
 
     std::ofstream myfile;
 
-    KernelController::saveLocalMappingKernelsStats(data_path);
+    MappingKernelController::saveKernelsStats(data_path);
 
     myfile.open(data_path + "/localMapping_time.txt");
     for (size_t i = 0; i < localMapping_time.size(); ++i) {

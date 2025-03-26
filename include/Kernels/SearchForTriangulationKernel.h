@@ -31,7 +31,8 @@
 
 class SearchForTriangulationKernel : public KernelInterface {
 public:
-    SearchForTriangulationKernel() { memory_is_initialized = false; };
+    SearchForTriangulationKernel() { memory_is_initialized = false;
+                                     frameCounter = 0; };
     void initialize() override;
     void shutdown() override;
     void saveStats(const std::string &file_path) override;

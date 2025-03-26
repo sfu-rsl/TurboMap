@@ -222,6 +222,12 @@ __global__ void oldKeyframeCullingKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame** d_
 }
 
 void KFCullingKernel::launch(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int* h_nMPs, int* h_nRedundantObservations) {
+
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point startTotal = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point startPreProcess = std::chrono::steady_clock::now();
+#endif
+
     if(!memory_is_initialized){
         initialize();
     }
@@ -242,42 +248,53 @@ void KFCullingKernel::launch(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int*
             continue;
         }
 
-        // cout << "\nOriginal: pKF " << endl;
-        // printKeyframeCPU(pKF);
-        // cout << endl;
-
         MAPPING_DATA_WRAPPER::CudaKeyFrame* d_kf = CudaKeyFrameStorage::getCudaKeyFrame(pKF->mnId);
-        cudaDeviceSynchronize();
         if (d_kf == nullptr) {
             cout << "[ERROR] KFCullingKernel::launch: ] CudaKeyFrameStorage doesn't have the keyframe: " << pKF->mnId << "\n";
             MappingKernelController::shutdownKernels(true, true);
             exit(EXIT_FAILURE);
         }
-
-        // cout << "\nBefore copy: d_kf " << endl;
-        // printKFSingleGPU<<<1,1>>>(d_kf);
-        // cout << endl;
         
         checkCudaError(cudaMemcpy(&d_keyframes[KF_count], &d_kf, sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame*), cudaMemcpyHostToDevice), "[KFCullingKernel::] Failed to copy d_kf from drawer to d_keyframes");
-        
-        // cout << "\nAfter copy: d_keyframes[" << KF_count << "]" << endl;
-        // printKFListGPU<<<1,1>>>(d_keyframes, KF_count);
-        // cout << endl;
-
         KF_count++;
     }
 
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point endPreProcess = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point startKernel = std::chrono::steady_clock::now();
+#endif
+
     int nObs = 3;
     const int thObs=nObs;
-    // int blockSize = 1;
-    // int numBlocks = 1;
     int blockSize = 128;
     int numBlocks = (KF_count + blockSize - 1) / blockSize;
     keyframeCullingKernel<<<numBlocks, blockSize>>>(d_keyframes, vpLocalKeyFrames_size, thObs, CudaUtils::isMonocular, d_nMPs, d_nRedundantObservations);
     checkCudaError(cudaDeviceSynchronize(), "[KFCullingKernel:] Kernel launch failed");  
 
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point endKernel = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point startMemcpyToCPU = std::chrono::steady_clock::now();
+#endif
+
     checkCudaError(cudaMemcpy(h_nMPs, d_nMPs, vpLocalKeyFrames_size * sizeof(int), cudaMemcpyDeviceToHost), "[KFCullingKernel::] Failed to copy d_nMPs to h_nMPs");
     checkCudaError(cudaMemcpy(h_nRedundantObservations, d_nRedundantObservations, vpLocalKeyFrames_size * sizeof(int), cudaMemcpyDeviceToHost), "[KFCullingKernel::] Failed to copy d_nRedundantObservations to h_nRedundantObservations");
+
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point endMemcpyToCPU = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point endTotal = std::chrono::steady_clock::now();
+
+    double preProcess = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endPreProcess - startPreProcess).count();
+    double kernel = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endKernel - startKernel).count();
+    double memcpyToCPU = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endMemcpyToCPU - startMemcpyToCPU).count();
+    double total = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endTotal - startTotal).count();
+
+    pre_process_time.emplace_back(frameCounter, preProcess);
+    kernel_exec_time.emplace_back(frameCounter, kernel);
+    output_data_transfer_time.emplace_back(frameCounter, memcpyToCPU);
+    total_exec_time.emplace_back(frameCounter, total);
+
+    frameCounter++;
+#endif
 } 
 
 void KFCullingKernel::KFCullingOrig(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int thObs, bool mbMonocular) {
@@ -383,13 +400,41 @@ void KFCullingKernel::KFCullingOrig(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrame
 void KFCullingKernel::shutdown(){
     if (!memory_is_initialized) 
         return;
-
-    // for (int i = 0; i < MAX_NUM_KEYFRAMES; ++i) {
-    //     h_keyframes[i].freeMemory();
-    // }
-    // cudaFreeHost(h_keyframes);
     
     cudaFree(d_keyframes);
     cudaFree(d_nRedundantObservations);
     cudaFree(d_nMPs);
+}
+
+void KFCullingKernel::saveStats(const std::string &file_path) {
+    std::string data_path = file_path + "/KFCullingKernel/";
+    std::cout << "[KFCullingKernel:] writing stats data into file: " << data_path << '\n';
+    if (mkdir(data_path.c_str(), 0755) == -1) {
+        std::cerr << "[KFCullingKernel:] Error creating directory: " << strerror(errno) << std::endl;
+    }
+    std::ofstream myfile;
+
+    myfile.open(data_path + "/pre_process_time.txt");
+    for (const auto& p : pre_process_time) {
+        myfile << p.first << ": " << p.second << std::endl;
+    }
+    myfile.close();
+    
+    myfile.open(data_path + "/kernel_exec_time.txt");
+    for (const auto& p : kernel_exec_time) {
+        myfile << p.first << ": " << p.second << std::endl;
+    }
+    myfile.close();
+    
+    myfile.open(data_path + "/output_data_transfer_time.txt");
+    for (const auto& p : output_data_transfer_time) {
+        myfile << p.first << ": " << p.second << std::endl;
+    }
+    myfile.close();
+
+    myfile.open(data_path + "/total_exec_time.txt");
+    for (const auto& p : total_exec_time) {
+        myfile << p.first << ": " << p.second << std::endl;
+    }
+    myfile.close();
 }

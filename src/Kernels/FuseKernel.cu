@@ -225,6 +225,10 @@ __global__ void fuseKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame* neighKF, MAPPING_
 void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currKF, const float th, const bool bRight, 
                         int* h_bestDist, int* h_bestIdx, ORB_SLAM3::GeometricCamera* pCamera, Sophus::SE3f Tcw, Eigen::Vector3f Ow) {
 
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point startTotal = std::chrono::steady_clock::now();
+#endif
+
     if (!memory_is_initialized)
         initialize();
 
@@ -244,15 +248,40 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currK
         exit(EXIT_FAILURE);
     }
 
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point startKernel = std::chrono::steady_clock::now();
+#endif
+
     int blockSize = 256;
     int numBlocks = (numPoints + blockSize -1) / blockSize;
     fuseKernel<<<numBlocks, blockSize>>>(d_neighKF, d_currKF, numPoints, CudaUtils::cameraIsFisheye, Ow, Tcw, th, bRight, d_bestDist, d_bestIdx);
 
     checkCudaError(cudaGetLastError(), "[fuseKernel:] Failed to launch kernel");
     checkCudaError(cudaDeviceSynchronize(), "[fuseKernel:] cudaDeviceSynchronize failed after kernel launch");  
+
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point endKernel = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point startMemcpyToCPU = std::chrono::steady_clock::now();
+#endif
     
     checkCudaError(cudaMemcpy(h_bestDist, d_bestDist, numPoints * sizeof(int), cudaMemcpyDeviceToHost), "Failed to copy d_bestDist back to host");
     checkCudaError(cudaMemcpy(h_bestIdx, d_bestIdx, numPoints * sizeof(int), cudaMemcpyDeviceToHost), "Failed to copy d_bestIdx back to host");
+
+
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point endMemcpyToCPU = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point endTotal = std::chrono::steady_clock::now();
+
+    double kernel = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endKernel - startKernel).count();
+    double memcpyToCPU = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endMemcpyToCPU - startMemcpyToCPU).count();
+    double total = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endTotal - startTotal).count();
+
+    kernel_exec_time.emplace_back(frameCounter, kernel);
+    output_data_transfer_time.emplace_back(frameCounter, memcpyToCPU);
+    total_exec_time.emplace_back(frameCounter, total);
+
+    frameCounter++;
+#endif
     
     // cout << "================================= Fuse called for KF: " << neighKF->mnId << " =================================\n";
     // for (int i = 0; i < numPoints; i++) {
@@ -453,7 +482,29 @@ int FuseKernel::origDescriptorDistance(const cv::Mat &a, const cv::Mat &b) {
     return dist;
 }
 
-void FuseKernel::saveStats(const string &file_path) {
+void FuseKernel::saveStats(const std::string &file_path) {
+    std::string data_path = file_path + "/FuseKernel/";
+    std::cout << "[FuseKernel:] writing stats data into file: " << data_path << '\n';
+    if (mkdir(data_path.c_str(), 0755) == -1) {
+        std::cerr << "[FuseKernel:] Error creating directory: " << strerror(errno) << std::endl;
+    }
+    std::ofstream myfile;
+    
+    myfile.open(data_path + "/kernel_exec_time.txt");
+    for (const auto& p : kernel_exec_time) {
+        myfile << p.first << ": " << p.second << std::endl;
+    }
+    myfile.close();
+    
+    myfile.open(data_path + "/output_data_transfer_time.txt");
+    for (const auto& p : output_data_transfer_time) {
+        myfile << p.first << ": " << p.second << std::endl;
+    }
+    myfile.close();
 
-    std::cout << "Saving stats for FuseKernel" << std::endl;
+    myfile.open(data_path + "/total_exec_time.txt");
+    for (const auto& p : total_exec_time) {
+        myfile << p.first << ": " << p.second << std::endl;
+    }
+    myfile.close();
 }
