@@ -7,7 +7,19 @@ fastmap_mode=$2
 dataset_name=$3
 version=$4
 
-statsDir="../Results/${version}/${dataset_name}"
+if [ "$mode" -eq 2 ]; then
+    system_name='FastMap'
+fi
+
+if [ "$mode" -eq 1 ]; then
+    system_name='FastTrack'
+fi
+
+if [ "$mode" -eq 0 ]; then
+    system_name='ORB-SLAM3'
+fi
+
+statsDir="../Results/${system_name}/${dataset_name}/${version}"
 file_name="dataset-${dataset_name}_stereoi"
 
 if [ ! -d "$statsDir" ]; then
@@ -59,7 +71,7 @@ echo "------------------------------------"
 
 echo "Evaluation of ${dataset_name} trajectory with Stereo-Inertial sensor"
 python3 -W ignore ../evaluation/evaluate3.py ${pathDatasetEuroc}/${dataset_name}/mav0/state_groundtruth_estimate0/data.csv f_${file_name}.txt --plot ${dataset_name}_stereoi.pdf --verbose
-# echo "Plotting data"
+echo "Plotting data"
 python3 ../plot.py "${statsDir}"
 
 files=("f_dataset-${dataset_name}_stereoi.csv"

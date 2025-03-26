@@ -6,7 +6,20 @@ fastmap_mode=$2
 dataset_name=$3
 version=$4
 
-statsDir="../Results/${version}/${dataset_name}"
+if [ "$mode" -eq 2 ]; then
+    system_name='FastMap'
+fi
+
+if [ "$mode" -eq 1 ]; then
+    system_name='FastTrack'
+fi
+
+if [ "$mode" -eq 0 ]; then
+    system_name='ORB-SLAM3'
+fi
+
+statsDir="../Results/${system_name}/${dataset_name}/${version}"
+file_name="dataset-${dataset_name}_stereoi"
 
 if [ ! -d "$statsDir" ]; then
     echo $statsDir
@@ -16,7 +29,6 @@ fi
 # Single Session Example
 
 # echo "Launching magistrale with Stereo-Inertial sensor"
-file_name="dataset-${dataset_name}_stereoi"
 
 # EXECUTABLE=./Stereo-Inertial/stereo_inertial_tum_vi
 # ARGS="../Vocabulary/ORBvoc.txt Stereo-Inertial/TUM-VI.yaml ${pathDatasetTUM_VI}/dataset-${dataset_name}_512_16/mav0/cam0/data ${pathDatasetTUM_VI}/dataset-${dataset_name}_512_16/mav0/cam1/data Stereo-Inertial/TUM_TimeStamps/dataset-${dataset_name}_512.txt Stereo-Inertial/TUM_IMU/dataset-${dataset_name}_512.txt  ${file_name} ${statsDir} ${mode}"

@@ -1,35 +1,19 @@
 #!/bin/bash
 
-if [ $# -lt 2 ]; then
-    echo "Usage: $0 <dataset_name> <[0] for ORB-SLAM3, [1] for FastTrack, [2] for FastMap> <save_stream> <FastMap Mode>"
+if [ $# -lt 4 ]; then
+    echo "Usage: $0 <dataset_name> <[0] for ORB-SLAM3, [1] for FastTrack, [2] for FastMap> <[0] for STDOUT output, [1] for file output> <version> <FastMap_mode>"
     exit 1
 fi
 
 dataset_name=$1
 mode=$2
+save_ostream=$3
+version=$4
 
-if [ "$mode" -eq 2 ]; then
-    version='FastMap'
-fi
-
-if [ "$mode" -eq 1 ]; then
-    version='FastTrack'
-fi
-
-if [ "$mode" -eq 0 ]; then
-    version='ORB-SLAM3'
-fi
-
-if [ $# -ge 3 ]; then
-    save_ostream=$3
+if [ $# -eq 5 ]; then
+    fastmap_mode=$5
 else
-    save_ostream=0
-fi
-
-if [ $# -eq 4 ]; then
-    fastmap_mode=$4
-else
-    fastmap_mode='000'
+    fastmap_mode='111'
 fi
 
 tumvi_datasets=("corridor1" "corridor2" "corridor3" "corridor4" "corridor5" "outdoors1" "outdoors5" "room1" "room2" "room3" "room4" "room5" "room6" "magistrale2" "magistrale6")
