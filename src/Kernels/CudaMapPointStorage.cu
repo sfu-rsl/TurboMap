@@ -1,6 +1,6 @@
 #include "Kernels/CudaMapPointStorage.h"
 #include "Kernels/MappingKernelController.h"
-#include <csignal> 
+#include "Stats/LocalMappingStats.h"
 
 // #define DEBUG
 
@@ -19,7 +19,7 @@ std::mutex CudaMapPointStorage::mtx;
 std::queue<cmp_buffer_index_t> CudaMapPointStorage::free_idx;
 
 
-void CudaMapPointStorage::initializeMemory(){   
+void CudaMapPointStorage::initializeMemory() {   
     // std::unique_lock<std::mutex> lock(mtx);
     if (memory_is_initialized) return;
     checkCudaError(cudaMallocHost((void**)&h_mappoints, CUDA_MAP_POINT_STORAGE_SIZE * sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint)), "[CudaMapPointStorage::] Failed to allocate memory for h_mappoints");  
@@ -31,6 +31,9 @@ void CudaMapPointStorage::initializeMemory(){
 }
 
 MAPPING_DATA_WRAPPER::CudaMapPoint* CudaMapPointStorage::replaceCudaMapPoint(long unsigned int mnId, ORB_SLAM3::MapPoint* new_MP) {
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+#endif  
     // mtx.lock();
     int idx;
     auto it = mnId_to_idx.find(mnId);
@@ -51,10 +54,18 @@ MAPPING_DATA_WRAPPER::CudaMapPoint* CudaMapPointStorage::replaceCudaMapPoint(lon
     auto ret = &d_mappoints[idx];
     // mtx.unlock();
     // return &d_mappoints[idx];
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    double time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(end - start).count();
+    LocalMappingStats::getInstance().replaceCudaMapPoint_time.push_back(time);
+#endif
     return ret;
 }
 
 void CudaMapPointStorage::updateCudaMapPointObservations(long unsigned int mnId, int nObs, map<ORB_SLAM3::KeyFrame*, tuple<int,int>> observations) {
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+#endif 
     // mtx.lock();
     int idx;
     auto it = mnId_to_idx.find(mnId);
@@ -70,10 +81,19 @@ void CudaMapPointStorage::updateCudaMapPointObservations(long unsigned int mnId,
 
     DEBUG_PRINT("updateCudaMapPointObservations: " << mnId << endl);
     // mtx.unlock();
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    double time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(end - start).count();
+    LocalMappingStats::getInstance().updateCudaMapPointObservations_time.push_back(time);
+#endif
+
     return;
 }
 
 void CudaMapPointStorage::updateCudaMapPointWorldPos(long unsigned int mnId, Eigen::Vector3f Pos) {
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+#endif
     // mtx.lock();
     int idx;
     auto it = mnId_to_idx.find(mnId);
@@ -89,10 +109,18 @@ void CudaMapPointStorage::updateCudaMapPointWorldPos(long unsigned int mnId, Eig
 
     DEBUG_PRINT("updateCudaMapPointWorldPos: " << mnId << endl);
     // mtx.unlock();
-    return;
+
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    double time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(end - start).count();
+    LocalMappingStats::getInstance().updateCudaMapPointWorldPos_time.push_back(time);
+#endif
 } 
 
 void CudaMapPointStorage::updateCudaMapNormalAndDepth(long unsigned int mnId, float mfMinDistance, float mfMaxDistance, Eigen::Vector3f mNormalVector) {
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+#endif
     // mtx.lock();
     int idx;
     auto it = mnId_to_idx.find(mnId);
@@ -110,10 +138,18 @@ void CudaMapPointStorage::updateCudaMapNormalAndDepth(long unsigned int mnId, fl
 
     DEBUG_PRINT("updateCudaMapNormalAndDepth: " << mnId << endl);
     // mtx.unlock();
-    return;
+
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    double time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(end - start).count();
+    LocalMappingStats::getInstance().updateCudaMapNormalAndDepth_time.push_back(time);
+#endif
 }
 
 void CudaMapPointStorage::updateCudaMapPointDescriptor(long unsigned int mnId, cv::Mat mDescriptor) {
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+#endif
     // mtx.lock();
     int idx;
     auto it = mnId_to_idx.find(mnId);
@@ -129,10 +165,18 @@ void CudaMapPointStorage::updateCudaMapPointDescriptor(long unsigned int mnId, c
 
     DEBUG_PRINT("updateCudaMapPointDescriptor: " << mnId << endl);
     // mtx.unlock();
-    return;
+
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    double time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(end - start).count();
+    LocalMappingStats::getInstance().updateCudaMapPointDescriptor_time.push_back(time);
+#endif
 }
 
-MAPPING_DATA_WRAPPER::CudaMapPoint* CudaMapPointStorage::addCudaMapPoint(ORB_SLAM3::MapPoint* MP){
+MAPPING_DATA_WRAPPER::CudaMapPoint* CudaMapPointStorage::addCudaMapPoint(ORB_SLAM3::MapPoint* MP) {
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+#endif
     // std::unique_lock<std::mutex> lock(mtx);
     if (!memory_is_initialized) {
         cout << "[ERROR] CudaMapPointStorage::addCudaMapPoint: ] memory not initialized!\n";
@@ -170,10 +214,19 @@ MAPPING_DATA_WRAPPER::CudaMapPoint* CudaMapPointStorage::addCudaMapPoint(ORB_SLA
 
     DEBUG_PRINT("addCudaMapPoint: " << MP->mnId << " (mappoints on gpu: " << num_mappoints << ")" << endl);
 
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    double time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(end - start).count();
+    LocalMappingStats::getInstance().addCudaMapPoint_time.push_back(time);
+#endif
+
     return &d_mappoints[new_mp_idx];
 }
 
-void CudaMapPointStorage::eraseCudaMapPoint(ORB_SLAM3::MapPoint* MP){
+void CudaMapPointStorage::eraseCudaMapPoint(ORB_SLAM3::MapPoint* MP) {
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+#endif
     // std::unique_lock<std::mutex> lock(mtx);
     auto it = mnId_to_idx.find(MP->mnId);
     if (it == mnId_to_idx.end()) {
@@ -189,9 +242,15 @@ void CudaMapPointStorage::eraseCudaMapPoint(ORB_SLAM3::MapPoint* MP){
     num_mappoints--;
 
     DEBUG_PRINT("eraseCudaMapPoint: " << MP->mnId << " (mappoints on gpu: " << num_mappoints << ")" << endl);
+
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    double time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(end - start).count();
+    LocalMappingStats::getInstance().eraseCudaMapPoint_time.push_back(time);
+#endif
 }
 
-MAPPING_DATA_WRAPPER::CudaMapPoint* CudaMapPointStorage::getCudaMapPoint(long unsigned int mnId){
+MAPPING_DATA_WRAPPER::CudaMapPoint* CudaMapPointStorage::getCudaMapPoint(long unsigned int mnId) {
     // std::unique_lock<std::mutex> lock(mtx);
     auto it = mnId_to_idx.find(mnId);
     if (it != mnId_to_idx.end()) {

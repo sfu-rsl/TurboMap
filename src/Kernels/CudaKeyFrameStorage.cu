@@ -1,6 +1,6 @@
 #include "Kernels/CudaKeyFrameStorage.h"
 #include "Kernels/MappingKernelController.h"
-#include <csignal> 
+#include "Stats/LocalMappingStats.h"
 
 // #define DEBUG
 
@@ -32,6 +32,9 @@ void CudaKeyFrameStorage::initializeMemory(){
 }
 
 void CudaKeyFrameStorage::eraseCudaKeyFrameMapPoint(long unsigned int KF_mnId, int idx) {
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+        std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+#endif  
     // std::unique_lock<std::mutex> lock(mtx);
     auto it = mnId_to_idx.find(KF_mnId);
     if (it == mnId_to_idx.end()) {
@@ -46,9 +49,17 @@ void CudaKeyFrameStorage::eraseCudaKeyFrameMapPoint(long unsigned int KF_mnId, i
 
     DEBUG_PRINT("eraseCudaKeyFrameMapPoint: " << KF_mnId << endl);
 
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    double time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(end - start).count();
+    LocalMappingStats::getInstance().eraseCudaKeyFrameMapPoint_time.push_back(time);
+#endif
 }
 
 void CudaKeyFrameStorage::updateCudaKeyFrameMapPoint(long unsigned int KF_mnId, ORB_SLAM3::MapPoint* mp, int idx) {
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+#endif  
     // std::unique_lock<std::mutex> lock(mtx);
     auto it = mnId_to_idx.find(KF_mnId);
     if (it == mnId_to_idx.end()) {
@@ -63,9 +74,18 @@ void CudaKeyFrameStorage::updateCudaKeyFrameMapPoint(long unsigned int KF_mnId, 
     checkCudaError(cudaMemcpy(&d_keyframes[KF_idx], &h_keyframes[KF_idx], sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame), cudaMemcpyHostToDevice), "[CudaKeyFrameStorage::updateCudaKeyFrameMapPoint: ] Failed");
 
     DEBUG_PRINT("updateCudaKeyFrameMapPoint: " << KF_mnId << endl);
+
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    double time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(end - start).count();
+    LocalMappingStats::getInstance().updateCudaKeyFrameMapPoint_time.push_back(time);
+#endif
 }
 
-MAPPING_DATA_WRAPPER::CudaKeyFrame* CudaKeyFrameStorage::addCudaKeyFrame(ORB_SLAM3::KeyFrame* KF){
+MAPPING_DATA_WRAPPER::CudaKeyFrame* CudaKeyFrameStorage::addCudaKeyFrame(ORB_SLAM3::KeyFrame* KF) {
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+#endif  
     // std::unique_lock<std::mutex> lock(mtx);
     if (!memory_is_initialized) {
         cout << "[ERROR] CudaKeyFrameStorage::addCudaKeyFrame: ] memory not initialized!\n";
@@ -103,10 +123,19 @@ MAPPING_DATA_WRAPPER::CudaKeyFrame* CudaKeyFrameStorage::addCudaKeyFrame(ORB_SLA
 
     DEBUG_PRINT("addCudaKeyFrame: " << KF->mnId << endl);
 
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    double time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(end - start).count();
+    LocalMappingStats::getInstance().addCudaKeyFrame_time.push_back(time);
+#endif
+
     return &d_keyframes[new_kf_idx];
 }
 
-void CudaKeyFrameStorage::eraseCudaKeyFrame(ORB_SLAM3::KeyFrame* KF){
+void CudaKeyFrameStorage::eraseCudaKeyFrame(ORB_SLAM3::KeyFrame* KF) {
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+#endif  
     // std::unique_lock<std::mutex> lock(mtx);
     auto it = mnId_to_idx.find(KF->mnId);
     if (it == mnId_to_idx.end()) {
@@ -121,6 +150,12 @@ void CudaKeyFrameStorage::eraseCudaKeyFrame(ORB_SLAM3::KeyFrame* KF){
     num_keyframes--;
 
     DEBUG_PRINT("eraseCudaKeyFrame: " << KF->mnId << endl);
+
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    double time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(end - start).count();
+    LocalMappingStats::getInstance().eraseCudaKeyFrame_time.push_back(time);
+#endif
 }
 
 MAPPING_DATA_WRAPPER::CudaKeyFrame* CudaKeyFrameStorage::getCudaKeyFrame(long unsigned int mnId){
@@ -141,6 +176,9 @@ void CudaKeyFrameStorage::printStorageKeyframes() {
 }
 
 void CudaKeyFrameStorage::addFeatureVector(long unsigned int KF_mnId, DBoW2::FeatureVector featVec) {
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+#endif  
     // std::unique_lock<std::mutex> lock(mtx);
     auto it = mnId_to_idx.find(KF_mnId);
     if (it == mnId_to_idx.end()) {
@@ -154,6 +192,12 @@ void CudaKeyFrameStorage::addFeatureVector(long unsigned int KF_mnId, DBoW2::Fea
     checkCudaError(cudaMemcpy(&d_keyframes[KF_idx], &h_keyframes[KF_idx], sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame), cudaMemcpyHostToDevice), "[CudaKeyFrameStorage::addFeatureVector: ] Failed to add feature vector");
 
     DEBUG_PRINT("addFeatureVector: " << KF_mnId << endl);
+
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    double time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(end - start).count();
+    LocalMappingStats::getInstance().addFeatureVector_time.push_back(time);
+#endif
 }
 
 void CudaKeyFrameStorage::shutdown() {
