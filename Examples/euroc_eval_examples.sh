@@ -57,7 +57,7 @@ echo "Launching $dataset_name with Stereo-Inertial sensor"
 #with gdb
 # EXECUTABLE=./Stereo-Inertial/stereo_inertial_euroc
 # ARGS="../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${mode} ${fastmap_mode}"
-# gdb -ex "set print thread-events off" -ex "set args $ARGS" -ex "directory /home/parsa/Applications/FastMap/src" -ex "break /home/parsa/Applications/FastMap/src/Kernels/CudaUtils.cu:103" -ex "run" $EXECUTABLE
+# gdb -ex "set print thread-events off" -ex "set args $ARGS" -ex "run" $EXECUTABLE
 
 #without gdb
 ./Stereo-Inertial/stereo_inertial_euroc ../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${mode} ${fastmap_mode}
