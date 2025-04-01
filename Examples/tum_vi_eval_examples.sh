@@ -22,7 +22,6 @@ statsDir="../Results/${system_name}/${dataset_name}/${version}"
 file_name="dataset-${dataset_name}_stereoi"
 
 if [ ! -d "$statsDir" ]; then
-    echo $statsDir
     mkdir -p "$statsDir"
 fi
 

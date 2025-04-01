@@ -24,7 +24,7 @@ public:
     static bool fuseOnGPU;
     static bool searchForTriangulationOnGPU;
 
-    static void setGPURunMode(bool keyframeCulling, bool FuseStatus, bool searchForTriangulation);
+    static void setGPURunMode(bool searchForTriangulation, bool FuseStatus, bool keyframeCulling);
 
     static void initializeKernels();
     

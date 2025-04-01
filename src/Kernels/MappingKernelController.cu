@@ -34,10 +34,10 @@ void MappingKernelController::activate() {
     // MappingKernelController::setGPURunMode(0, 1, 0);
 }
 
-void MappingKernelController::setGPURunMode(bool _keyframeCulling, bool _fuseStatus, bool _searchForTriangulation) {
-    keyframeCullingOnGPU = _keyframeCulling;
-    fuseOnGPU = _fuseStatus;
+void MappingKernelController::setGPURunMode(bool _searchForTriangulation, bool _fuseStatus, bool _keyframeCulling) {
     searchForTriangulationOnGPU = _searchForTriangulation;
+    fuseOnGPU = _fuseStatus;
+    keyframeCullingOnGPU = _keyframeCulling;
 }
 
 void MappingKernelController::initializeKernels(){

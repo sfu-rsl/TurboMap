@@ -60,21 +60,32 @@ int main(int argc, char **argv)
     bool run_FastMap = (strcmp(argv[argc-2], "2") == 0);
     string strStatsFile = argv[argc-3];
     
-    cout << "Mode:" << run_ORBSLAM << run_FastTrack << run_FastMap << endl;
+    if (run_ORBSLAM)
+        cout << "Running the original ORB-SLAM3 code...\n";
+    if (run_FastTrack)
+        cout << "Running FastTrack...\n";
+    if (run_FastMap)
+        cout << "Running FastMap...\n";
     
     if (run_FastTrack) {
         TrackingKernelController::activate();
-        // TrackingKernelController::setGPURunMode(1,1,1,1,0);
     }
-    
+
     if (run_FastMap) {
         MappingKernelController::activate();
-        bool keyframeCullingEnabled = (argv[argc-1][0] == '1');
-        bool fuseStatusEnabled = (argv[argc-1][1] == '1');
-        bool searchForTriangulationEnabled = (argv[argc-1][2] == '1');
-        cout << "Fast Map Run Mode is: (" << keyframeCullingEnabled << ", " << fuseStatusEnabled << ", " << searchForTriangulationEnabled << ")\n";
+        bool searchForTriangulationEnabled = (argv[argc-1][0] == '1');
+        bool fuseEnabled = (argv[argc-1][1] == '1');
+        bool keyframeCullingEnabled = (argv[argc-1][2] == '1');
+        cout << "Activated FastMap Kernels are: (";
+        if (searchForTriangulationEnabled)
+            cout << "SearchForTriangulation ";
+        if (fuseEnabled)
+            cout << "Fuse ";
+        if (keyframeCullingEnabled)
+            cout << "KeyframeCulling";
+        cout << ")\n";
         
-        MappingKernelController::setGPURunMode(keyframeCullingEnabled, fuseStatusEnabled, searchForTriangulationEnabled);
+        MappingKernelController::setGPURunMode(searchForTriangulationEnabled, fuseEnabled, keyframeCullingEnabled);
     }
     
     argc-=3;
