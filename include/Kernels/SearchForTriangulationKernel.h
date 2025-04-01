@@ -73,6 +73,7 @@ private:
     Eigen::Matrix3f *d_R12;
     Eigen::Vector3f *d_t12;
     Eigen::Vector2f *d_ep;
+    bool *d_currFrameMapPointExists, *d_neighFramesMapPointExists;
 
     int *d_matchedPairIndexes;
 };

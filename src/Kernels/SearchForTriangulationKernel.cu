@@ -309,11 +309,11 @@ __device__ bool fisheyeEpipolarConstrain(MAPPING_DATA_WRAPPER::CudaCamera camera
 
 __global__ void searchForTriangulationKernel(
     MAPPING_DATA_WRAPPER::CudaKeyFrame* currKeyframe, MAPPING_DATA_WRAPPER::CudaKeyFrame** neighKeyframes,
-    size_t featVecSize, size_t outVecSize, const float camPrecision, const bool bCoarse,
+    size_t featVecSize, size_t keyFrameMapPointCount, size_t outVecSize, const float camPrecision, const bool bCoarse,
     size_t *currFrameFeatVecIdxCorrespondences, size_t *neighFramesFeatVecIdxCorrespondences,
     Eigen::Matrix3f *Rll, Eigen::Matrix3f *Rlr, Eigen::Matrix3f *Rrl, Eigen::Matrix3f *Rrr, Eigen::Matrix3f *R12s,
     Eigen::Vector3f *tll, Eigen::Vector3f *tlr, Eigen::Vector3f *trl, Eigen::Vector3f *trr, Eigen::Vector3f *t12s, Eigen::Vector2f *ep,
-    int *matchedPairIndexes
+    bool *currFrameMapPointExists, bool *neighFramesMapPointExists, int *matchedPairIndexes
     ) {
 
     int neighborIdx = blockIdx.x;
@@ -355,7 +355,7 @@ __global__ void searchForTriangulationKernel(
 
         const int idx1 = (int) currKeyframe->mFeatVec[currFeatStartIdx + i1];
         
-        if (currKeyframe->mvpMapPoints[idx1])
+        if (currFrameMapPointExists[idx1])
             continue;
 
         const bool bStereo1 = (!currKeyframe->camera2.isAvailable && currKeyframe->mvuRight[idx1] >= 0);
@@ -376,7 +376,7 @@ __global__ void searchForTriangulationKernel(
 
             const int idx2 = (int) neighKeyframe->mFeatVec[neighFeatStartIdx + i2];
        
-            if (neighKeyframe->mvpMapPoints[idx2])
+            if (neighFramesMapPointExists[neighborIdx*keyFrameMapPointCount + idx2])
                 continue;
 
             const bool bStereo2 = (!neighKeyframe->camera2.isAvailable && neighKeyframe->mvuRight[idx2] >= 0);
@@ -613,12 +613,21 @@ void SearchForTriangulationKernel::launch(ORB_SLAM3::KeyFrame* mpCurrentKeyFrame
     }
 
     int maxFeatures = CudaUtils::nFeatures_with_th;
-    size_t outVecSize;
+    size_t mapPointVecSize, outVecSize;
     
-    if (CudaUtils::cameraIsFisheye)
+    if (CudaUtils::cameraIsFisheye) {
+        mapPointVecSize = maxFeatures*2;
         outVecSize = maxFeatures*2;
-    else
+    }
+    else {
+        mapPointVecSize = maxFeatures;
         outVecSize = maxFeatures;
+    }
+
+    bool currFrameMapPointExists[mapPointVecSize], neighFramesMapPointExists[mapPointVecSize*nn];
+    mpCurrentKeyFrame->GetMapPointAvailabality(currFrameMapPointExists);
+    for (int i = 0; i < nn; i++)
+        vpNeighKFs[vpNeighKFsIndexes[i]]->GetMapPointAvailabality(neighFramesMapPointExists + i*mapPointVecSize);
 
     float camPrecision;
     if (CudaUtils::cameraIsFisheye) {
@@ -646,8 +655,10 @@ void SearchForTriangulationKernel::launch(ORB_SLAM3::KeyFrame* mpCurrentKeyFrame
     checkCudaError(cudaMemcpy(d_trr, trr, sizeof(Eigen::Vector3f)*nn, cudaMemcpyHostToDevice), "Failed to copy vector trr from host to device");
     checkCudaError(cudaMemcpy(d_R12, R12s, sizeof(Eigen::Matrix3f)*nn, cudaMemcpyHostToDevice), "Failed to copy vector R12s from host to device");
     checkCudaError(cudaMemcpy(d_t12, t12s, sizeof(Eigen::Vector3f)*nn, cudaMemcpyHostToDevice), "Failed to copy vector t12s from host to device");
-
     checkCudaError(cudaMemcpy(d_ep, eps, sizeof(Eigen::Vector2f)*nn, cudaMemcpyHostToDevice), "Failed to copy vector eps from host to device");
+
+    checkCudaError(cudaMemcpy(d_currFrameMapPointExists, currFrameMapPointExists, sizeof(currFrameMapPointExists), cudaMemcpyHostToDevice), "Failed to copy vector currFrameMapPointExists from host to device");
+    checkCudaError(cudaMemcpy(d_neighFramesMapPointExists, neighFramesMapPointExists, sizeof(neighFramesMapPointExists), cudaMemcpyHostToDevice), "Failed to copy vector neighFramesMapPointExists from host to device");
 
     checkCudaError(cudaMemset(d_matchedPairIndexes, 0xFF, nn*outVecSize*sizeof(int)), "Failed to set the memory of d_matchedPairIndexes to -1");
 
@@ -659,9 +670,10 @@ void SearchForTriangulationKernel::launch(ORB_SLAM3::KeyFrame* mpCurrentKeyFrame
     dim3 gridDim(nn);
     dim3 blockDim(featVecSize);
     searchForTriangulationKernel<<<gridDim, blockDim>>>(
-        currKeyframeOnGPU, d_neighKeyframes, featVecSize, outVecSize, camPrecision, bCoarse,
+        currKeyframeOnGPU, d_neighKeyframes, featVecSize, mapPointVecSize, outVecSize, camPrecision, bCoarse,
         d_currFrameFeatVecIdxCorrespondences, d_neighFramesFeatVecIdxCorrespondences,
         d_Rll, d_Rlr, d_Rrl, d_Rrr, d_R12, d_tll, d_tlr, d_trl, d_trr, d_t12, d_ep,
+        d_currFrameMapPointExists, d_neighFramesMapPointExists,
         d_matchedPairIndexes
     );
     
@@ -1006,11 +1018,15 @@ void SearchForTriangulationKernel::initialize() {
     size_t featVecSize = MAX_FEAT_VEC_SIZE;
     size_t maxNeighborCount = MAX_NEIGHBOUR_COUNT;
     int maxFeatures = CudaUtils::nFeatures_with_th;
-    size_t outVecSize;
-    if (CudaUtils::cameraIsFisheye)
+    size_t mapPointVecSize, outVecSize;
+    if (CudaUtils::cameraIsFisheye) {
+        mapPointVecSize = maxFeatures*2;
         outVecSize = maxFeatures*2;
-    else
+    }
+    else {
+        mapPointVecSize = maxFeatures;
         outVecSize = maxFeatures;
+    }
 
     checkCudaError(cudaMalloc((void**)&d_neighKeyframes, sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame*)*maxNeighborCount), "Failed to allocate device vector d_neighKeyframes");
 
@@ -1028,6 +1044,8 @@ void SearchForTriangulationKernel::initialize() {
     checkCudaError(cudaMalloc((void**)&d_R12, sizeof(Eigen::Matrix3f)*maxNeighborCount), "Failed to allocate device vector d_R12");
     checkCudaError(cudaMalloc((void**)&d_t12, sizeof(Eigen::Vector3f)*maxNeighborCount), "Failed to allocate device vector d_t12");
     checkCudaError(cudaMalloc((void**)&d_ep, sizeof(Eigen::Vector2f)*maxNeighborCount), "Failed to allocate device vector d_ep");
+    checkCudaError(cudaMalloc((void**)&d_currFrameMapPointExists, sizeof(bool)*mapPointVecSize), "Failed to allocate device vector d_currFrameMapPointExists");
+    checkCudaError(cudaMalloc((void**)&d_neighFramesMapPointExists, sizeof(bool)*mapPointVecSize*maxNeighborCount), "Failed to allocate device vector d_neighFramesMapPointExists");
     
     checkCudaError(cudaMalloc((void**)&d_matchedPairIndexes, sizeof(int)*outVecSize*maxNeighborCount), "Failed to allocate device vector d_matchedPairIndexes");
 
@@ -1051,6 +1069,8 @@ void SearchForTriangulationKernel::shutdown() {
         cudaFree(d_R12);
         cudaFree(d_t12);
         cudaFree(d_ep);
+        cudaFree(d_currFrameMapPointExists);
+        cudaFree(d_neighFramesMapPointExists);
 
         cudaFree(d_matchedPairIndexes);
     }
