@@ -24,7 +24,7 @@ __global__ void keyframeCullingKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame** d_key
                                     int* d_nMPs, int* d_nRedundantObservations) {
 
     unsigned int kf_idx = blockIdx.x;
-
+    
     if (kf_idx >= numKeyframes) {
         return;
     }
@@ -48,7 +48,9 @@ __global__ void keyframeCullingKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame** d_key
     
     else {
         
-        for (int i = 2*mp_idx; i < 2*mp_idx + 2; i++) {
+        unsigned int numItr = (pKF->mvpMapPoints_size + blockDim.x - 1) / blockDim.x;
+
+        for (int i = numItr*mp_idx; i < numItr*mp_idx + numItr; i++) {
 
             if (i >= pKF->mvpMapPoints_size) {
                 break;
@@ -232,7 +234,6 @@ void KFCullingKernel::launch(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int*
         initialize();
     }
 
-    int KF_count = 0;
     int vpLocalKeyFrames_size = vpLocalKeyFrames.size();
     if (vpLocalKeyFrames_size == 0)
         return;
@@ -243,20 +244,20 @@ void KFCullingKernel::launch(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int*
 
         if((pKF->mnId==pKF->GetMap()->GetInitKFid()) || pKF->isBad()) {
             MAPPING_DATA_WRAPPER::CudaKeyFrame* d_kf = nullptr;
-            checkCudaError(cudaMemcpy(&d_keyframes[KF_count], &d_kf, sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame*), cudaMemcpyHostToDevice), "[KFCullingKernel::] Failed to set d_keyframes[i] to null");
-            KF_count++;
-            continue;
-        }
-
-        MAPPING_DATA_WRAPPER::CudaKeyFrame* d_kf = CudaKeyFrameStorage::getCudaKeyFrame(pKF->mnId);
-        if (d_kf == nullptr) {
-            cout << "[ERROR] KFCullingKernel::launch: ] CudaKeyFrameStorage doesn't have the keyframe: " << pKF->mnId << "\n";
-            MappingKernelController::shutdownKernels(true, true);
-            exit(EXIT_FAILURE);
+            checkCudaError(cudaMemcpy(&d_keyframes[i], &d_kf, sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame*), cudaMemcpyHostToDevice), "[KFCullingKernel::] Failed to set d_keyframes[i] to null");
         }
         
-        checkCudaError(cudaMemcpy(&d_keyframes[KF_count], &d_kf, sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame*), cudaMemcpyHostToDevice), "[KFCullingKernel::] Failed to copy d_kf from drawer to d_keyframes");
-        KF_count++;
+        else {
+
+            MAPPING_DATA_WRAPPER::CudaKeyFrame* d_kf = CudaKeyFrameStorage::getCudaKeyFrame(pKF->mnId);
+            if (d_kf == nullptr) {
+                cout << "[ERROR] KFCullingKernel::launch: ] CudaKeyFrameStorage doesn't have the keyframe: " << pKF->mnId << "\n";
+                MappingKernelController::shutdownKernels(true, true);
+                exit(EXIT_FAILURE);
+            }
+
+            checkCudaError(cudaMemcpy(&d_keyframes[i], &d_kf, sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame*), cudaMemcpyHostToDevice), "[KFCullingKernel::] Failed to copy d_kf from drawer to d_keyframes");
+        }
     }
 
 #ifdef REGISTER_LOCAL_MAPPING_STATS
@@ -264,10 +265,9 @@ void KFCullingKernel::launch(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int*
     std::chrono::steady_clock::time_point startKernel = std::chrono::steady_clock::now();
 #endif
 
-    int nObs = 3;
-    const int thObs=nObs;
-    int blockSize = 128;
-    int numBlocks = (KF_count + blockSize - 1) / blockSize;
+    int thObs = 3;
+    int blockSize = 1024;
+    int numBlocks = vpLocalKeyFrames_size;
     keyframeCullingKernel<<<numBlocks, blockSize>>>(d_keyframes, vpLocalKeyFrames_size, thObs, CudaUtils::isMonocular, d_nMPs, d_nRedundantObservations);
     checkCudaError(cudaDeviceSynchronize(), "[KFCullingKernel:] Kernel launch failed");  
 
