@@ -33,7 +33,6 @@
 #include "Kernels/MappingKernelController.h"
 #include "Stats/TrackingStats.h"
 #include "Stats/LocalMappingStats.h"
-#include "Kernels/CudaMapPointStorage.h"
 #include "Kernels/CudaKeyFrameStorage.h"
 
 using namespace std;

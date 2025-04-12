@@ -46,8 +46,6 @@ void MappingKernelController::initializeKernels(){
     
     CudaKeyFrameStorage::initializeMemory();
 
-    CudaMapPointStorage::initializeMemory();
-
     cudaKeyFramePtr = new MAPPING_DATA_WRAPPER::CudaKeyFrame();
 
     if (keyframeCullingOnGPU == 1)
@@ -78,7 +76,6 @@ void MappingKernelController::shutdownKernels(bool _localMappingFinished, bool _
 
     if (memory_is_initialized) {
         CudaKeyFrameStorage::shutdown();
-        CudaMapPointStorage::shutdown();
         cudaKeyFramePtr->freeMemory();
         delete cudaKeyFramePtr;
         if (keyframeCullingOnGPU == 1)

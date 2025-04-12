@@ -29,6 +29,7 @@ class FuseKernel: public KernelInterface {
         bool memory_is_initialized;
         int *h_bestDist, *h_bestIdx;
         int *d_bestDist, *d_bestIdx;
+        MAPPING_DATA_WRAPPER::CudaMapPoint *d_currKFMapPoints;
         
         std::vector<std::pair<long unsigned int, double>> kernel_exec_time;
         std::vector<std::pair<long unsigned int, double>> output_data_transfer_time;

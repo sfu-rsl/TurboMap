@@ -81,17 +81,6 @@ void LocalMappingStats::saveStats(const string &file_path) {
     myfile.close();
 
     // GPU functions times
-    myfile.open(data_path + "/eraseCudaKeyFrameMapPoint_time.txt");
-    for (size_t i = 0; i < eraseCudaKeyFrameMapPoint_time.size(); ++i) {
-        myfile << i << ": " << eraseCudaKeyFrameMapPoint_time[i] << std::endl;
-    }
-    myfile.close();
-
-    myfile.open(data_path + "/updateCudaKeyFrameMapPoint_time.txt");
-    for (size_t i = 0; i < updateCudaKeyFrameMapPoint_time.size(); ++i) {
-        myfile << i << ": " << updateCudaKeyFrameMapPoint_time[i] << std::endl;
-    }
-    myfile.close();
 
     myfile.open(data_path + "/addCudaKeyFrame_time.txt");
     for (size_t i = 0; i < addCudaKeyFrame_time.size(); ++i) {
@@ -108,48 +97,6 @@ void LocalMappingStats::saveStats(const string &file_path) {
     myfile.open(data_path + "/addFeatureVector_time.txt");
     for (size_t i = 0; i < addFeatureVector_time.size(); ++i) {
         myfile << i << ": " << addFeatureVector_time[i] << std::endl;
-    }
-    myfile.close();
-
-    myfile.open(data_path + "/replaceCudaMapPoint_time.txt");
-    for (size_t i = 0; i < replaceCudaMapPoint_time.size(); ++i) {
-        myfile << i << ": " << replaceCudaMapPoint_time[i] << std::endl;
-    }
-    myfile.close();
-
-    myfile.open(data_path + "/updateCudaMapPointObservations_time.txt");
-    for (size_t i = 0; i < updateCudaMapPointObservations_time.size(); ++i) {
-        myfile << i << ": " << updateCudaMapPointObservations_time[i] << std::endl;
-    }
-    myfile.close();
-
-    myfile.open(data_path + "/updateCudaMapPointWorldPos_time.txt");
-    for (size_t i = 0; i < updateCudaMapPointWorldPos_time.size(); ++i) {
-        myfile << i << ": " << updateCudaMapPointWorldPos_time[i] << std::endl;
-    }
-    myfile.close();
-
-    myfile.open(data_path + "/updateCudaMapNormalAndDepth_time.txt");
-    for (size_t i = 0; i < updateCudaMapNormalAndDepth_time.size(); ++i) {
-        myfile << i << ": " << updateCudaMapNormalAndDepth_time[i] << std::endl;
-    }
-    myfile.close();
-
-    myfile.open(data_path + "/updateCudaMapPointDescriptor_time.txt");
-    for (size_t i = 0; i < updateCudaMapPointDescriptor_time.size(); ++i) {
-        myfile << i << ": " << updateCudaMapPointDescriptor_time[i] << std::endl;
-    }
-    myfile.close();
-
-    myfile.open(data_path + "/addCudaMapPoint_time.txt");
-    for (size_t i = 0; i < addCudaMapPoint_time.size(); ++i) {
-        myfile << i << ": " << addCudaMapPoint_time[i] << std::endl;
-    }
-    myfile.close();
-
-    myfile.open(data_path + "/eraseCudaMapPoint_time.txt");
-    for (size_t i = 0; i < eraseCudaMapPoint_time.size(); ++i) {
-        myfile << i << ": " << eraseCudaMapPoint_time[i] << std::endl;
     }
     myfile.close();
 

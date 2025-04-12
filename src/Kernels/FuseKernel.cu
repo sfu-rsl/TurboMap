@@ -6,11 +6,19 @@ void FuseKernel::initialize() {
     if (memory_is_initialized)
         return;
 
-    checkCudaError(cudaMallocHost(&h_bestDist, CUDA_MAP_POINT_STORAGE_SIZE * sizeof(int)), "Failed to allocate memory for h_bestDist");
-    checkCudaError(cudaMallocHost(&h_bestIdx, CUDA_MAP_POINT_STORAGE_SIZE * sizeof(int)), "Failed to allocate memory for h_bestIdx");      
+    int maxFeatures = CudaUtils::nFeatures_with_th;
+    size_t mapPointVecSize;
+    if (CudaUtils::cameraIsFisheye)
+        mapPointVecSize = maxFeatures*2;
+    else
+        mapPointVecSize = maxFeatures;
 
-    checkCudaError(cudaMalloc((void**)&d_bestDist, CUDA_MAP_POINT_STORAGE_SIZE * sizeof(int)), "Failed to allocate memory for d_bestDist");
-    checkCudaError(cudaMalloc((void**)&d_bestIdx, CUDA_MAP_POINT_STORAGE_SIZE * sizeof(int)), "Failed to allocate memory for d_bestIdx");
+    checkCudaError(cudaMallocHost(&h_bestDist, mapPointVecSize * sizeof(int)), "Failed to allocate memory for h_bestDist");
+    checkCudaError(cudaMallocHost(&h_bestIdx, mapPointVecSize * sizeof(int)), "Failed to allocate memory for h_bestIdx");      
+
+    checkCudaError(cudaMalloc((void**)&d_bestDist, mapPointVecSize * sizeof(int)), "Failed to allocate memory for d_bestDist");
+    checkCudaError(cudaMalloc((void**)&d_bestIdx, mapPointVecSize * sizeof(int)), "Failed to allocate memory for d_bestIdx");
+    checkCudaError(cudaMalloc((void**)&d_currKFMapPoints, mapPointVecSize * sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint)), "Failed to allocate memory for d_currKFMapPoints");
 
     memory_is_initialized = true;
 }
@@ -23,6 +31,7 @@ void FuseKernel::shutdown() {
     checkCudaError(cudaFreeHost(h_bestIdx),"Failed to free fuse kernel memory: h_bestIdx");
     checkCudaError(cudaFree(d_bestDist),"Failed to free fuse kernel memory: d_bestDist");
     checkCudaError(cudaFree(d_bestIdx),"Failed to free fuse kernel memory: d_bestIdx");
+    checkCudaError(cudaFree(d_currKFMapPoints),"Failed to free fuse kernel memory: d_currKFMapPoints");
 }
 
 // TODO: fix this function
@@ -38,8 +47,8 @@ __device__ int predictScale(float currentDist, float maxDistance, MAPPING_DATA_W
 }
 
 __device__ inline bool isMapPointInKeyFrame(MAPPING_DATA_WRAPPER::CudaMapPoint* mapPoint, MAPPING_DATA_WRAPPER::CudaKeyFrame* keyframe) {
-    for (int i = 0; i < mapPoint->mObservations_size; i++) {
-        if (mapPoint->mObservations_dkf[i]->mnId == keyframe->mnId)
+    for (int i = 0; i < mapPoint->observationsKFs_size; i++) {
+        if (mapPoint->observationsKFs[i] == (int) keyframe->mnId)
             return true;
     }
     return false;
@@ -77,8 +86,8 @@ __device__ Eigen::Vector2f pinholeProject(const Eigen::Vector3f &v3D, float* mvP
     return res;
 }
 
-__global__ void fuseKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame* neighKF, MAPPING_DATA_WRAPPER::CudaKeyFrame* currKF, int numPoints, 
-                           bool cameraIsFisheye, Eigen::Vector3f Ow, Sophus::SE3f Tcw, float th, bool bRight,
+__global__ void fuseKernel(MAPPING_DATA_WRAPPER::CudaMapPoint* currKFMapPoints, MAPPING_DATA_WRAPPER::CudaKeyFrame* neighKF, 
+                           int numPoints, bool cameraIsFisheye, Eigen::Vector3f Ow, Sophus::SE3f Tcw, float th, bool bRight,
                            int* bestDists, int* bestIdxs) {
 
     unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -88,12 +97,12 @@ __global__ void fuseKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame* neighKF, MAPPING_
     bestDists[idx] = 256;
     bestIdxs[idx] = -1;
 
-    MAPPING_DATA_WRAPPER::CudaMapPoint* pMP = currKF->mvpMapPoints[idx];
+    MAPPING_DATA_WRAPPER::CudaMapPoint pMP = currKFMapPoints[idx];
 
-    if ((!pMP) || (isMapPointInKeyFrame(pMP, neighKF)) || (pMP->mbBad == true))
+    if ((pMP.isEmpty) || (isMapPointInKeyFrame(&pMP, neighKF)) || (pMP.mbBad == true))
         return;
     
-    Eigen::Vector3f p3Dw = pMP->mWorldPos;
+    Eigen::Vector3f p3Dw = pMP.mWorldPos;
     Eigen::Vector3f p3Dc = Tcw * p3Dw;
     const float invz = 1/p3Dc(2);
 
@@ -102,29 +111,27 @@ __global__ void fuseKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame* neighKF, MAPPING_
         uv = fisheyeProject(p3Dc, neighKF->camera1.mvParameters);
     else
         uv = pinholeProject(p3Dc, neighKF->camera1.mvParameters);
-
-        
+            
     if ((p3Dc(2) < 0.0f) || (!isInImage(neighKF, uv(0), uv(1))))
         return;
 
     const float ur = uv(0) - neighKF->mbf*invz;
-    const float maxDistance = 1.2 * pMP->mfMaxDistance;
-    const float minDistance = 0.8 * pMP->mfMinDistance;
+    const float maxDistance = 1.2 * pMP.mfMaxDistance;
+    const float minDistance = 0.8 * pMP.mfMinDistance;
     Eigen::Vector3f PO = p3Dw - Ow;
     const float dist3D = PO.norm();
 
     if (dist3D < minDistance || dist3D > maxDistance)
         return;
 
-    Eigen::Vector3f Pn = pMP->mNormalVector;
-
+    Eigen::Vector3f Pn = pMP.mNormalVector;
     if (PO.dot(Pn) < 0.5*dist3D)
         return;
 
-    int nPredictedLevel = predictScale(dist3D, pMP->mfMaxDistance, neighKF);
+    int nPredictedLevel = predictScale(dist3D, pMP.mfMaxDistance, neighKF);
     const float radius = th * neighKF->mvScaleFactors[nPredictedLevel];
 
-    const uint8_t* MPdescriptor = &pMP->mDescriptor[0];
+    const uint8_t* MPdescriptor = &pMP.mDescriptor[0];
     int bestDist = 256;
     int bestIdx = -1;
 
@@ -231,8 +238,9 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currK
 
     if (!memory_is_initialized)
         initialize();
-
-    int numPoints = currKF->GetMapPointMatches().size();
+    
+    std::vector<ORB_SLAM3::MapPoint*> currKFMapPoints = currKF->GetMapPointMatches();
+    int numPoints = currKFMapPoints.size();
 
     MAPPING_DATA_WRAPPER::CudaKeyFrame* d_neighKF = CudaKeyFrameStorage::getCudaKeyFrame(neighKF->mnId);
     if (d_neighKF == nullptr) {
@@ -241,12 +249,12 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currK
         exit(EXIT_FAILURE);
     }
 
-    MAPPING_DATA_WRAPPER::CudaKeyFrame* d_currKF = CudaKeyFrameStorage::getCudaKeyFrame(currKF->mnId);
-    if (d_currKF == nullptr) {
-        cerr << "[ERROR] FuseKernel::launch: ] CudaKeyFrameStorage doesn't have the keyframe: " << currKF->mnId << "\n";
-        MappingKernelController::shutdownKernels(true, true);
-        exit(EXIT_FAILURE);
-    }
+    // TODO: avoid copying the map points for all of the neighbors and do it once only
+    MAPPING_DATA_WRAPPER::CudaMapPoint wrappedCurrKFMapPoints[numPoints];
+    for (int i = 0; i < numPoints; i++)
+        wrappedCurrKFMapPoints[i] = MAPPING_DATA_WRAPPER::CudaMapPoint(currKFMapPoints[i]);
+
+    checkCudaError(cudaMemcpy(d_currKFMapPoints, wrappedCurrKFMapPoints, sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint)*numPoints, cudaMemcpyHostToDevice), "Failed to copy vector wrappedCurrKFMapPoints from host to device");
 
 #ifdef REGISTER_LOCAL_MAPPING_STATS
     std::chrono::steady_clock::time_point startKernel = std::chrono::steady_clock::now();
@@ -254,7 +262,7 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currK
 
     int blockSize = 256;
     int numBlocks = (numPoints + blockSize -1) / blockSize;
-    fuseKernel<<<numBlocks, blockSize>>>(d_neighKF, d_currKF, numPoints, CudaUtils::cameraIsFisheye, Ow, Tcw, th, bRight, d_bestDist, d_bestIdx);
+    fuseKernel<<<numBlocks, blockSize>>>(d_currKFMapPoints, d_neighKF, numPoints, CudaUtils::cameraIsFisheye, Ow, Tcw, th, bRight, d_bestDist, d_bestIdx);
 
     checkCudaError(cudaGetLastError(), "[fuseKernel:] Failed to launch kernel");
     checkCudaError(cudaDeviceSynchronize(), "[fuseKernel:] cudaDeviceSynchronize failed after kernel launch");  

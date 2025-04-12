@@ -34,19 +34,9 @@ class LocalMappingStats: public StatsInterface {
         std::vector<int> createdMappoints_num;
         double searchForTriangulation_init_time;
 
-        std::vector<double> eraseCudaKeyFrameMapPoint_time;
-        std::vector<double> updateCudaKeyFrameMapPoint_time;
         std::vector<double> addCudaKeyFrame_time;
         std::vector<double> eraseCudaKeyFrame_time;
         std::vector<double> addFeatureVector_time;
-
-        std::vector<double> replaceCudaMapPoint_time;
-        std::vector<double> updateCudaMapPointObservations_time;
-        std::vector<double> updateCudaMapPointWorldPos_time;
-        std::vector<double> updateCudaMapNormalAndDepth_time;
-        std::vector<double> updateCudaMapPointDescriptor_time;
-        std::vector<double> addCudaMapPoint_time;
-        std::vector<double> eraseCudaMapPoint_time;
 
     private:
         LocalMappingStats() = default; // Private constructor

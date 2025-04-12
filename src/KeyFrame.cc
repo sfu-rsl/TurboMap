@@ -20,7 +20,6 @@
 #include "Converter.h"
 #include "ImuTypes.h"
 #include "Kernels/CudaKeyFrameStorage.h"
-#include "Kernels/CudaMapPointStorage.h"
 #include "Kernels/MappingKernelController.h"
 #include<mutex>
 
@@ -305,27 +304,12 @@ void KeyFrame::AddMapPoint(MapPoint *pMP, const size_t &idx)
 {
     unique_lock<mutex> lock(mMutexFeatures);
     mvpMapPoints[idx]=pMP;
-    if (MappingKernelController::is_active) {
-        MAPPING_DATA_WRAPPER::CudaKeyFrame* d_kf = CudaKeyFrameStorage::getCudaKeyFrame(mnId);
-        if (d_kf) {
-            CudaKeyFrameStorage::updateCudaKeyFrameMapPoint(mnId, pMP, idx);
-        }
-    }
-
-    // if (mnId == 1)
-    //     printf("[%d: %lu]\n", idx, pMP->mnId);
 }
 
 void KeyFrame::EraseMapPointMatch(const int &idx)
 {
     unique_lock<mutex> lock(mMutexFeatures);
     mvpMapPoints[idx]=static_cast<MapPoint*>(NULL);
-    if(MappingKernelController::is_active) {
-        MAPPING_DATA_WRAPPER::CudaKeyFrame* d_kf = CudaKeyFrameStorage::getCudaKeyFrame(mnId);
-        if (d_kf) {
-            CudaKeyFrameStorage::eraseCudaKeyFrameMapPoint(mnId, idx);
-        }
-    }
 }
 
 void KeyFrame::EraseMapPointMatch(MapPoint* pMP)
@@ -334,15 +318,9 @@ void KeyFrame::EraseMapPointMatch(MapPoint* pMP)
     size_t leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);
     if(leftIndex != -1) {
         mvpMapPoints[leftIndex]=static_cast<MapPoint*>(NULL);
-        if(MappingKernelController::is_active) {
-            CudaKeyFrameStorage::eraseCudaKeyFrameMapPoint(mnId, leftIndex);
-        }
     }
     if(rightIndex != -1) {
         mvpMapPoints[rightIndex]=static_cast<MapPoint*>(NULL);
-        if(MappingKernelController::is_active) {
-            CudaKeyFrameStorage::eraseCudaKeyFrameMapPoint(mnId, rightIndex);
-        }
     }
 }
 
@@ -350,12 +328,6 @@ void KeyFrame::EraseMapPointMatch(MapPoint* pMP)
 void KeyFrame::ReplaceMapPointMatch(const int &idx, MapPoint* pMP)
 {
     mvpMapPoints[idx]=pMP;
-    if (MappingKernelController::is_active) {
-        MAPPING_DATA_WRAPPER::CudaKeyFrame* d_kf = CudaKeyFrameStorage::getCudaKeyFrame(mnId);
-        if (d_kf) {
-            CudaKeyFrameStorage::updateCudaKeyFrameMapPoint(mnId, pMP, idx);
-        }
-    }
 }
 
 set<MapPoint*> KeyFrame::GetMapPoints()
@@ -417,6 +389,13 @@ void KeyFrame::GetMapPointAvailabality(bool* mapPointAvailabalities)
     unique_lock<mutex> lock(mMutexFeatures);
     for (int i = 0; i < mvpMapPoints.size(); i++)
         mapPointAvailabalities[i] = (mvpMapPoints[i] != NULL);
+}
+
+void KeyFrame::GetMapPointCorrectness(bool* mapPointAvailabalities)
+{
+    unique_lock<mutex> lock(mMutexFeatures);
+    for (int i = 0; i < mvpMapPoints.size(); i++)
+        mapPointAvailabalities[i] = ((mvpMapPoints[i] != NULL) && (!mvpMapPoints[i]->isBad()));
 }
 
 void KeyFrame::UpdateConnections(bool upParent)

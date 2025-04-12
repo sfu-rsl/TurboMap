@@ -32,6 +32,8 @@ private:
     MAPPING_DATA_WRAPPER::CudaKeyFrame **d_keyframes, **h_keyframes;
     int *d_nMPs, *d_nRedundantObservations;
     int *empty_array[MAX_NUM_KEYFRAMES];
+    bool *d_neighFramesMapPointsCorrect;
+    MAPPING_DATA_WRAPPER::CudaMapPoint *d_neighKFsMapPoints;
 
     std::vector<std::pair<long unsigned int, double>> pre_process_time;
     std::vector<std::pair<long unsigned int, double>> kernel_exec_time;

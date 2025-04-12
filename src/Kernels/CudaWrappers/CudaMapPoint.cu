@@ -40,9 +40,7 @@ namespace TRACKING_DATA_WRAPPER
 
 namespace MAPPING_DATA_WRAPPER
 {
-    void CudaMapPoint::initialize() {
-        checkCudaError(cudaMalloc((void**)&mObservations_dkf, MAX_NUM_OBSERVATIONS * sizeof(CudaKeyFrame*)), "CudaMapPoint::failed to allocate memory for mObservations_dkf");
-    }
+    void CudaMapPoint::initialize() {}
 
     CudaMapPoint::CudaMapPoint() {
         initialize();
@@ -50,7 +48,12 @@ namespace MAPPING_DATA_WRAPPER
     }
 
     CudaMapPoint::CudaMapPoint(ORB_SLAM3::MapPoint* mp) {
-        isEmpty = false;
+        if (mp)
+            isEmpty = false;
+        else {
+            isEmpty = true;
+            return;
+        }
         mnId = mp->mnId;
         mWorldPos = mp->GetWorldPos();
         mfMaxDistance = mp->GetMaxDistance();
@@ -59,6 +62,17 @@ namespace MAPPING_DATA_WRAPPER
         const cv::Mat& descriptor = mp->GetDescriptor();
         std::memcpy(mDescriptor, descriptor.ptr<uint8_t>(0), descriptor.cols * sizeof(uint8_t));
         mbBad = mp->isBad();
+        observationsKFs_size = mp->Observations();
+
+        int itr = 0;
+        map<ORB_SLAM3::KeyFrame*, tuple<int,int>> observations = mp->GetObservations();
+        for (const auto& pair : observations) {
+            observationsKFs[itr] = pair.first->mnId;
+            const std::tuple<int, int>& value = pair.second; 
+            mObservations_leftIdx[itr] = std::get<0>(value);
+            mObservations_rightIdx[itr] = std::get<1>(value);
+            itr++;
+        }
     }
 
     void CudaMapPoint::setMemory(ORB_SLAM3::MapPoint* mp) {
@@ -71,24 +85,6 @@ namespace MAPPING_DATA_WRAPPER
         const cv::Mat& descriptor = mp->GetDescriptor();
         std::memcpy(mDescriptor, descriptor.ptr<uint8_t>(0), descriptor.cols * sizeof(uint8_t));
         mbBad = mp->isBad();
-    }
-
-    void CudaMapPoint::setObservations(int _nObs, map<ORB_SLAM3::KeyFrame*, tuple<int,int>> observations) {
-        nObs = _nObs;
-        mObservations_size = observations.size();
-        int itr = 0;
-        for (const auto& pair : observations) {
-            ORB_SLAM3::KeyFrame* key = pair.first;
-            const std::tuple<int, int>& value = pair.second; 
-            mObservations_leftIdx[itr] = std::get<0>(value);
-            mObservations_rightIdx[itr] = std::get<1>(value);
-
-            CudaKeyFrame* d_kf = CudaKeyFrameStorage::getCudaKeyFrame(key->mnId);
-            if (d_kf != nullptr) {
-                checkCudaError(cudaMemcpy(&mObservations_dkf[itr], &d_kf, sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame*), cudaMemcpyHostToDevice), "[CudaMapPoint::setObservations: ] Failed to add d_kf");
-            } 
-            itr++;
-        }        
     }
 
     void CudaMapPoint::setDescriptor(cv::Mat descriptor) {
@@ -111,7 +107,5 @@ namespace MAPPING_DATA_WRAPPER
         mWorldPos = pos;
     }
 
-    void CudaMapPoint::freeMemory() {
-        checkCudaError(cudaFree(mObservations_dkf),"[CudaMapPoint::] Failed to free memory: mObservations_dkf");
-    }
+    void CudaMapPoint::freeMemory() {}
 }

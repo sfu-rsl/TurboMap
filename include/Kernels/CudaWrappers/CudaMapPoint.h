@@ -70,10 +70,10 @@ class CudaMapPoint {
         long unsigned int mnId;
         bool mbBad;
         int nObs;
-        int mObservations_size;
-        CudaKeyFrame** mObservations_dkf;
         int mObservations_leftIdx[MAX_NUM_OBSERVATIONS];
         int mObservations_rightIdx[MAX_NUM_OBSERVATIONS];
+        int observationsKFs[MAX_NUM_OBSERVATIONS];
+        int observationsKFs_size;
         Eigen::Vector3f mWorldPos;
         float mfMaxDistance;
         float mfMinDistance;

@@ -35,19 +35,7 @@ void printKeyframeCPU(ORB_SLAM3::KeyFrame* KF) {
 
 __device__ void printKeyframeGPU(MAPPING_DATA_WRAPPER::CudaKeyFrame* KF) {
     printf("KF mnId: %lu\n", KF->mnId);
-    // for (int i = 0; i < KF->mvpMapPoints_size; ++i) {
-    //     MAPPING_DATA_WRAPPER::CudaMapPoint* mp = KF->mvpMapPoints[i];
-    //     if (mp == nullptr) continue;
-    //     printf("    i:%d, mp mnId: %lu\n", i, mp->mnId);
-    //     MAPPING_DATA_WRAPPER::CudaKeyFrame** mObservations_dkf = mp->mObservations_dkf;
-    //     for (int j = 0; j < mp->mObservations_size; ++j) {
-    //         MAPPING_DATA_WRAPPER::CudaKeyFrame* pKFi = mp->mObservations_dkf[j];
-    //         // printf("        j:%d, pKFi mnId: %lu\n", j, pKFi->mnId);
-    //         printf("     j:%d, pKFi ptr: %p\n", j, (void*)pKFi);
-    //     }
-    // }
 }
-
 
 __global__ void printKFSingleGPU(MAPPING_DATA_WRAPPER::CudaKeyFrame* KF) {
     printKeyframeGPU(KF);
@@ -79,12 +67,7 @@ void printMPCPU(ORB_SLAM3::MapPoint* mp) {
             printf("%u,", mDescriptor.at<uint8_t>(i, j));
         }
         printf("\n");
-    }
-    // map<ORB_SLAM3::KeyFrame*, tuple<int,int>> observations = mp->GetObservations();
-    // for (const auto& pair : observations) {
-    //     ORB_SLAM3::KeyFrame* key = pair.first;
-    //     printf("    pKFi mnId: %lu\n", key->mnId);
-    // }     
+    }  
 }
 
 __device__ void printMPGPU(MAPPING_DATA_WRAPPER::CudaMapPoint* mp) {
@@ -94,12 +77,6 @@ __device__ void printMPGPU(MAPPING_DATA_WRAPPER::CudaMapPoint* mp) {
         printf("%u,", mp->mDescriptor[i]);
     }
     printf("\n");
-    // MAPPING_DATA_WRAPPER::CudaKeyFrame** mObservations_dkf = mp->mObservations_dkf;
-    // for (int j = 0; j < mp->mObservations_size; ++j) {
-    //     MAPPING_DATA_WRAPPER::CudaKeyFrame* pKFi = mp->mObservations_dkf[j];
-    //     // printf("    pKFi mnId: %lu\n", pKFi->mnId);
-    //     printf("    pKFi ptr: %p\n", (void*)pKFi);
-    // }    
 }
 
 __global__ void printMPSingleGPU(MAPPING_DATA_WRAPPER::CudaMapPoint* mp) {
@@ -119,7 +96,7 @@ void checkCudaError(cudaError_t err, const char* msg) {
             TrackingKernelController::shutdownKernels();
         if (MappingKernelController::is_active)
             MappingKernelController::shutdownKernels(true, true);
-        CudaUtils::shutdown();
+        // CudaUtils::shutdown();
 
         exit(EXIT_FAILURE);
     }

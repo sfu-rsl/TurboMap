@@ -140,6 +140,7 @@ protected:
     void MapPointCulling();
     void SearchInNeighbors();
     void KeyFrameCulling();
+    void KeyFrameCullingV2();
 
     System *mpSystem;
 

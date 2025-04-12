@@ -19,7 +19,6 @@
 #include "MapPoint.h"
 #include "ORBmatcher.h"
 #include "Kernels/CudaKeyFrameStorage.h"
-#include "Kernels/CudaMapPointStorage.h"
 #include "Kernels/MappingKernelController.h"
 
 #include<mutex>
@@ -37,10 +36,7 @@ MapPoint::MapPoint():
     mpReplaced(static_cast<MapPoint*>(NULL))
 {
     mpReplaced = static_cast<MapPoint*>(NULL);
-
-    if (MappingKernelController::is_active) {
-        CudaMapPointStorage::addCudaMapPoint(this);
-    }
+    scaleObservationsCount.resize(8, 0);
 }
 
 MapPoint::MapPoint(const Eigen::Vector3f &Pos, KeyFrame *pRefKF, Map* pMap):
@@ -60,10 +56,7 @@ MapPoint::MapPoint(const Eigen::Vector3f &Pos, KeyFrame *pRefKF, Map* pMap):
     // MapPoints can be created from Tracking and Local Mapping. This mutex avoid conflicts with id.
     unique_lock<mutex> lock(mpMap->mMutexPointCreation);
     mnId=nNextId++;
-
-    if (MappingKernelController::is_active) {
-        CudaMapPointStorage::addCudaMapPoint(this);
-    }
+    scaleObservationsCount.resize(8, 0);
 }
 
 MapPoint::MapPoint(const double invDepth, cv::Point2f uv_init, KeyFrame* pRefKF, KeyFrame* pHostKF, Map* pMap):
@@ -84,10 +77,7 @@ MapPoint::MapPoint(const double invDepth, cv::Point2f uv_init, KeyFrame* pRefKF,
     // MapPoints can be created from Tracking and Local Mapping. This mutex avoid conflicts with id.
     unique_lock<mutex> lock(mpMap->mMutexPointCreation);
     mnId=nNextId++;
-
-    if (MappingKernelController::is_active) {
-        CudaMapPointStorage::addCudaMapPoint(this);
-    }
+    scaleObservationsCount.resize(8, 0);
 }
 
 MapPoint::MapPoint(const Eigen::Vector3f &Pos, Map* pMap, Frame* pFrame, const int &idxF):
@@ -128,22 +118,14 @@ MapPoint::MapPoint(const Eigen::Vector3f &Pos, Map* pMap, Frame* pFrame, const i
     // MapPoints can be created from Tracking and Local Mapping. This mutex avoid conflicts with id.
     unique_lock<mutex> lock(mpMap->mMutexPointCreation);
     mnId=nNextId++;
-
-    if (MappingKernelController::is_active) {
-        CudaMapPointStorage::addCudaMapPoint(this);
-    }
+    scaleObservationsCount.resize(8, 0);
 }
 
 void MapPoint::SetWorldPos(const Eigen::Vector3f &Pos) {
     unique_lock<mutex> lock2(mGlobalMutex);
     unique_lock<mutex> lock(mMutexPos);
     mWorldPos = Pos;
-    if (MappingKernelController::is_active) {
-        MAPPING_DATA_WRAPPER::CudaMapPoint* d_mp = CudaMapPointStorage::getCudaMapPoint(mnId);
-        if (d_mp) {
-            CudaMapPointStorage::updateCudaMapPointWorldPos(mnId, mWorldPos);
-        }
-    }
+    scaleObservationsCount.resize(8, 0);
 }
 
 Eigen::Vector3f MapPoint::GetWorldPos() {
@@ -170,6 +152,19 @@ void MapPoint::AddObservation(KeyFrame* pKF, int idx)
 
     if(mObservations.count(pKF)){
         indexes = mObservations[pKF];
+        int scaleLevel = -1, leftIndex = get<0>(indexes), rightIndex = get<1>(indexes);
+        if (pKF->NLeft == -1)
+            scaleLevel = pKF->mvKeysUn[leftIndex].octave;
+        else {
+            if (leftIndex != -1) {
+                scaleLevel = pKF->mvKeys[leftIndex].octave;
+            }
+            if (rightIndex != -1) {
+                int rightLevel = pKF->mvKeysRight[rightIndex - pKF->NLeft].octave;
+                scaleLevel = (scaleLevel == -1 || scaleLevel > rightLevel) ? rightLevel : scaleLevel;
+            }
+        }
+        scaleObservationsCount[scaleLevel]--;
     }
     else{
         indexes = tuple<int,int>(-1,-1);
@@ -189,12 +184,11 @@ void MapPoint::AddObservation(KeyFrame* pKF, int idx)
     else
         nObs++;
 
-    if (MappingKernelController::is_active) {
-        MAPPING_DATA_WRAPPER::CudaMapPoint* d_mp = CudaMapPointStorage::getCudaMapPoint(mnId);
-        if (d_mp) {
-            CudaMapPointStorage::updateCudaMapPointObservations(mnId, nObs, mObservations);
-        }
-    }
+    int scaleLevel = (pKF->NLeft == -1) ? pKF->mvKeysUn[idx].octave
+                                        : (idx < pKF->NLeft) ? pKF->mvKeys[idx].octave
+                                                             : pKF->mvKeysRight[idx - pKF->NLeft].octave;
+
+    scaleObservationsCount[scaleLevel]++;
 }
 
 void MapPoint::EraseObservation(KeyFrame* pKF)
@@ -219,19 +213,27 @@ void MapPoint::EraseObservation(KeyFrame* pKF)
 
             mObservations.erase(pKF);
 
+            int scaleLevel = -1;
+            if (pKF->NLeft == -1)
+                scaleLevel = pKF->mvKeysUn[leftIndex].octave;
+            else {
+                if (leftIndex != -1) {
+                    scaleLevel = pKF->mvKeys[leftIndex].octave;
+                }
+                if (rightIndex != -1) {
+                    int rightLevel = pKF->mvKeysRight[rightIndex - pKF->NLeft].octave;
+                    scaleLevel = (scaleLevel == -1 || scaleLevel > rightLevel) ? rightLevel : scaleLevel;
+                }
+            }
+            if (scaleLevel != -1)
+                scaleObservationsCount[scaleLevel]--;
+
             if(mpRefKF==pKF)
                 mpRefKF=mObservations.begin()->first;
 
             // If only 2 observations or less, discard point
             if(nObs<=2)
                 bBad=true;
-        }
-    }
-
-    if (MappingKernelController::is_active) {
-        MAPPING_DATA_WRAPPER::CudaMapPoint* d_mp = CudaMapPointStorage::getCudaMapPoint(mnId);
-        if (d_mp) {
-            CudaMapPointStorage::updateCudaMapPointObservations(mnId, nObs, mObservations);
         }
     }
 
@@ -250,6 +252,12 @@ int MapPoint::Observations()
 {
     unique_lock<mutex> lock(mMutexFeatures);
     return nObs;
+}
+
+std::vector<int> MapPoint::GetScaleObservationsCount() 
+{
+    unique_lock<mutex> lock(mMutexFeatures);
+    return scaleObservationsCount;
 }
 
 void MapPoint::SetBadFlag()
@@ -275,10 +283,6 @@ void MapPoint::SetBadFlag()
     }
 
     mpMap->EraseMapPoint(this);
-    
-    if (MappingKernelController::is_active) {
-        CudaMapPointStorage::eraseCudaMapPoint(this);
-    }
 }
 
 MapPoint* MapPoint::GetReplaced()
@@ -340,10 +344,6 @@ void MapPoint::Replace(MapPoint* pMP)
     pMP->ComputeDistinctiveDescriptors();
 
     mpMap->EraseMapPoint(this);
-
-    if (MappingKernelController::is_active) {
-        CudaMapPointStorage::replaceCudaMapPoint(mnId, pMP);
-    }
 }
 
 bool MapPoint::isBad()
@@ -447,13 +447,6 @@ void MapPoint::ComputeDistinctiveDescriptors()
         unique_lock<mutex> lock(mMutexFeatures);
         mDescriptor = vDescriptors[BestIdx].clone();
     }
-
-    if (MappingKernelController::is_active) {
-        MAPPING_DATA_WRAPPER::CudaMapPoint* d_mp = CudaMapPointStorage::getCudaMapPoint(mnId);
-        if (d_mp) {
-            CudaMapPointStorage::updateCudaMapPointDescriptor(mnId, mDescriptor);
-        }
-    }
 }
 
 cv::Mat MapPoint::GetDescriptor()
@@ -544,13 +537,6 @@ void MapPoint::UpdateNormalAndDepth()
         mfMaxDistance = dist*levelScaleFactor;
         mfMinDistance = mfMaxDistance/pRefKF->mvScaleFactors[nLevels-1];
         mNormalVector = normal/n;
-    }
-
-    if (MappingKernelController::is_active) {
-        MAPPING_DATA_WRAPPER::CudaMapPoint* d_mp = CudaMapPointStorage::getCudaMapPoint(mnId);
-        if (d_mp) {
-            CudaMapPointStorage::updateCudaMapNormalAndDepth(mnId, GetMinDistance(), GetMaxDistance(), GetNormal());
-        }
     }
 }
 

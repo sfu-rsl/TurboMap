@@ -121,6 +121,7 @@ public:
 
     std::map<KeyFrame*,std::tuple<int,int>> GetObservations();
     int Observations();
+    std::vector<int> GetScaleObservationsCount();
 
     void AddObservation(KeyFrame* pKF,int idx);
     void EraseObservation(KeyFrame* pKF);
@@ -216,6 +217,8 @@ protected:
 
      // Keyframes observing the point and associated index in keyframe
      std::map<KeyFrame*,std::tuple<int,int> > mObservations;
+     // The count of keyframes observing a mappoint in each scale, used in KFCulling
+     std::vector<int> scaleObservationsCount;
      // For save relation without pointer, this is necessary for save/load function
      std::map<long unsigned int, int> mBackupObservationsId1;
      std::map<long unsigned int, int> mBackupObservationsId2;

@@ -31,57 +31,6 @@ void CudaKeyFrameStorage::initializeMemory(){
     memory_is_initialized = true;
 }
 
-void CudaKeyFrameStorage::eraseCudaKeyFrameMapPoint(long unsigned int KF_mnId, int idx) {
-#ifdef REGISTER_LOCAL_MAPPING_STATS
-        std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-#endif  
-    // std::unique_lock<std::mutex> lock(mtx);
-    auto it = mnId_to_idx.find(KF_mnId);
-    if (it == mnId_to_idx.end()) {
-        cout << "[ERROR] CudaKeyFrameStorage::eraseCudaKeyFrameMapPoint: ] KF " << KF_mnId << " not found!\n";
-        MappingKernelController::shutdownKernels(true, true);
-        exit(EXIT_FAILURE);
-    }
-    int KF_idx = it->second;
-
-    h_keyframes[KF_idx].eraseMapPoint(idx);
-    checkCudaError(cudaMemcpy(&d_keyframes[KF_idx], &h_keyframes[KF_idx], sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame), cudaMemcpyHostToDevice), "[CudaKeyFrameStorage::eraseCudaKeyFrameMapPoint: ] Failed");
-
-    DEBUG_PRINT("eraseCudaKeyFrameMapPoint: " << KF_mnId << endl);
-
-#ifdef REGISTER_LOCAL_MAPPING_STATS
-    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-    double time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(end - start).count();
-    LocalMappingStats::getInstance().eraseCudaKeyFrameMapPoint_time.push_back(time);
-#endif
-}
-
-void CudaKeyFrameStorage::updateCudaKeyFrameMapPoint(long unsigned int KF_mnId, ORB_SLAM3::MapPoint* mp, int idx) {
-#ifdef REGISTER_LOCAL_MAPPING_STATS
-    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-#endif  
-    // std::unique_lock<std::mutex> lock(mtx);
-    auto it = mnId_to_idx.find(KF_mnId);
-    if (it == mnId_to_idx.end()) {
-        cout << "[ERROR] CudaKeyFrameStorage::updateCudaKeyFrameMapPoint: ] KF " << KF_mnId << " not found!\n";
-        MappingKernelController::shutdownKernels(true, true);
-        exit(EXIT_FAILURE);       
-    }
-    int KF_idx = it->second;
-
-    MAPPING_DATA_WRAPPER::CudaMapPoint* d_mp = CudaMapPointStorage::getCudaMapPoint(mp->mnId);
-    h_keyframes[KF_idx].addMapPoint(d_mp, idx);
-    checkCudaError(cudaMemcpy(&d_keyframes[KF_idx], &h_keyframes[KF_idx], sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame), cudaMemcpyHostToDevice), "[CudaKeyFrameStorage::updateCudaKeyFrameMapPoint: ] Failed");
-
-    DEBUG_PRINT("updateCudaKeyFrameMapPoint: " << KF_mnId << endl);
-
-#ifdef REGISTER_LOCAL_MAPPING_STATS
-    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-    double time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(end - start).count();
-    LocalMappingStats::getInstance().updateCudaKeyFrameMapPoint_time.push_back(time);
-#endif
-}
-
 MAPPING_DATA_WRAPPER::CudaKeyFrame* CudaKeyFrameStorage::addCudaKeyFrame(ORB_SLAM3::KeyFrame* KF) {
 #ifdef REGISTER_LOCAL_MAPPING_STATS
     std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();

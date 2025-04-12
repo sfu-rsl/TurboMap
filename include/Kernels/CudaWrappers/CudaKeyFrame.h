@@ -1,7 +1,6 @@
 #ifndef CUDA_KEYFRAME_H
 #define CUDA_KEYFRAME_H
 
-#include "CudaMapPoint.h"
 #include "CudaKeyPoint.h"
 #include "CudaCamera.h"
 #include "KeyFrame.h"
@@ -25,9 +24,7 @@ class CudaKeyFrame {
         void setGPUAddress(CudaKeyFrame* ptr);
         void setMemory(ORB_SLAM3::KeyFrame* KF);
         void setMemory(ORB_SLAM3::KeyFrame &KF);
-        void addMapPoint(CudaMapPoint* d_mp, int idx);
         void addFeatureVector(DBoW2::FeatureVector featVec);
-        void eraseMapPoint(int idx);
         void setAsEmpty() { isEmpty = true; };
         void freeMemory();
 
@@ -48,9 +45,6 @@ class CudaKeyFrame {
         float mThDepth;
         float* mvDepth;
         float mbf;
-
-        size_t mvpMapPoints_size;
-        CudaMapPoint** mvpMapPoints;
 
         CudaKeyFrame* gpuAddr;
 

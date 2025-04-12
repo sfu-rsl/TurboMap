@@ -27,7 +27,6 @@
 
 #include "Kernels/MappingKernelController.h"
 #include "Kernels/CudaKeyFrameStorage.h"
-#include "Kernels/CudaMapPointStorage.h"
 
 #include<mutex>
 #include<thread>

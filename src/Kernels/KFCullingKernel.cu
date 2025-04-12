@@ -7,220 +7,25 @@ void KFCullingKernel::initialize(){
         return;
     }
 
+    int maxFeatures = CudaUtils::nFeatures_with_th;
+    size_t maxNeighborCount = 300;
+    size_t mapPointVecSize;
+    if (CudaUtils::cameraIsFisheye)
+        mapPointVecSize = maxFeatures*2;
+    else
+        mapPointVecSize = maxFeatures;
+
     checkCudaError(cudaMalloc((void**)&d_keyframes, MAX_NUM_KEYFRAMES * sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame*)), "[KFCullingKernel::] Failed to allocate memory for d_keyframes");   
-
-    // checkCudaError(cudaMallocHost((void**)&h_keyframes, MAX_NUM_KEYFRAMES * sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame)), "[KFCullingKernel::] Failed to allocate memory for h_keyframes");   
-    // for (int i = 0; i < MAX_NUM_KEYFRAMES; ++i) {
-    //     h_keyframes[i] = MAPPING_DATA_WRAPPER::CudaKeyFrame();
-    // }
-
     checkCudaError(cudaMalloc((void**)&d_nRedundantObservations, MAX_NUM_KEYFRAMES * sizeof(int)), "[KFCullingKernel::] Failed to allocate memory for d_nRedundantObservations"); 
     checkCudaError(cudaMalloc((void**)&d_nMPs, MAX_NUM_KEYFRAMES * sizeof(int)), "[KFCullingKernel::] Failed to allocate memory for d_nMPs"); 
+    checkCudaError(cudaMalloc((void**)&d_neighFramesMapPointsCorrect, maxNeighborCount * mapPointVecSize * sizeof(bool)), "Failed to allocate device vector d_neighFramesMapPointsCorrect");
+    checkCudaError(cudaMalloc((void**)&d_neighKFsMapPoints, maxNeighborCount * mapPointVecSize * sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint)), "Failed to allocate memory for d_neighKFsMapPoints");
 
     memory_is_initialized = true;
 }
 
-__global__ void keyframeCullingKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame** d_keyframes, int numKeyframes, int thObs, bool mbMonocular,
-                                    int* d_nMPs, int* d_nRedundantObservations) {
-
-    unsigned int kf_idx = blockIdx.x;
+__global__ void keyframeCullingKernel() {
     
-    if (kf_idx >= numKeyframes) {
-        return;
-    }
-    
-    MAPPING_DATA_WRAPPER::CudaKeyFrame* pKF = d_keyframes[kf_idx];
-    unsigned int mp_idx = threadIdx.x;
-    __shared__ int nMPs;
-    __shared__ int nRedundantObservations;
-    if (threadIdx.x == 0) {
-        nMPs = 0;
-        nRedundantObservations = 0;
-    }
-    __syncthreads(); 
-    
-    if (pKF == nullptr || pKF->isEmpty) {
-        if (threadIdx.x == 0) {
-            d_nMPs[kf_idx] = nMPs;
-            d_nRedundantObservations[kf_idx] = nRedundantObservations;
-        }
-    }
-    
-    else {
-        
-        unsigned int numItr = (pKF->mvpMapPoints_size + blockDim.x - 1) / blockDim.x;
-
-        for (int i = numItr*mp_idx; i < numItr*mp_idx + numItr; i++) {
-
-            if (i >= pKF->mvpMapPoints_size) {
-                break;
-            }
-
-            MAPPING_DATA_WRAPPER::CudaMapPoint* pMP = pKF->mvpMapPoints[i];
-            
-            if (pMP == nullptr) {
-                continue;
-            }
-            
-            if (pMP->isEmpty) {
-                continue;
-            }
-            
-            if (pMP->mbBad) {
-                continue;
-            }
-            
-            if(!mbMonocular)
-            {
-                if(pKF->mvDepth[i]>pKF->mThDepth || pKF->mvDepth[i]<0) {
-                    continue;
-                }
-            }
-            
-            atomicAdd(&nMPs, 1);
-            
-            if(pMP->nObs <= thObs) {
-                continue;
-            }
-            
-            int scaleLevel = (pKF->Nleft == -1) ? pKF->mvKeysUn[i].octave
-                                                            : (i < pKF->Nleft) ? pKF->mvKeys[i].octave
-                                                                                : pKF->mvKeysRight[i].octave;
-
-            int nObs=0;
-
-            for(int j = 0; j < pMP->mObservations_size; j++) {
-
-                MAPPING_DATA_WRAPPER::CudaKeyFrame* pKFi = pMP->mObservations_dkf[j];
-
-                if (pKFi == nullptr || pKFi->isEmpty) break;
-
-                if(pKFi->mnId==pKF->mnId) {
-                    continue;
-                }
-
-                int leftIndex = pMP->mObservations_leftIdx[j];
-                int rightIndex =  pMP->mObservations_rightIdx[j];
-                int scaleLeveli = -1;
-
-                if(pKFi->Nleft == -1)
-                    scaleLeveli = pKFi->mvKeysUn[leftIndex].octave;
-                else {
-                    if (leftIndex != -1) {
-                        scaleLeveli = pKFi->mvKeys[leftIndex].octave;
-                    }
-                    if (rightIndex != -1) {
-                        int rightLevel = pKFi->mvKeysRight[rightIndex - pKFi->Nleft].octave;
-                        scaleLeveli = (scaleLeveli == -1 || scaleLeveli > rightLevel) ? rightLevel
-                                                                                        : scaleLeveli;
-                    }
-                }
-
-                if(scaleLeveli<=scaleLevel+1) {
-                    nObs++;
-                    if(nObs>thObs)
-                        break;
-                }
-            }
-
-            if(nObs>thObs)
-            {
-                atomicAdd(&nRedundantObservations, 1);
-            }
-        }
-    }
-    
-    __syncthreads(); 
-
-    if (threadIdx.x == 0) {
-        d_nMPs[kf_idx] = nMPs;
-        d_nRedundantObservations[kf_idx] = nRedundantObservations;
-    }
-}
-
-__global__ void oldKeyframeCullingKernel(MAPPING_DATA_WRAPPER::CudaKeyFrame** d_keyframes, int numKeyframes, int thObs, bool mbMonocular,
-                                          int* d_nMPs, int* d_nRedundantObservations) {
-    unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
-    if (idx < numKeyframes) {
-
-        MAPPING_DATA_WRAPPER::CudaKeyFrame* pKF = d_keyframes[idx];
-
-        if (pKF == nullptr) return;
-
-        if (pKF->isEmpty) return;
-
-        d_nMPs[idx] = 0;
-        d_nRedundantObservations[idx] = 0;
-
-        MAPPING_DATA_WRAPPER::CudaMapPoint** vpMapPoints = pKF->mvpMapPoints;
-
-        for(int i = 0; i < pKF->mvpMapPoints_size; i++) {
-            
-            MAPPING_DATA_WRAPPER::CudaMapPoint* pMP = vpMapPoints[i];
-
-            if (pMP == nullptr) continue;
-            
-            if (pMP->isEmpty) continue;
-            
-            if (pMP->mbBad) continue;
-
-            if(!mbMonocular)
-            {
-                if(pKF->mvDepth[i]>pKF->mThDepth || pKF->mvDepth[i]<0)
-                    continue;
-            }
-
-            d_nMPs[idx] += 1;
-
-            if(pMP->nObs <= thObs) continue;
-
-            
-            int scaleLevel = (pKF->Nleft == -1) ? pKF->mvKeysUn[i].octave
-                                                            : (i < pKF->Nleft) ? pKF->mvKeys[i].octave
-                                                                                : pKF->mvKeysRight[i].octave;
-
-            int nObs=0;
-            for(int j = 0; j < pMP->mObservations_size; j++) {
-
-                MAPPING_DATA_WRAPPER::CudaKeyFrame* pKFi = pMP->mObservations_dkf[j];
-
-                if (pKFi == nullptr) continue;
-
-                if (pKFi->isEmpty) continue;
-
-                if(pKFi->mnId==pKF->mnId)
-                    continue;
-
-                int leftIndex = pMP->mObservations_leftIdx[j];
-                int rightIndex =  pMP->mObservations_rightIdx[j];
-                int scaleLeveli = -1;
-
-                if(pKFi->Nleft == -1)
-                    scaleLeveli = pKFi->mvKeysUn[leftIndex].octave;
-                else {
-                    if (leftIndex != -1) {
-                        scaleLeveli = pKFi->mvKeys[leftIndex].octave;
-                    }
-                    if (rightIndex != -1) {
-                        int rightLevel = pKFi->mvKeysRight[rightIndex - pKFi->Nleft].octave;
-                        scaleLeveli = (scaleLeveli == -1 || scaleLeveli > rightLevel) ? rightLevel
-                                                                                        : scaleLeveli;
-                    }
-                }
-
-                if(scaleLeveli<=scaleLevel+1) {
-                    nObs++;
-                    if(nObs>thObs)
-                        break;
-                }
-            }
-
-            if(nObs>thObs)
-            {
-                d_nRedundantObservations[idx] += 1;
-            }
-        }
-    }
 }
 
 void KFCullingKernel::launch(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int* h_nMPs, int* h_nRedundantObservations) {
@@ -260,6 +65,25 @@ void KFCullingKernel::launch(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int*
         }
     }
 
+    int maxFeatures = CudaUtils::nFeatures_with_th;
+    size_t mapPointVecSize;
+    if (CudaUtils::cameraIsFisheye)
+        mapPointVecSize = maxFeatures*2;
+    else
+        mapPointVecSize = maxFeatures;
+
+    bool neighFramesMapPointsCorrect[vpLocalKeyFrames_size][mapPointVecSize];
+    MAPPING_DATA_WRAPPER::CudaMapPoint wrappedNeighKFMapPoints[vpLocalKeyFrames_size][mapPointVecSize];
+    for (int i = 0; i < vpLocalKeyFrames_size; i++) {
+        vpLocalKeyFrames[i]->GetMapPointCorrectness(neighFramesMapPointsCorrect[i]);
+        std::vector<ORB_SLAM3::MapPoint*> mapPoints = vpLocalKeyFrames[i]->GetMapPointMatches();
+        for (int j = 0; j < mapPoints.size(); j++)
+            wrappedNeighKFMapPoints[i][j] = MAPPING_DATA_WRAPPER::CudaMapPoint(mapPoints[j]);
+    }
+    
+    checkCudaError(cudaMemcpy(d_neighKFsMapPoints, wrappedNeighKFMapPoints, sizeof(wrappedNeighKFMapPoints), cudaMemcpyHostToDevice), "Failed to copy vector wrappedNeighKFMapPoints from host to device");
+    checkCudaError(cudaMemcpy(d_neighFramesMapPointsCorrect, neighFramesMapPointsCorrect, sizeof(neighFramesMapPointsCorrect), cudaMemcpyHostToDevice), "Failed to copy vector neighFramesMapPointsCorrect from host to device");
+    
 #ifdef REGISTER_LOCAL_MAPPING_STATS
     std::chrono::steady_clock::time_point endPreProcess = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point startKernel = std::chrono::steady_clock::now();
@@ -268,7 +92,7 @@ void KFCullingKernel::launch(vector<ORB_SLAM3::KeyFrame*> vpLocalKeyFrames, int*
     int thObs = 3;
     int blockSize = 1024;
     int numBlocks = vpLocalKeyFrames_size;
-    keyframeCullingKernel<<<numBlocks, blockSize>>>(d_keyframes, vpLocalKeyFrames_size, thObs, CudaUtils::isMonocular, d_nMPs, d_nRedundantObservations);
+    keyframeCullingKernel<<<numBlocks, blockSize>>>();
     checkCudaError(cudaDeviceSynchronize(), "[KFCullingKernel:] Kernel launch failed");  
 
 #ifdef REGISTER_LOCAL_MAPPING_STATS
@@ -404,6 +228,8 @@ void KFCullingKernel::shutdown(){
     cudaFree(d_keyframes);
     cudaFree(d_nRedundantObservations);
     cudaFree(d_nMPs);
+    cudaFree(d_neighFramesMapPointsCorrect);
+    cudaFree(d_neighKFsMapPoints);
 }
 
 void KFCullingKernel::saveStats(const std::string &file_path) {

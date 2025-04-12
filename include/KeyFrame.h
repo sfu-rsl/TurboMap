@@ -257,6 +257,7 @@ public:
     int TrackedMapPoints(const int &minObs);
     MapPoint* GetMapPoint(const size_t &idx);
     void GetMapPointAvailabality(bool* mapPointAvailabalities);
+    void GetMapPointCorrectness(bool* mapPointAvailabalities);
 
     // KeyPoint functions
     std::vector<size_t> GetFeaturesInArea(const float &x, const float  &y, const float  &r, const bool bRight = false) const;

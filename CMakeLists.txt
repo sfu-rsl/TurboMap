@@ -105,7 +105,6 @@ src/Kernels/TrackingKernelController.cu
 src/Kernels/MappingKernelController.cu
 src/Kernels/KFCullingKernel.cu
 src/Kernels/CudaKeyFrameStorage.cu
-src/Kernels/CudaMapPointStorage.cu
 src/Kernels/FuseKernel.cu
 include/System.h
 include/Tracking.h
@@ -161,7 +160,6 @@ include/Kernels/TrackingKernelController.h
 include/Kernels/MappingKernelController.h
 include/Kernels/KFCullingKernel.h
 include/Kernels/CudaKeyFrameStorage.h
-include/Kernels/CudaMapPointStorage.h
 )
 
 set_target_properties( ${PROJECT_NAME}

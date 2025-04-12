@@ -4,7 +4,6 @@
 #include "KFCullingKernel.h"
 #include "CudaWrappers/CudaKeyFrame.h"
 #include "CudaKeyFrameStorage.h"
-#include "CudaMapPointStorage.h"
 #include "CudaUtils.h"
 #include "FuseKernel.h"
 #include "SearchForTriangulationKernel.h"
