@@ -31,7 +31,9 @@ class FuseKernel: public KernelInterface {
         int *h_bestDist, *h_bestIdx;
         int *d_bestDist, *d_bestIdx;
         MAPPING_DATA_WRAPPER::CudaMapPoint *d_currKFMapPoints;
-        
+
+        std::vector<std::pair<long unsigned int, double>> input_data_wrap_time;
+        std::vector<std::pair<long unsigned int, double>> input_data_transfer_time;
         std::vector<std::pair<long unsigned int, double>> kernel_exec_time;
         std::vector<std::pair<long unsigned int, double>> output_data_transfer_time;
         std::vector<std::pair<long unsigned int, double>> total_exec_time;

@@ -238,6 +238,10 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currK
         exit(EXIT_FAILURE);
     }
 
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point startCopyObjectCreation = std::chrono::steady_clock::now();
+#endif
+
     // TODO: avoid copying the map points for all of the neighbors and do it once only
     int numValidPoints = 0;
     MAPPING_DATA_WRAPPER::CudaMapPoint wrappedCurrKFMapPoints[currKFMapPoints.size()];
@@ -250,9 +254,15 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currK
         numValidPoints++;
     }
 
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point endCopyObjectCreation = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point startMemcpy = std::chrono::steady_clock::now();
+#endif
+
     checkCudaError(cudaMemcpy(d_currKFMapPoints, wrappedCurrKFMapPoints, sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint)*numValidPoints, cudaMemcpyHostToDevice), "Failed to copy vector wrappedCurrKFMapPoints from host to device");
 
 #ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point endMemcpy = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point startKernel = std::chrono::steady_clock::now();
 #endif
 
@@ -274,11 +284,15 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currK
 #ifdef REGISTER_LOCAL_MAPPING_STATS
     std::chrono::steady_clock::time_point endMemcpyToCPU = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point endTotal = std::chrono::steady_clock::now();
-
+    
+    double copyObjectCreation = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endCopyObjectCreation - startCopyObjectCreation).count();
+    double memcpyToGPU = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endMemcpy - startMemcpy).count();
     double kernel = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endKernel - startKernel).count();
     double memcpyToCPU = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endMemcpyToCPU - startMemcpyToCPU).count();
     double total = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endTotal - startTotal).count();
 
+    input_data_wrap_time.emplace_back(frameCounter, copyObjectCreation);
+    input_data_transfer_time.emplace_back(frameCounter, memcpyToGPU);
     kernel_exec_time.emplace_back(frameCounter, kernel);
     output_data_transfer_time.emplace_back(frameCounter, memcpyToCPU);
     total_exec_time.emplace_back(frameCounter, total);
@@ -492,6 +506,18 @@ void FuseKernel::saveStats(const std::string &file_path) {
     
     myfile.open(data_path + "/kernel_exec_time.txt");
     for (const auto& p : kernel_exec_time) {
+        myfile << p.first << ": " << p.second << std::endl;
+    }
+    myfile.close();
+
+    myfile.open(data_path + "/input_data_wrap_time.txt");
+    for (const auto& p : input_data_wrap_time) {
+        myfile << p.first << ": " << p.second << std::endl;
+    }
+    myfile.close();
+
+    myfile.open(data_path + "/input_data_transfer_time.txt");
+    for (const auto& p : input_data_transfer_time) {
         myfile << p.first << ": " << p.second << std::endl;
     }
     myfile.close();
