@@ -1485,42 +1485,7 @@ namespace ORB_SLAM3
             int bestDist = bestDists[iMP];
             int bestIdx = bestIdxs[iMP];
 
-            Eigen::Vector3f p3Dw = pMP->GetWorldPos();
-            Eigen::Vector3f p3Dc = Tcw * p3Dw;
-
-            // Depth must be positive
-            if (p3Dc(2) < 0.0f)
-                continue;
-
-            const float invz = 1/p3Dc(2);
-            const Eigen::Vector2f uv = pCamera->project(p3Dc);
-
-            // Point must be inside the image
-            if (!neighKF->IsInImage(uv(0),uv(1)))
-                continue;
-
-            const float ur = uv(0)-bf*invz;
-
-            const float maxDistance = pMP->GetMaxDistanceInvariance();
-            const float minDistance = pMP->GetMinDistanceInvariance();
-            Eigen::Vector3f PO = p3Dw-Ow;
-            const float dist3D = PO.norm();
-
-            // Depth must be inside the scale pyramid of the image
-            if (dist3D < minDistance || dist3D > maxDistance)
-                continue;
-
-            // Viewing angle must be less than 60 deg
-            Eigen::Vector3f Pn = pMP->GetNormal();
-
-            if (PO.dot(Pn) < 0.5*dist3D)
-                continue;
-
-            int nPredictedLevel = pMP->PredictScale(dist3D,neighKF);
-            const float radius = th*neighKF->mvScaleFactors[nPredictedLevel];
-            const vector<size_t> vIndices = neighKF->GetFeaturesInArea(uv(0),uv(1),radius,bRight);
-
-            if (vIndices.empty())
+            if (bestDist == 256 || bestIdx == -1)
                 continue;
 
             if (bestDist <= TH_LOW) {
