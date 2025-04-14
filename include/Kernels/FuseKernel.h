@@ -19,8 +19,9 @@ class FuseKernel: public KernelInterface {
         void initialize() override;
         void shutdown() override;
         void launch() override { std::cout << "[FuseKernel:] provide input for kernel launch.\n"; };
-        void launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currKF, const float th, const bool bRight,
-                    int* h_bestDist, int* h_bestIdx, ORB_SLAM3::GeometricCamera* pCamera, Sophus::SE3f Tcw, Eigen::Vector3f Ow);
+        void launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currKF, const float th, 
+                    const bool bRight, ORB_SLAM3::GeometricCamera* pCamera, Sophus::SE3f Tcw, Eigen::Vector3f Ow, 
+                    vector<ORB_SLAM3::MapPoint*> &validMapPoints, int* bestDists, int* bestIdxs);
         void origFuse(ORB_SLAM3::KeyFrame *pKF, const vector<ORB_SLAM3::MapPoint*> &vpMapPoints, const float th, const bool bRight);
         int origDescriptorDistance(const cv::Mat &a, const cv::Mat &b);
         void saveStats(const string &file_path) override;

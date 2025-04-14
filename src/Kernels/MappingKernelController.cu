@@ -106,13 +106,13 @@ void MappingKernelController::launchKeyframeCullingKernel(vector<ORB_SLAM3::KeyF
     mpKFCullingKernel->launch(vpLocalKeyFrames, h_nMPs, h_nRedundantObservations);
 }
 
-void MappingKernelController::launchFuseKernel(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currKF,
-                                               const float th, const bool bRight, int* h_bestDist, int* h_bestIdx,
-                                               ORB_SLAM3::GeometricCamera* pCamera, Sophus::SE3f Tcw, Eigen::Vector3f Ow) {
+void MappingKernelController::launchFuseKernel(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currKF, const float th, 
+                                               const bool bRight, ORB_SLAM3::GeometricCamera* pCamera, Sophus::SE3f Tcw, Eigen::Vector3f Ow, 
+                                               vector<ORB_SLAM3::MapPoint*> &validMapPoints, int* bestDists, int* bestIdxs) {
 
     DEBUG_PRINT("Launching Fuse Kernel");
     
-    mpFuseKernel->launch(neighKF, currKF, th, bRight, h_bestDist, h_bestIdx, pCamera, Tcw, Ow);
+    mpFuseKernel->launch(neighKF, currKF, th, bRight, pCamera, Tcw, Ow, validMapPoints, bestDists, bestIdxs);
 }
 
 void MappingKernelController::launchSearchForTriangulationKernel(

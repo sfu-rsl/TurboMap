@@ -1452,12 +1452,12 @@ namespace ORB_SLAM3
         Sophus::SE3f Tcw;
         Eigen::Vector3f Ow;
 
-        if(bRight){
+        if (bRight){
             Tcw = neighKF->GetRightPose();
             Ow = neighKF->GetRightCameraCenter();
             pCamera = neighKF->mpCamera2;
         }
-        else{
+        else {
             Tcw = neighKF->GetPose();
             Ow = neighKF->GetCameraCenter();
             pCamera = neighKF->mpCamera;
@@ -1469,60 +1469,35 @@ namespace ORB_SLAM3
         const float &cy = neighKF->cy;
         const float &bf = neighKF->mbf;
 
-        int nFused=0;
+        int nFused = 0;
         
         vector<MapPoint*> vpMapPoints = currKF->GetMapPointMatches();
         int numPoints = vpMapPoints.size();
-        int h_bestDist[numPoints];
-        int h_bestIdx[numPoints];
-        int count_notMP = 0, count_bad=0, count_notidx=0, count_isinKF = 0, count_thcheck = 0, count_negdepth = 0, count_notinim = 0, count_dist = 0, count_normal=0;
+        vector<MapPoint*> validMapPoints;
+        int bestDists[numPoints];
+        int bestIdxs[numPoints];
 
-        MappingKernelController::launchFuseKernel(neighKF, currKF, th,  bRight, h_bestDist, h_bestIdx, pCamera, Tcw, Ow);
+        MappingKernelController::launchFuseKernel(neighKF, currKF, th,  bRight, pCamera, Tcw, Ow, validMapPoints, bestDists, bestIdxs);
 
-        for(size_t iMP=0; iMP<numPoints; iMP++) {
+        for(size_t iMP = 0; iMP < validMapPoints.size(); iMP++) {
 
-            MapPoint* pMP = vpMapPoints[iMP];
-            int bestDist = h_bestDist[iMP];
-            int bestIdx = h_bestIdx[iMP];
-
-            if(!pMP)
-            {
-                count_notMP++;
-                continue;
-            }
-
-            if(pMP->isBad())
-            {
-                count_bad++;
-                continue;
-            }
-
-            else if(pMP->IsInKeyFrame(neighKF))
-            {
-                count_isinKF++;
-                continue;
-            }
+            MapPoint* pMP = validMapPoints[iMP];
+            int bestDist = bestDists[iMP];
+            int bestIdx = bestIdxs[iMP];
 
             Eigen::Vector3f p3Dw = pMP->GetWorldPos();
             Eigen::Vector3f p3Dc = Tcw * p3Dw;
 
             // Depth must be positive
-            if(p3Dc(2)<0.0f)
-            {
-                count_negdepth++;
+            if (p3Dc(2) < 0.0f)
                 continue;
-            }
 
             const float invz = 1/p3Dc(2);
-
             const Eigen::Vector2f uv = pCamera->project(p3Dc);
 
             // Point must be inside the image
-            if(!neighKF->IsInImage(uv(0),uv(1)))
-            {
-                count_notinim++;
+            if (!neighKF->IsInImage(uv(0),uv(1)))
                 continue;
-            }
 
             const float ur = uv(0)-bf*invz;
 
@@ -1532,38 +1507,26 @@ namespace ORB_SLAM3
             const float dist3D = PO.norm();
 
             // Depth must be inside the scale pyramid of the image
-            if(dist3D<minDistance || dist3D>maxDistance) {
-                count_dist++;
+            if (dist3D < minDistance || dist3D > maxDistance)
                 continue;
-            }
 
             // Viewing angle must be less than 60 deg
             Eigen::Vector3f Pn = pMP->GetNormal();
 
-            if(PO.dot(Pn)<0.5*dist3D)
-            {
-                count_normal++;
+            if (PO.dot(Pn) < 0.5*dist3D)
                 continue;
-            }
+
             int nPredictedLevel = pMP->PredictScale(dist3D,neighKF);
-
             const float radius = th*neighKF->mvScaleFactors[nPredictedLevel];
-
             const vector<size_t> vIndices = neighKF->GetFeaturesInArea(uv(0),uv(1),radius,bRight);
 
-            if(vIndices.empty())
-            {
-                count_notidx++;
+            if (vIndices.empty())
                 continue;
-            }
 
-            if (bestDist<=TH_LOW)
-            {
+            if (bestDist <= TH_LOW) {
                 MapPoint* pMPinKF = neighKF->GetMapPoint(bestIdx);
-                if(pMPinKF)
-                {
-                    if(!pMPinKF->isBad())
-                    {
+                if (pMPinKF) {
+                    if (!pMPinKF->isBad()) {
                         if(pMPinKF->Observations()>pMP->Observations()) {
                             pMP->Replace(pMPinKF);
                         }
@@ -1572,16 +1535,12 @@ namespace ORB_SLAM3
                         }   
                     }
                 }
-                else
-                {
+                else {
                     pMP->AddObservation(neighKF,bestIdx);
                     neighKF->AddMapPoint(pMP,bestIdx);
                 }    
                 nFused++;
             }
-            else {
-                count_thcheck++;
-            }   
         }
 
         return nFused;

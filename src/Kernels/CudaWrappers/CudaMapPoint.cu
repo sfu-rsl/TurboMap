@@ -62,17 +62,6 @@ namespace MAPPING_DATA_WRAPPER
         const cv::Mat& descriptor = mp->GetDescriptor();
         std::memcpy(mDescriptor, descriptor.ptr<uint8_t>(0), descriptor.cols * sizeof(uint8_t));
         mbBad = mp->isBad();
-        observationsKFs_size = mp->Observations();
-
-        int itr = 0;
-        map<ORB_SLAM3::KeyFrame*, tuple<int,int>> observations = mp->GetObservations();
-        for (const auto& pair : observations) {
-            observationsKFs[itr] = pair.first->mnId;
-            const std::tuple<int, int>& value = pair.second; 
-            mObservations_leftIdx[itr] = std::get<0>(value);
-            mObservations_rightIdx[itr] = std::get<1>(value);
-            itr++;
-        }
     }
 
     void CudaMapPoint::setMemory(ORB_SLAM3::MapPoint* mp) {

@@ -46,14 +46,6 @@ __device__ int predictScale(float currentDist, float maxDistance, MAPPING_DATA_W
     return nScale;
 }
 
-__device__ inline bool isMapPointInKeyFrame(MAPPING_DATA_WRAPPER::CudaMapPoint* mapPoint, MAPPING_DATA_WRAPPER::CudaKeyFrame* keyframe) {
-    for (int i = 0; i < mapPoint->observationsKFs_size; i++) {
-        if (mapPoint->observationsKFs[i] == (int) keyframe->mnId)
-            return true;
-    }
-    return false;
-}
-
 __device__ inline bool isInImage(MAPPING_DATA_WRAPPER::CudaKeyFrame* keyframe, const float &x, const float &y) {
     return (x>=keyframe->mnMinX && x<keyframe->mnMaxX && y>=keyframe->mnMinY && y<keyframe->mnMaxY);
 }
@@ -98,9 +90,6 @@ __global__ void fuseKernel(MAPPING_DATA_WRAPPER::CudaMapPoint* currKFMapPoints, 
     bestIdxs[idx] = -1;
 
     MAPPING_DATA_WRAPPER::CudaMapPoint pMP = currKFMapPoints[idx];
-
-    if ((pMP.isEmpty) || (isMapPointInKeyFrame(&pMP, neighKF)) || (pMP.mbBad == true))
-        return;
     
     Eigen::Vector3f p3Dw = pMP.mWorldPos;
     Eigen::Vector3f p3Dc = Tcw * p3Dw;
@@ -229,8 +218,9 @@ __global__ void fuseKernel(MAPPING_DATA_WRAPPER::CudaMapPoint* currKFMapPoints, 
     bestIdxs[idx] = bestIdx;
 }
 
-void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currKF, const float th, const bool bRight, 
-                        int* h_bestDist, int* h_bestIdx, ORB_SLAM3::GeometricCamera* pCamera, Sophus::SE3f Tcw, Eigen::Vector3f Ow) {
+void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currKF, const float th, 
+                        const bool bRight, ORB_SLAM3::GeometricCamera* pCamera, Sophus::SE3f Tcw, Eigen::Vector3f Ow, 
+                        vector<ORB_SLAM3::MapPoint*> &validMapPoints, int* bestDists, int* bestIdxs) {
 
 #ifdef REGISTER_LOCAL_MAPPING_STATS
     std::chrono::steady_clock::time_point startTotal = std::chrono::steady_clock::now();
@@ -240,7 +230,6 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currK
         initialize();
     
     std::vector<ORB_SLAM3::MapPoint*> currKFMapPoints = currKF->GetMapPointMatches();
-    int numPoints = currKFMapPoints.size();
 
     MAPPING_DATA_WRAPPER::CudaKeyFrame* d_neighKF = CudaKeyFrameStorage::getCudaKeyFrame(neighKF->mnId);
     if (d_neighKF == nullptr) {
@@ -250,19 +239,26 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currK
     }
 
     // TODO: avoid copying the map points for all of the neighbors and do it once only
-    MAPPING_DATA_WRAPPER::CudaMapPoint wrappedCurrKFMapPoints[numPoints];
-    for (int i = 0; i < numPoints; i++)
-        wrappedCurrKFMapPoints[i] = MAPPING_DATA_WRAPPER::CudaMapPoint(currKFMapPoints[i]);
+    int numValidPoints = 0;
+    MAPPING_DATA_WRAPPER::CudaMapPoint wrappedCurrKFMapPoints[currKFMapPoints.size()];
+    for (int i = 0; i < currKFMapPoints.size(); i++) {
+        ORB_SLAM3::MapPoint* pMP = currKFMapPoints[i];
+        if (!pMP || pMP->isBad() || pMP->IsInKeyFrame(neighKF))
+            continue;
+        validMapPoints.push_back(pMP);
+        wrappedCurrKFMapPoints[numValidPoints] = MAPPING_DATA_WRAPPER::CudaMapPoint(pMP);
+        numValidPoints++;
+    }
 
-    checkCudaError(cudaMemcpy(d_currKFMapPoints, wrappedCurrKFMapPoints, sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint)*numPoints, cudaMemcpyHostToDevice), "Failed to copy vector wrappedCurrKFMapPoints from host to device");
+    checkCudaError(cudaMemcpy(d_currKFMapPoints, wrappedCurrKFMapPoints, sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint)*numValidPoints, cudaMemcpyHostToDevice), "Failed to copy vector wrappedCurrKFMapPoints from host to device");
 
 #ifdef REGISTER_LOCAL_MAPPING_STATS
     std::chrono::steady_clock::time_point startKernel = std::chrono::steady_clock::now();
 #endif
 
     int blockSize = 256;
-    int numBlocks = (numPoints + blockSize -1) / blockSize;
-    fuseKernel<<<numBlocks, blockSize>>>(d_currKFMapPoints, d_neighKF, numPoints, CudaUtils::cameraIsFisheye, Ow, Tcw, th, bRight, d_bestDist, d_bestIdx);
+    int numBlocks = (numValidPoints + blockSize -1) / blockSize;
+    fuseKernel<<<numBlocks, blockSize>>>(d_currKFMapPoints, d_neighKF, numValidPoints, CudaUtils::cameraIsFisheye, Ow, Tcw, th, bRight, d_bestDist, d_bestIdx);
 
     checkCudaError(cudaGetLastError(), "[fuseKernel:] Failed to launch kernel");
     checkCudaError(cudaDeviceSynchronize(), "[fuseKernel:] cudaDeviceSynchronize failed after kernel launch");  
@@ -272,9 +268,8 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currK
     std::chrono::steady_clock::time_point startMemcpyToCPU = std::chrono::steady_clock::now();
 #endif
     
-    checkCudaError(cudaMemcpy(h_bestDist, d_bestDist, numPoints * sizeof(int), cudaMemcpyDeviceToHost), "Failed to copy d_bestDist back to host");
-    checkCudaError(cudaMemcpy(h_bestIdx, d_bestIdx, numPoints * sizeof(int), cudaMemcpyDeviceToHost), "Failed to copy d_bestIdx back to host");
-
+    checkCudaError(cudaMemcpy(bestDists, d_bestDist, numValidPoints * sizeof(int), cudaMemcpyDeviceToHost), "Failed to copy d_bestDist back to host");
+    checkCudaError(cudaMemcpy(bestIdxs, d_bestIdx, numValidPoints * sizeof(int), cudaMemcpyDeviceToHost), "Failed to copy d_bestIdx back to host");
 
 #ifdef REGISTER_LOCAL_MAPPING_STATS
     std::chrono::steady_clock::time_point endMemcpyToCPU = std::chrono::steady_clock::now();
@@ -292,7 +287,7 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currK
 #endif
     
     // cout << "================================= Fuse called for KF: " << neighKF->mnId << " =================================\n";
-    // for (int i = 0; i < numPoints; i++) {
+    // for (int i = 0; i < numValidPoints; i++) {
     //     if (h_bestDist[i] != 256)
     //         printf("(i: %d, bestDist: %d, bestIdx: %d), ", i, h_bestDist[i], h_bestIdx[i]);
     // }
@@ -331,9 +326,7 @@ void FuseKernel::origFuse(ORB_SLAM3::KeyFrame *pKF, const vector<ORB_SLAM3::MapP
     // For debbuging
     int count_notMP = 0, count_bad=0, count_isinKF = 0, count_negdepth = 0, count_notinim = 0, count_dist = 0, count_normal=0, count_notidx = 0, count_thcheck = 0;
 
-    int bestDists[nMPs], bestIdxs[nMPs];
-    std::fill(bestDists, bestDists + nMPs, 256);
-    std::fill(bestIdxs, bestIdxs + nMPs, -1);
+    int validMapPointCounter = -1;
 
     for(int i=0; i<nMPs; i++) {
         ORB_SLAM3::MapPoint* pMP = vpMapPoints[i];
@@ -352,6 +345,8 @@ void FuseKernel::origFuse(ORB_SLAM3::KeyFrame *pKF, const vector<ORB_SLAM3::MapP
             count_isinKF++;
             continue;
         }
+
+        validMapPointCounter++;
         
         Eigen::Vector3f p3Dw = pMP->GetWorldPos();
         Eigen::Vector3f p3Dc = Tcw * p3Dw;
@@ -460,16 +455,13 @@ void FuseKernel::origFuse(ORB_SLAM3::KeyFrame *pKF, const vector<ORB_SLAM3::MapP
             if(dist<bestDist) {
                 bestDist = dist;
                 bestIdx = idx;
-                bestDists[i] = bestDist;
-                bestIdxs[i] = bestIdx;
             }
         }
+
+        if (bestDist != 256)
+            printf("(i: %d, bestDist: %d, bestIdx: %d), ", validMapPointCounter, bestDist, bestIdx);
     }
 
-    for (int i = 0; i < nMPs; i++) {
-        if (bestDists[i] != 256)
-            printf("(i: %d, bestDist: %d, bestIdx: %d), ", i, bestDists[i], bestIdxs[i]);
-    }
     printf("\n");
 }
 
