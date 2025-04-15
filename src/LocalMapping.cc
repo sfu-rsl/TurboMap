@@ -917,28 +917,18 @@ void LocalMapping::SearchInNeighbors()
     {
         KeyFrame* pKFi = *vit;
 
-        auto start12 = std::chrono::high_resolution_clock::now();
         if (MappingKernelController::fuseOnGPU == 1)
             matcher.GPUFuse(pKFi, mpCurrentKeyFrame);
         else
             matcher.Fuse(pKFi,vpMapPointMatches);
-        auto end12 = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double, std::milli> elapsed12 = end12 - start12;
-        first_fuse += elapsed12.count();
 
-        auto start13 = std::chrono::high_resolution_clock::now();
-        if(pKFi->NLeft != -1) matcher.Fuse(pKFi,vpMapPointMatches,true);
-        auto end13 = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double, std::milli> elapsed13 = end13 - start13;
-        second_fuse += elapsed13.count();
+        if (pKFi->NLeft != -1) {
+            if (MappingKernelController::fuseOnGPU == 1)
+                matcher.GPUFuse(pKFi, mpCurrentKeyFrame, true);
+            else
+                matcher.Fuse(pKFi,vpMapPointMatches, true);
+        }
     }
-
-    auto end5 = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> elapsed5 = end5 - start5;
-    // std::cout << "Part 5 execution time: " << elapsed5.count() << " ms" << std::endl;
-    // std::cout << "First fuse execution time: " << first_fuse << " ms" << std::endl;
-    // std::cout << "Second fuse execution time: " << second_fuse << " ms" << std::endl;
-
 
     if (mbAbortBA)
         return;
