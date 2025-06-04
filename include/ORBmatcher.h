@@ -85,6 +85,7 @@ namespace ORB_SLAM3
 
         // GPU: Project MapPoints into KeyFrame and search for duplicated MapPoints.
         int GPUFuse(KeyFrame *neighKF, KeyFrame *currKF, const float th=3.0, const bool bRight = false);
+        int GPUFuseV2(vector<KeyFrame*> neighKFs, KeyFrame *currKF, const float th=3.0);
 
         // Project MapPoints into KeyFrame using a given Sim3 and search for duplicated MapPoints.
         int Fuse(KeyFrame* pKF, Sophus::Sim3f &Scw, const std::vector<MapPoint*> &vpPoints, float th, vector<MapPoint *> &vpReplacePoint);

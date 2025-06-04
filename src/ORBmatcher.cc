@@ -1511,6 +1511,93 @@ namespace ORB_SLAM3
         return nFused;
     }
 
+    int ORBmatcher::GPUFuseV2(vector<KeyFrame*> neighKFs, KeyFrame *currKF, const float th)
+    {
+        int nFused = 0;
+        
+        vector<MapPoint*> vpMapPoints = currKF->GetMapPointMatches();
+        int numPoints = vpMapPoints.size();
+        int numNeighKFs = neighKFs.size();
+        vector<MapPoint*> validMapPoints;
+        int outSize = (currKF->NLeft == -1) ? numPoints*numNeighKFs : numPoints*numNeighKFs*2; 
+        int bestDists[outSize];
+        int bestIdxs[outSize];
+
+        MappingKernelController::launchFuseKernelV2(neighKFs, currKF, th, validMapPoints, bestDists, bestIdxs);
+        int validMapPointsSize = validMapPoints.size();
+        int iterations = (currKF->NLeft == -1) ? 1 : 2; 
+
+        for (int iKF = 0; iKF < numNeighKFs; iKF++) {
+            for (size_t iMP = 0; iMP < validMapPointsSize; iMP++) {
+                MapPoint* pMP = validMapPoints[iMP];
+                if (pMP->IsInKeyFrame(neighKFs[iKF]))
+                    continue;
+
+                int idx = (currKF->NLeft == -1) ? iKF*validMapPointsSize + iMP : iKF*validMapPointsSize*2 + iMP; 
+                int bestDist = bestDists[idx];
+                int bestIdx = bestIdxs[idx];
+
+                if (bestDist == 256 || bestIdx == -1)
+                    continue;
+
+                if (bestDist <= TH_LOW) {
+                    MapPoint* pMPinKF = neighKFs[iKF]->GetMapPoint(bestIdx);
+                    if (pMPinKF) {
+                        if (!pMPinKF->isBad()) {
+                            if (pMPinKF->Observations() > pMP->Observations()) {
+                                pMP->Replace(pMPinKF);
+                            }
+                            else {
+                                pMPinKF->Replace(pMP);
+                            }   
+                        }
+                    }
+                    else {
+                        pMP->AddObservation(neighKFs[iKF], bestIdx);
+                        neighKFs[iKF]->AddMapPoint(pMP, bestIdx);
+                    }    
+                    nFused++;
+                }
+            }
+            // For the right image in fisheye setting
+            if (currKF->NLeft != -1) {
+                for (size_t iMP = 0; iMP < validMapPointsSize; iMP++) {
+                    MapPoint* pMP = validMapPoints[iMP];
+                    if (pMP->IsInKeyFrame(neighKFs[iKF]))
+                        continue;
+
+                    int idx = iKF*validMapPointsSize*2 + validMapPointsSize + iMP; 
+                    int bestDist = bestDists[idx];
+                    int bestIdx = bestIdxs[idx];
+
+                    if (bestDist == 256 || bestIdx == -1)
+                        continue;
+
+                    if (bestDist <= TH_LOW) {
+                        MapPoint* pMPinKF = neighKFs[iKF]->GetMapPoint(bestIdx);
+                        if (pMPinKF) {
+                            if (!pMPinKF->isBad()) {
+                                if (pMPinKF->Observations() > pMP->Observations()) {
+                                    pMP->Replace(pMPinKF);
+                                }
+                                else {
+                                    pMPinKF->Replace(pMP);
+                                }   
+                            }
+                        }
+                        else {
+                            pMP->AddObservation(neighKFs[iKF], bestIdx);
+                            neighKFs[iKF]->AddMapPoint(pMP, bestIdx);
+                        }    
+                        nFused++;
+                    }
+                }
+            }
+        }
+
+        return nFused;
+    }
+
     int ORBmatcher::Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<MapPoint *> &vpPoints, float th, vector<MapPoint *> &vpReplacePoint)
     {
         // Get Calibration Parameters for later projection

@@ -909,26 +909,38 @@ void LocalMapping::SearchInNeighbors()
     // Search matches by projection from current KF in target KFs
     ORBmatcher matcher;
     vector<MapPoint*> vpMapPointMatches = mpCurrentKeyFrame->GetMapPointMatches();
-    auto start5 = std::chrono::high_resolution_clock::now();
-    double first_fuse = 0;
-    double second_fuse = 0;
 
-    for(vector<KeyFrame*>::iterator vit=vpTargetKFs.begin(), vend=vpTargetKFs.end(); vit!=vend; vit++)
-    {
-        KeyFrame* pKFi = *vit;
+    if (MappingKernelController::fuseOnGPU == 1)
+        matcher.GPUFuseV2(vpTargetKFs, mpCurrentKeyFrame);
 
-        if (MappingKernelController::fuseOnGPU == 1)
-            matcher.GPUFuse(pKFi, mpCurrentKeyFrame);
-        else
+    else {
+        for(vector<KeyFrame*>::iterator vit=vpTargetKFs.begin(), vend=vpTargetKFs.end(); vit!=vend; vit++)
+        {
+            KeyFrame* pKFi = *vit;
             matcher.Fuse(pKFi,vpMapPointMatches);
 
-        if (pKFi->NLeft != -1) {
-            if (MappingKernelController::fuseOnGPU == 1)
-                matcher.GPUFuse(pKFi, mpCurrentKeyFrame, true);
-            else
-                matcher.Fuse(pKFi,vpMapPointMatches, true);
+            if (pKFi->NLeft != -1)
+                matcher.Fuse(pKFi,vpMapPointMatches, 3.0, true);
         }
     }
+
+    // Uncomment this part for GPUFuse, and comment the previous part
+    // for(vector<KeyFrame*>::iterator vit=vpTargetKFs.begin(), vend=vpTargetKFs.end(); vit!=vend; vit++)
+    // {
+    //     KeyFrame* pKFi = *vit;
+
+    //     if (MappingKernelController::fuseOnGPU == 1)
+    //         matcher.GPUFuse(pKFi, mpCurrentKeyFrame);
+    //     else
+    //         matcher.Fuse(pKFi,vpMapPointMatches);
+
+    //     if (pKFi->NLeft != -1) {
+    //         if (MappingKernelController::fuseOnGPU == 1)
+    //             matcher.GPUFuse(pKFi, mpCurrentKeyFrame, true);
+    //         else
+    //             matcher.Fuse(pKFi,vpMapPointMatches, true);
+    //     }
+    // }
 
     if (mbAbortBA)
         return;

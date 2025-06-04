@@ -39,6 +39,11 @@ public:
         std::vector<ORB_SLAM3::MapPoint*> &validMapPoints, int* bestDists, int* bestIdxs
     );
 
+    static void launchFuseKernelV2(
+        std::vector<ORB_SLAM3::KeyFrame*> neighKFs, ORB_SLAM3::KeyFrame *currKF, const float th,  
+        std::vector<ORB_SLAM3::MapPoint*> &validMapPoints, int* bestDists, int* bestIdxs
+    );
+
     static void launchSearchForTriangulationKernel(
         ORB_SLAM3::KeyFrame* mpCurrentKeyFrame, std::vector<ORB_SLAM3::KeyFrame*> vpNeighKFs, 
         bool mbMonocular, bool mbInertial, bool recentlyLost, bool mbIMU_BA2, 

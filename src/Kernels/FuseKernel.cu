@@ -7,18 +7,25 @@ void FuseKernel::initialize() {
         return;
 
     int maxFeatures = CudaUtils::nFeatures_with_th;
-    size_t mapPointVecSize;
-    if (CudaUtils::cameraIsFisheye)
+    size_t mapPointVecSize, neighborCount;
+
+    if (CudaUtils::cameraIsFisheye) {
         mapPointVecSize = maxFeatures*2;
-    else
+        neighborCount = MAX_NEIGHBOR_KF_COUNT*2;
+    }
+    else {
         mapPointVecSize = maxFeatures;
+        neighborCount = MAX_NEIGHBOR_KF_COUNT;
+    }
 
-    checkCudaError(cudaMallocHost(&h_bestDist, mapPointVecSize * sizeof(int)), "Failed to allocate memory for h_bestDist");
-    checkCudaError(cudaMallocHost(&h_bestIdx, mapPointVecSize * sizeof(int)), "Failed to allocate memory for h_bestIdx");      
-
-    checkCudaError(cudaMalloc((void**)&d_bestDist, mapPointVecSize * sizeof(int)), "Failed to allocate memory for d_bestDist");
-    checkCudaError(cudaMalloc((void**)&d_bestIdx, mapPointVecSize * sizeof(int)), "Failed to allocate memory for d_bestIdx");
     checkCudaError(cudaMalloc((void**)&d_currKFMapPoints, mapPointVecSize * sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint)), "Failed to allocate memory for d_currKFMapPoints");
+    checkCudaError(cudaMalloc((void**)&d_neighKFs, neighborCount * sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame*)), "Failed to allocate memory for d_neighKFs");
+    checkCudaError(cudaMalloc((void**)&d_Tcw, neighborCount * sizeof(Sophus::SE3f)), "Failed to allocate memory for d_Tcw");
+    checkCudaError(cudaMalloc((void**)&d_TcwRight, neighborCount * sizeof(Sophus::SE3f)), "Failed to allocate memory for d_TcwRight");
+    checkCudaError(cudaMalloc((void**)&d_Ow, neighborCount * sizeof(Eigen::Vector3f)), "Failed to allocate memory for d_Ow");
+    checkCudaError(cudaMalloc((void**)&d_OwRight, neighborCount * sizeof(Eigen::Vector3f)), "Failed to allocate memory for d_OwRight");
+    checkCudaError(cudaMalloc((void**)&d_bestDists, neighborCount * mapPointVecSize * sizeof(int)), "Failed to allocate memory for d_bestDists");
+    checkCudaError(cudaMalloc((void**)&d_bestIdxs, neighborCount * mapPointVecSize * sizeof(int)), "Failed to allocate memory for d_bestIdxs");
 
     memory_is_initialized = true;
 }
@@ -27,14 +34,16 @@ void FuseKernel::shutdown() {
     if (!memory_is_initialized) 
         return;
 
-    checkCudaError(cudaFreeHost(h_bestDist),"Failed to free fuse kernel memory: h_bestDist");
-    checkCudaError(cudaFreeHost(h_bestIdx),"Failed to free fuse kernel memory: h_bestIdx");
-    checkCudaError(cudaFree(d_bestDist),"Failed to free fuse kernel memory: d_bestDist");
-    checkCudaError(cudaFree(d_bestIdx),"Failed to free fuse kernel memory: d_bestIdx");
     checkCudaError(cudaFree(d_currKFMapPoints),"Failed to free fuse kernel memory: d_currKFMapPoints");
+    checkCudaError(cudaFree(d_neighKFs),"Failed to free fuse kernel memory: d_neighKFs");
+    checkCudaError(cudaFree(d_Tcw),"Failed to free fuse kernel memory: d_Tcw");
+    checkCudaError(cudaFree(d_TcwRight),"Failed to free fuse kernel memory: d_TcwRight");
+    checkCudaError(cudaFree(d_Ow),"Failed to free fuse kernel memory: d_Ow");
+    checkCudaError(cudaFree(d_OwRight),"Failed to free fuse kernel memory: d_OwRight");
+    checkCudaError(cudaFree(d_bestDists),"Failed to free fuse kernel memory: d_bestDists");
+    checkCudaError(cudaFree(d_bestIdxs),"Failed to free fuse kernel memory: d_bestIdxs");
 }
 
-// TODO: fix this function
 __device__ int predictScale(float currentDist, float maxDistance, MAPPING_DATA_WRAPPER::CudaKeyFrame* pKF) {
     float ratio = maxDistance/currentDist;
     int nScale = ceil(log(ratio)/pKF->mfLogScaleFactor);
@@ -268,7 +277,7 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currK
 
     int blockSize = 256;
     int numBlocks = (numValidPoints + blockSize -1) / blockSize;
-    fuseKernel<<<numBlocks, blockSize>>>(d_currKFMapPoints, d_neighKF, numValidPoints, CudaUtils::cameraIsFisheye, Ow, Tcw, th, bRight, d_bestDist, d_bestIdx);
+    fuseKernel<<<numBlocks, blockSize>>>(d_currKFMapPoints, d_neighKF, numValidPoints, CudaUtils::cameraIsFisheye, Ow, Tcw, th, bRight, d_bestDists, d_bestIdxs);
 
     checkCudaError(cudaGetLastError(), "[fuseKernel:] Failed to launch kernel");
     checkCudaError(cudaDeviceSynchronize(), "[fuseKernel:] cudaDeviceSynchronize failed after kernel launch");  
@@ -278,8 +287,8 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currK
     std::chrono::steady_clock::time_point startMemcpyToCPU = std::chrono::steady_clock::now();
 #endif
     
-    checkCudaError(cudaMemcpy(bestDists, d_bestDist, numValidPoints * sizeof(int), cudaMemcpyDeviceToHost), "Failed to copy d_bestDist back to host");
-    checkCudaError(cudaMemcpy(bestIdxs, d_bestIdx, numValidPoints * sizeof(int), cudaMemcpyDeviceToHost), "Failed to copy d_bestIdx back to host");
+    checkCudaError(cudaMemcpy(bestDists, d_bestDists, numValidPoints * sizeof(int), cudaMemcpyDeviceToHost), "Failed to copy d_bestDists back to host");
+    checkCudaError(cudaMemcpy(bestIdxs, d_bestIdxs, numValidPoints * sizeof(int), cudaMemcpyDeviceToHost), "Failed to copy d_bestIdxs back to host");
 
 #ifdef REGISTER_LOCAL_MAPPING_STATS
     std::chrono::steady_clock::time_point endMemcpyToCPU = std::chrono::steady_clock::now();
@@ -309,6 +318,315 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currK
     
     // cout << "************ CPU Side ************\n";
     // origFuse(neighKF, currKF->GetMapPointMatches(), th, bRight);
+}
+
+__global__ void fuseKernelV2(
+    MAPPING_DATA_WRAPPER::CudaMapPoint* currKFMapPoints, MAPPING_DATA_WRAPPER::CudaKeyFrame** neighKFs, int numPoints, int numKFs, 
+    Eigen::Vector3f *Ow, Eigen::Vector3f *OwRight, Sophus::SE3f *Tcw, Sophus::SE3f *TcwRight, bool cameraIsFisheye, float th,
+    int* bestDists, int* bestIdxs
+) {
+
+    unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    int maxIdx, neighKFIdx, mapPointIdx;
+    bool bRight = false;
+    if (cameraIsFisheye) {
+        maxIdx = numPoints * numKFs * 2;
+        neighKFIdx = idx / numPoints / 2;
+        mapPointIdx = idx % numPoints;
+        if (idx % (2*numPoints) >= numPoints)
+            bRight = true;
+    }
+    else {
+        maxIdx = numPoints * numKFs;
+        neighKFIdx = idx / numPoints;
+        mapPointIdx = idx % numPoints;
+    }
+
+    if (idx >= maxIdx || neighKFIdx >= numKFs || mapPointIdx >= numPoints)
+        return;
+
+    bestDists[idx] = 256;
+    bestIdxs[idx] = -1;
+
+    MAPPING_DATA_WRAPPER::CudaMapPoint pMP = currKFMapPoints[mapPointIdx];
+    MAPPING_DATA_WRAPPER::CudaKeyFrame *neighKF = neighKFs[neighKFIdx];
+    
+    Sophus::SE3f currTcw = bRight ? TcwRight[neighKFIdx] : Tcw[neighKFIdx];
+    Eigen::Vector3f currOw = bRight ? OwRight[neighKFIdx] : Ow[neighKFIdx];
+
+    Eigen::Vector3f p3Dw = pMP.mWorldPos;
+    Eigen::Vector3f p3Dc = currTcw * p3Dw;
+    const float invz = 1/p3Dc(2);
+
+    Eigen::Vector2f uv;
+    if (cameraIsFisheye) {
+        if (!bRight)
+            uv = fisheyeProject(p3Dc, neighKF->camera1.mvParameters);
+        else
+            uv = fisheyeProject(p3Dc, neighKF->camera2.mvParameters);
+    }
+    else
+        uv = pinholeProject(p3Dc, neighKF->camera1.mvParameters);
+            
+    if ((p3Dc(2) < 0.0f) || (!isInImage(neighKF, uv(0), uv(1))))
+        return;
+
+    const float ur = uv(0) - neighKF->mbf*invz;
+    const float maxDistance = 1.2 * pMP.mfMaxDistance;
+    const float minDistance = 0.8 * pMP.mfMinDistance;
+    Eigen::Vector3f PO = p3Dw - currOw;
+    const float dist3D = PO.norm();
+
+    if (dist3D < minDistance || dist3D > maxDistance)
+        return;
+
+    Eigen::Vector3f Pn = pMP.mNormalVector;
+    if (PO.dot(Pn) < 0.5*dist3D)
+        return;
+
+    int nPredictedLevel = predictScale(dist3D, pMP.mfMaxDistance, neighKF);
+    const float radius = th * neighKF->mvScaleFactors[nPredictedLevel];
+
+    const uint8_t* MPdescriptor = &pMP.mDescriptor[0];
+    int bestDist = 256;
+    int bestIdx = -1;
+
+    // ## GetFeaturesInArea Function ##
+    float factorX = radius;
+    float factorY = radius;
+    float x = uv.x();
+    float y = uv.y();
+
+    const int nMinCellX = max(0,(int)floor((x - neighKF->mnMinX - factorX) * neighKF->mfGridElementWidthInv));
+    if (nMinCellX >= neighKF->mnGridCols) 
+        return;
+    
+    const int nMaxCellX = min((int)neighKF->mnGridCols-1,(int)ceil((x - neighKF->mnMinX + factorX) * neighKF->mfGridElementWidthInv));
+    if (nMaxCellX < 0)
+        return;
+    
+    const int nMinCellY = max(0,(int)floor((y - neighKF->mnMinY - factorY) * neighKF->mfGridElementHeightInv));
+    if (nMinCellY >= neighKF->mnGridRows)
+        return;
+    
+    const int nMaxCellY = min((int)neighKF->mnGridRows-1,(int)ceil((y - neighKF->mnMinY + factorY) * neighKF->mfGridElementHeightInv));
+    if (nMaxCellY < 0)
+        return;
+
+    for (int ix = nMinCellX; ix <= nMaxCellX; ix++) {
+        for (int iy = nMinCellY; iy <= nMaxCellY; iy++) {   
+            std::size_t* vCell;
+            int vCell_size;
+            if (!bRight) {
+                vCell = &neighKF->flatMGrid[ix * neighKF->mnGridRows * KEYPOINTS_PER_CELL + iy * KEYPOINTS_PER_CELL];
+                vCell_size = neighKF->flatMGrid_size[ix * neighKF->mnGridRows + iy];
+            } else {
+                vCell = &neighKF->flatMGridRight[ix * neighKF->mnGridRows * KEYPOINTS_PER_CELL + iy * KEYPOINTS_PER_CELL];
+                vCell_size = neighKF->flatMGridRight_size[ix * neighKF->mnGridRows + iy];
+            }
+
+            for (size_t j=0, jend=vCell_size; j<jend; j++) {
+                size_t temp_idx = vCell[j];
+
+                const MAPPING_DATA_WRAPPER::CudaKeyPoint &kpUn = (neighKF->Nleft == -1) ? neighKF->mvKeysUn[temp_idx]
+                                                                                        : (!bRight) ? neighKF->mvKeys[temp_idx]
+                                                                                                    : neighKF->mvKeysRight[temp_idx];
+                
+                const float distx = kpUn.ptx-x;
+                const float disty = kpUn.pty-y;
+                
+                if (fabs(distx) < radius && fabs(disty) < radius) {
+
+                    const int &kpLevel= kpUn.octave;
+
+                    if (kpLevel < nPredictedLevel-1 || kpLevel > nPredictedLevel)
+                        continue;
+
+                    if (neighKF->mvuRight[temp_idx] >= 0) {
+                        // Check reprojection error in stereo
+                        const float &kpx = kpUn.ptx;
+                        const float &kpy = kpUn.pty;
+                        const float &kpr = neighKF->mvuRight[temp_idx];
+                        const float ex = x-kpx;
+                        const float ey = y-kpy;
+                        const float er = ur-kpr;
+                        const float e2 = ex*ex+ey*ey+er*er;
+
+                        if (e2 * neighKF->mvInvLevelSigma2[kpLevel] > 7.8)
+                            continue;
+                    }
+                    else {
+                        const float &kpx = kpUn.ptx;
+                        const float &kpy = kpUn.pty;
+                        const float ex = x-kpx;
+                        const float ey = y-kpy;
+                        const float e2 = ex*ex+ey*ey;
+                        if(e2 * neighKF->mvInvLevelSigma2[kpLevel] > 5.99)
+                            continue;
+                    }
+
+                    if (bRight) 
+                        temp_idx += neighKF->Nleft;
+
+                    const uint8_t* dKF = &neighKF->mDescriptors[temp_idx * DESCRIPTOR_SIZE];
+
+                    int dist = DescriptorDistance(MPdescriptor,dKF);
+
+                    if (dist<bestDist) {
+                        bestDist = dist;
+                        bestIdx = temp_idx;
+                    }
+                }
+            }
+        }
+    }
+    
+    bestDists[idx] = bestDist;
+    bestIdxs[idx] = bestIdx;
+}
+
+void FuseKernel::launchV2(std::vector<ORB_SLAM3::KeyFrame*> neighKFs, ORB_SLAM3::KeyFrame *currKF, float th, 
+                          vector<ORB_SLAM3::MapPoint*> &validMapPoints, int* bestDists, int* bestIdxs) {
+
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point startTotal = std::chrono::steady_clock::now();
+#endif
+
+    if (!memory_is_initialized)
+        initialize();
+    
+    std::vector<ORB_SLAM3::MapPoint*> currKFMapPoints = currKF->GetMapPointMatches();
+    int neighKFSize = neighKFs.size();
+    if (neighKFSize == 0 || currKFMapPoints.size() == 0)
+        return;
+
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point startCopyObjectCreation = std::chrono::steady_clock::now();
+#endif
+
+    MAPPING_DATA_WRAPPER::CudaKeyFrame* neighKFsGPUAddress[neighKFSize];
+
+    for (int i = 0; i < neighKFSize; i++) {
+        neighKFsGPUAddress[i] = CudaKeyFrameStorage::getCudaKeyFrame(neighKFs[i]->mnId);
+        if (neighKFsGPUAddress[i] == nullptr) {
+            cerr << "[ERROR] FuseKernel::launch: ] CudaKeyFrameStorage doesn't have the keyframe: " << neighKFs[i]->mnId << "\n";
+            MappingKernelController::shutdownKernels(true, true);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    int numValidPoints = 0;
+    MAPPING_DATA_WRAPPER::CudaMapPoint wrappedCurrKFMapPoints[currKFMapPoints.size()];
+    for (int i = 0; i < currKFMapPoints.size(); i++) {
+        ORB_SLAM3::MapPoint* pMP = currKFMapPoints[i];
+        if (!pMP || pMP->isBad())
+            continue;
+        else {
+            wrappedCurrKFMapPoints[numValidPoints] = MAPPING_DATA_WRAPPER::CudaMapPoint(pMP);
+            validMapPoints.push_back(pMP);
+            numValidPoints++;
+        }
+    }
+
+    if (numValidPoints == 0)
+        return;
+
+    Sophus::SE3f Tcw[neighKFSize], TcwRight[neighKFSize];
+    Eigen::Vector3f Ow[neighKFSize], OwRight[neighKFSize];
+    for (int i = 0; i < neighKFSize; i++) {
+        Tcw[i] = neighKFs[i]->GetPose();
+        Ow[i] = neighKFs[i]->GetCameraCenter();
+
+        if (CudaUtils::cameraIsFisheye) {
+            TcwRight[i] = neighKFs[i]->GetRightPose();
+            OwRight[i] = neighKFs[i]->GetRightCameraCenter();
+        }
+    }
+
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point endCopyObjectCreation = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point startMemcpy = std::chrono::steady_clock::now();
+#endif
+
+    checkCudaError(cudaMemcpy(d_neighKFs, neighKFsGPUAddress, neighKFSize * sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame*), cudaMemcpyHostToDevice), "Failed to copy vector neighKFsGPUAddress from host to device");
+    checkCudaError(cudaMemcpy(d_currKFMapPoints, wrappedCurrKFMapPoints, numValidPoints * sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint), cudaMemcpyHostToDevice), "Failed to copy vector wrappedCurrKFMapPoints from host to device");
+    checkCudaError(cudaMemcpy(d_Tcw, Tcw, neighKFSize * sizeof(Sophus::SE3f), cudaMemcpyHostToDevice), "Failed to copy vector Tcw from host to device");
+    checkCudaError(cudaMemcpy(d_Ow, Ow, neighKFSize * sizeof(Eigen::Vector3f), cudaMemcpyHostToDevice), "Failed to copy vector Ow from host to device");
+    if (CudaUtils::cameraIsFisheye) {
+        checkCudaError(cudaMemcpy(d_TcwRight, TcwRight, neighKFSize * sizeof(Sophus::SE3f), cudaMemcpyHostToDevice), "Failed to copy vector TcwRight from host to device");
+        checkCudaError(cudaMemcpy(d_OwRight, OwRight, neighKFSize * sizeof(Eigen::Vector3f), cudaMemcpyHostToDevice), "Failed to copy vector OwRight from host to device");
+    }
+
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point endMemcpy = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point startKernel = std::chrono::steady_clock::now();
+#endif
+
+    int keyFramesToProcessCount = CudaUtils::cameraIsFisheye ? neighKFSize*2 : neighKFSize;
+    int blockSize = 256;
+    int numBlocks = (numValidPoints*keyFramesToProcessCount + blockSize - 1) / blockSize;
+
+    fuseKernelV2<<<numBlocks, blockSize>>>(
+        d_currKFMapPoints, d_neighKFs, numValidPoints, neighKFSize, d_Ow, d_OwRight, d_Tcw, d_TcwRight,
+        CudaUtils::cameraIsFisheye, th, d_bestDists, d_bestIdxs
+    );
+
+    checkCudaError(cudaGetLastError(), "[fuseKernelV2:] Failed to launch kernel");
+    checkCudaError(cudaDeviceSynchronize(), "[fuseKernelV2:] cudaDeviceSynchronize failed after kernel launch");  
+
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point endKernel = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point startMemcpyToCPU = std::chrono::steady_clock::now();
+#endif
+    
+    checkCudaError(cudaMemcpy(bestDists, d_bestDists, numValidPoints * keyFramesToProcessCount * sizeof(int), cudaMemcpyDeviceToHost), "Failed to copy d_bestDists back to host");
+    checkCudaError(cudaMemcpy(bestIdxs, d_bestIdxs, numValidPoints * keyFramesToProcessCount * sizeof(int), cudaMemcpyDeviceToHost), "Failed to copy d_bestIdxs back to host");
+
+#ifdef REGISTER_LOCAL_MAPPING_STATS
+    std::chrono::steady_clock::time_point endMemcpyToCPU = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point endTotal = std::chrono::steady_clock::now();
+    
+    double copyObjectCreation = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endCopyObjectCreation - startCopyObjectCreation).count();
+    double memcpyToGPU = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endMemcpy - startMemcpy).count();
+    double kernel = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endKernel - startKernel).count();
+    double memcpyToCPU = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endMemcpyToCPU - startMemcpyToCPU).count();
+    double total = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endTotal - startTotal).count();
+
+    input_data_wrap_time.emplace_back(frameCounter, copyObjectCreation);
+    input_data_transfer_time.emplace_back(frameCounter, memcpyToGPU);
+    kernel_exec_time.emplace_back(frameCounter, kernel);
+    output_data_transfer_time.emplace_back(frameCounter, memcpyToCPU);
+    total_exec_time.emplace_back(frameCounter, total);
+
+    frameCounter++;
+#endif
+
+    // cout << "\n\n////////////////////////////////////////// Current KF: " << currKF->mnId << " //////////////////////////////////////////\n";
+    // for (int iKF = 0; iKF < neighKFSize; iKF++) {
+    //     cout << "================================= Neighbor KF: " << neighKFs[iKF]->mnId << " =================================\n";
+    //     for (int iMP = 0; iMP < numValidPoints; iMP++) {
+    //         int idx = (currKF->NLeft == -1) ? iKF*numValidPoints + iMP : iKF*numValidPoints*2 + iMP;
+    //         if (bestDists[idx] != 256 && !validMapPoints[iMP]->IsInKeyFrame(neighKFs[iKF]))
+    //             printf("(i: %d, bestDist: %d, bestIdx: %d), ", iMP, bestDists[idx], bestIdxs[idx]);
+    //     }
+    //     printf("\n");
+        
+    //     cout << "************ CPU Side ************\n";
+    //     origFuse(neighKFs[iKF], currKF->GetMapPointMatches(), th, 0);
+
+    //     if (currKF->NLeft != -1) {
+    //         cout << ".................... Right Image ....................\n";
+    //         for (int iMP = 0; iMP < numValidPoints; iMP++) {
+    //             int idx = iKF*numValidPoints*2 + numValidPoints + iMP;
+    //             if (bestDists[idx] != 256 && !validMapPoints[iMP]->IsInKeyFrame(neighKFs[iKF]))
+    //                 printf("(i: %d, bestDist: %d, bestIdx: %d), ", iMP, bestDists[idx], bestIdxs[idx]);
+    //         }
+    //         printf("\n");
+            
+    //         cout << "************ CPU Side ************\n";
+    //         origFuse(neighKFs[iKF], currKF->GetMapPointMatches(), th, 1);
+    //     }
+    // }
 }
 
 void FuseKernel::origFuse(ORB_SLAM3::KeyFrame *pKF, const vector<ORB_SLAM3::MapPoint*> &vpMapPoints, const float th, const bool bRight) {
@@ -354,13 +672,13 @@ void FuseKernel::origFuse(ORB_SLAM3::KeyFrame *pKF, const vector<ORB_SLAM3::MapP
             count_bad++;
             continue;
         }
+
+        validMapPointCounter++;
         
-        else if(pMP->IsInKeyFrame(pKF)) {
+        if(pMP->IsInKeyFrame(pKF)) {
             count_isinKF++;
             continue;
         }
-
-        validMapPointCounter++;
         
         Eigen::Vector3f p3Dw = pMP->GetWorldPos();
         Eigen::Vector3f p3Dc = Tcw * p3Dw;
