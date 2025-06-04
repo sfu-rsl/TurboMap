@@ -4,26 +4,9 @@ pathDatasetTUM_VI=$HOME/SLAM/Datasets/tumvi #Example, it is necesary to change i
 mode=$1
 fastmap_mode=$2
 dataset_name=$3
-version=$4
+statsDir=$4
 
-if [ "$mode" -eq 2 ]; then
-    system_name='FastMap'
-fi
-
-if [ "$mode" -eq 1 ]; then
-    system_name='FastTrack'
-fi
-
-if [ "$mode" -eq 0 ]; then
-    system_name='ORB-SLAM3'
-fi
-
-statsDir="../Results/${system_name}/${dataset_name}/${version}"
 file_name="dataset-${dataset_name}_stereoi"
-
-if [ ! -d "$statsDir" ]; then
-    mkdir -p "$statsDir"
-fi
 
 # Single Session Example
 

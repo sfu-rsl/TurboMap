@@ -16,6 +16,21 @@ else
     fastmap_mode='111'
 fi
 
+if [ "$mode" -eq 2 ]; then
+    system_name='FastMap'
+fi
+if [ "$mode" -eq 1 ]; then
+    system_name='FastTrack'
+fi
+if [ "$mode" -eq 0 ]; then
+    system_name='ORB-SLAM3'
+fi
+statsDir="./Results/${system_name}/${dataset_name}/${version}"
+
+if [ ! -d "$statsDir" ]; then
+    mkdir -p "$statsDir"
+fi
+
 tumvi_datasets=("corridor1" "corridor2" "corridor3" "corridor4" "corridor5" "outdoors1" "outdoors5" "room1" "room2" "room3" "room4" "room5" "room6" "magistrale2" "magistrale6")
 euroc_datasets=("MH01" "MH03" "MH02" "MH04" "MH05" "V101" "V102" "V103" "V201" "V202" "V203")
 
@@ -26,7 +41,6 @@ for dataset in "${tumvi_datasets[@]}"; do
         break
     fi
 done
-
 
 found_in_euroc=false
 for dataset in "${euroc_datasets[@]}"; do
@@ -39,26 +53,21 @@ done
 if [ "$save_ostream" -eq 0 ]; then
     if $found_in_euroc; then
         cd Examples/
-        ./euroc_eval_examples.sh "$mode" "$fastmap_mode" "$dataset_name" "$version" 
+        ./euroc_eval_examples.sh "$mode" "$fastmap_mode" "$dataset_name" "../$statsDir" 
     elif $found_in_tumvi; then
         cd Examples/
-        ./tum_vi_eval_examples.sh "$mode" "$fastmap_mode" "$dataset_name" "$version" 
+        ./tum_vi_eval_examples.sh "$mode" "$fastmap_mode" "$dataset_name" "../$statsDir" 
     else
         echo "Invalid dataset: $dataset_name"
         exit 1
     fi
 else
-    statsDir="Results/${version}/${dataset_name}"
-    if [ ! -d "$statsDir" ]; then
-        echo $statsDir
-        mkdir -p "$statsDir"
-    fi
     if $found_in_euroc; then
         cd Examples/
-        ./euroc_eval_examples.sh "$mode" "$fastmap_mode" "$dataset_name" "$version" > "../${statsDir}/ostream.txt" 
+        ./euroc_eval_examples.sh "$mode" "$fastmap_mode" "$dataset_name" "../$statsDir" > "../${statsDir}/ostream.txt" 
     elif $found_in_tumvi; then
         cd Examples/
-        ./tum_vi_eval_examples.sh "$mode" "$fastmap_mode" "$dataset_name" "$version" > "../${statsDir}/ostream.txt" 
+        ./tum_vi_eval_examples.sh "$mode" "$fastmap_mode" "$dataset_name" "../$statsDir" > "../${statsDir}/ostream.txt" 
     else
         echo "Invalid dataset: $dataset_name"
         exit 1

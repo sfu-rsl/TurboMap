@@ -81,13 +81,6 @@ lib/
 cmake_modules/
 cmake-build-debug/
 
-ExecMean.txt
-SessionInfo.txt
-Results_Euroc.txt
-LBA_Stats.txt
-LocalMapTimeStats.txt
-TrackLocalMapStats.txt
-TrackingTimeStats.txt
 Table_Euroc
 Table_TUMVI_rooms/
 *.pyc
@@ -102,7 +95,6 @@ borrar/*
 Examples/*.csv
 Examples/*.png
 
-plot.py
 KFCulling_dist.py
 sort.py
 checkresults.py
