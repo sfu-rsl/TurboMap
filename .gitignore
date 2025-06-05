@@ -95,7 +95,6 @@ borrar/*
 Examples/*.csv
 Examples/*.png
 
-KFCulling_dist.py
-sort.py
-checkresults.py
 !Dockerfile
+
+average_times.csv
