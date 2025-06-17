@@ -41,6 +41,9 @@
 namespace ORB_SLAM3
 {
 
+void initialize_compute_engine();
+void destroy_compute_engine();
+
 class LoopClosing;
 
 class Optimizer

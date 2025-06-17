@@ -12,6 +12,7 @@ bool MappingKernelController::is_active = false;
 bool MappingKernelController::searchForTriangulationOnGPU;
 bool MappingKernelController::fuseOnGPU;
 bool MappingKernelController::optimizeKeyframeCulling;
+bool MappingKernelController::LBAOnGPU;
 bool MappingKernelController::memory_is_initialized = false;
 bool MappingKernelController::isShuttingDown = false;
 bool MappingKernelController::localMappingFinished = false;
@@ -32,10 +33,11 @@ void MappingKernelController::activate() {
     is_active = true;
 }
 
-void MappingKernelController::setGPURunMode(bool _searchForTriangulation, bool _fuseStatus, bool _keyframeCulling) {
+void MappingKernelController::setGPURunMode(bool _searchForTriangulation, bool _fuseStatus, bool _keyframeCulling, bool _LBA) {
     searchForTriangulationOnGPU = _searchForTriangulation;
     fuseOnGPU = _fuseStatus;
     optimizeKeyframeCulling = _keyframeCulling;
+    LBAOnGPU = _LBA;
 }
 
 void MappingKernelController::initializeKernels(){
@@ -51,6 +53,9 @@ void MappingKernelController::initializeKernels(){
     
     if (fuseOnGPU)
         mpFuseKernel->initialize();
+
+    if (LBAOnGPU)
+        ORB_SLAM3::initialize_compute_engine();
 
     checkCudaError(cudaDeviceSynchronize(), "[Mapping Kernel Controller:] Failed to initialize kernels.");
     memory_is_initialized = true;
@@ -77,6 +82,8 @@ void MappingKernelController::shutdownKernels(bool _localMappingFinished, bool _
             mpSearchForTriangulationKernel->shutdown();
         if (fuseOnGPU == 1)
             mpFuseKernel->shutdown();
+        if (LBAOnGPU == 1)
+            ORB_SLAM3::destroy_compute_engine();
     }
 
     CudaUtils::shutdown();

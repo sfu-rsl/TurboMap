@@ -13,7 +13,7 @@ version=$4
 if [ $# -eq 5 ]; then
     fastmap_mode=$5
 else
-    fastmap_mode='111'
+    fastmap_mode='1111'
 fi
 
 if [ "$mode" -eq 2 ]; then

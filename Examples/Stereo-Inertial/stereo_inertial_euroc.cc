@@ -76,16 +76,19 @@ int main(int argc, char **argv)
         bool searchForTriangulationEnabled = (argv[argc-1][0] == '1');
         bool fuseEnabled = (argv[argc-1][1] == '1');
         bool keyframeCullingEnabled = (argv[argc-1][2] == '1');
+        bool LBAEnabled = (argv[argc-1][3] == '1');
         cout << "Activated FastMap Kernels are: (";
         if (searchForTriangulationEnabled)
             cout << "SearchForTriangulation ";
         if (fuseEnabled)
             cout << "Fuse ";
         if (keyframeCullingEnabled)
-            cout << "KeyframeCulling";
+            cout << "KeyframeCulling ";
+        if (LBAEnabled)
+            cout << "LBA";
         cout << ")\n";
         
-        MappingKernelController::setGPURunMode(searchForTriangulationEnabled, fuseEnabled, keyframeCullingEnabled);
+        MappingKernelController::setGPURunMode(searchForTriangulationEnabled, fuseEnabled, keyframeCullingEnabled, LBAEnabled);
     }
     
     argc-=3;

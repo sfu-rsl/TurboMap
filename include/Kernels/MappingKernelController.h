@@ -6,6 +6,7 @@
 #include "CudaUtils.h"
 #include "FuseKernel.h"
 #include "SearchForTriangulationKernel.h"
+#include "Optimizer.h"
 #include <memory> 
 
 using namespace std;
@@ -21,8 +22,9 @@ public:
     static bool searchForTriangulationOnGPU;
     static bool fuseOnGPU;
     static bool optimizeKeyframeCulling;
+    static bool LBAOnGPU;
 
-    static void setGPURunMode(bool searchForTriangulation, bool fuse, bool keyframeCulling);
+    static void setGPURunMode(bool searchForTriangulation, bool fuse, bool keyframeCulling, bool LBA);
 
     static void initializeKernels();
     

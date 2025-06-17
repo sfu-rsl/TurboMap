@@ -18,7 +18,8 @@
 
 
 #include "Optimizer.h"
-
+#include "Thirdparty/g2o/g2o/gpu/block_solver2.h"
+#include "Kernels/MappingKernelController.h"
 
 #include <complex>
 
@@ -44,6 +45,25 @@
 
 namespace ORB_SLAM3
 {
+
+static compute::ComputeEngine* engine = nullptr;
+
+void initialize_compute_engine() {
+    if (!engine) {
+        engine = new compute::ComputeEngine();
+    }
+
+    // Temporary allocation to reduce initialization overhead on first use
+    auto buf = engine->create_buffer<double>(nullptr, 1000000, compute::BufferType::DeviceCached);
+    auto buf2 = engine->create_buffer<double>(nullptr, 1000000, compute::BufferType::Host);
+    auto buf3 = engine->create_buffer<double>(nullptr, 1000000, compute::BufferType::Storage);
+}
+
+void destroy_compute_engine() {
+    delete engine;
+    engine = nullptr;
+}
+
 bool sortByVal(const pair<MapPoint*, int> &a, const pair<MapPoint*, int> &b)
 {
     return (a.second < b.second);
@@ -2505,24 +2525,25 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, Map *pMap, int&
 
     // Setup optimizer
     g2o::SparseOptimizer optimizer;
-    g2o::BlockSolverX::LinearSolverType * linearSolver;
-    linearSolver = new g2o::LinearSolverEigen<g2o::BlockSolverX::PoseMatrixType>();
-
-    g2o::BlockSolverX * solver_ptr = new g2o::BlockSolverX(linearSolver);
+    g2o::OptimizationAlgorithmLevenberg* solver;
+    
+    if (MappingKernelController::LBAOnGPU) {
+        auto linearSolver = new compute::LDLTSolver<double>();
+        g2o::BlockSolver2X * solver_ptr = new g2o::BlockSolver2X(engine, linearSolver);
+        solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
+    }
+    else {
+        g2o::BlockSolverX::LinearSolverType * linearSolver = new g2o::LinearSolverEigen<g2o::BlockSolverX::PoseMatrixType>();
+        g2o::BlockSolverX * solver_ptr = new g2o::BlockSolverX(linearSolver);
+        solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
+    }
 
     if(bLarge)
-    {
-        g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
         solver->setUserLambdaInit(1e-2); // to avoid iterating for finding optimal lambda
-        optimizer.setAlgorithm(solver);
-    }
     else
-    {
-        g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
         solver->setUserLambdaInit(1e0);
-        optimizer.setAlgorithm(solver);
-    }
 
+    optimizer.setAlgorithm(solver);
 
     // Set Local temporal KeyFrame vertices
     N=vpOptimizableKFs.size();
