@@ -27,6 +27,10 @@ if [ "$mode" -eq 0 ]; then
 fi
 statsDir="./Results/${system_name}/${dataset_name}/${version}"
 
+if [ "$system_name" == 'FastMap' ]; then
+    statsDir="./Results/${system_name}/${fastmap_mode}/${dataset_name}/${version}"
+fi
+
 if [ ! -d "$statsDir" ]; then
     mkdir -p "$statsDir"
 fi

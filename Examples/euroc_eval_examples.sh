@@ -9,31 +9,6 @@ statsDir=$4
 
 file_name="dataset-${dataset_name}_stereoi"
 
-# Single Session Example (Pure visual)
-# echo "Launching MH01 with Stereo sensor"
-# ./Examples/Stereo/stereo_euroc ./Vocabulary/ORBvoc.txt ./Examples/Stereo/EuRoC.yaml "$pathDatasetEuroc"/MH01 ./Examples/Stereo/EuRoC_TimeStamps/MH01.txt dataset-MH01_stereo
-# echo "------------------------------------"
-# echo "Evaluation of MH01 trajectory with Stereo sensor"
-# python ../evaluation/evaluate_ate_scale.py ../evaluation/Ground_truth/EuRoC_left_cam/MH01_GT.txt f_dataset-MH01_stereo.txt --plot MH01_stereo.pdf
-
-
-# MultiSession Example (Pure visual)
-# echo "Launching Machine Hall with Stereo sensor"
-# ./Examples/Stereo/stereo_euroc ./Vocabulary/ORBvoc.txt ./Examples/Stereo/EuRoC.yaml "$pathDatasetEuroc"/MH01 ./Examples/Stereo/EuRoC_TimeStamps/MH01.txt "$pathDatasetEuroc"/MH02 ./Examples/Stereo/EuRoC_TimeStamps/MH02.txt "$pathDatasetEuroc"/MH03 ./Examples/Stereo/EuRoC_TimeStamps/MH03.txt "$pathDatasetEuroc"/MH04 ./Examples/Stereo/EuRoC_TimeStamps/MH04.txt "$pathDatasetEuroc"/MH05 ./Examples/Stereo/EuRoC_TimeStamps/MH05.txt dataset-MH01_to_MH05_stereo
-# echo "------------------------------------"
-# echo "Evaluation of MAchine Hall trajectory with Stereo sensor"
-# python evaluation/evaluate_ate_scale.py evaluation/Ground_truth/EuRoC_left_cam/MH_GT.txt f_dataset-MH01_to_MH05_stereo.txt --plot MH01_to_MH05_stereo.pdf
-
-
-# Single Session Example (Visual-Inertial)
-# echo "Launching V102 with Monocular-Inertial sensor"
-# ./Examples/Monocular-Inertial/mono_inertial_euroc ./Vocabulary/ORBvoc.txt ./Examples/Monocular-Inertial/EuRoC.yaml "$pathDatasetEuroc"/V102 ./Examples/Monocular-Inertial/EuRoC_TimeStamps/V102.txt dataset-V102_monoi
-# echo "------------------------------------"
-# echo "Evaluation of V102 trajectory with Monocular-Inertial sensor"
-# python evaluation/evaluate_ate_scale.py "$pathDatasetEuroc"/V102/mav0/state_groundtruth_estimate0/data.csv f_dataset-V102_monoi.txt --plot V102_monoi.pdf
-
-#Single Session Example (Stereo-Inertial)
-
 echo "Launching $dataset_name with Stereo-Inertial sensor"
 
 #with gdb
@@ -45,10 +20,6 @@ echo "Launching $dataset_name with Stereo-Inertial sensor"
 ./Stereo-Inertial/stereo_inertial_euroc ../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${mode} ${fastmap_mode}
 # compute-sanitizer --tool memcheck --report-api-errors all --show-backtrace no ./Stereo-Inertial/stereo_inertial_euroc ../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${mode} ${fastmap_mode}
 
-# EXECUTABLE=./Stereo/stereo_euroc 
-# ARGS="../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${orbExtractionRunstatus} ${stereoMatchRunstatus} ${searchLocalPointsRunstatus} ${poseEstimationRunstatus}"
-# gdb -ex "set args $ARGS" -ex "run" $EXECUTABLE
-# ./Stereo/stereo_euroc ../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${orbExtractionRunstatus} ${stereoMatchRunstatus} ${searchLocalPointsRunstatus} ${poseEstimationRunstatus}
 echo "------------------------------------"
 
 echo "Evaluation of ${dataset_name} trajectory with Stereo-Inertial sensor"
@@ -64,15 +35,3 @@ files=("f_dataset-${dataset_name}_stereoi.csv"
 destination_directory="${statsDir}/trajectory"
 mkdir -p $destination_directory
 mv "${files[@]}" "$destination_directory"
-
-
-# visual only
-# ./Stereo/stereo_euroc ../Vocabulary/ORBvoc.txt ./Stereo/EuRoC.yaml "$pathDatasetEuroc"/MH01 ./Stereo/EuRoC_TimeStamps/MH01.txt dataset-MH01_stereo
-
-
-# MultiSession Monocular Examples
-# echo "Launching Vicon Room 2 with Monocular-Inertial sensor"
-# ./Examples/Monocular-Inertial/mono_inertial_euroc ./Vocabulary/ORBvoc.txt ./Examples/Monocular-Inertial/EuRoC.yaml "$pathDatasetEuroc"/V201 ./Examples/Monocular-Inertial/EuRoC_TimeStamps/V201.txt "$pathDatasetEuroc"/V202 ./Examples/Monocular-Inertial/EuRoC_TimeStamps/V202.txt "$pathDatasetEuroc"/V203 ./Examples/Monocular-Inertial/EuRoC_TimeStamps/V203.txt dataset-V201_to_V203_monoi
-# echo "------------------------------------"
-# echo "Evaluation of Vicon Room 2 trajectory with Stereo sensor"
-# python evaluation/evaluate_ate_scale.py evaluation/Ground_truth/EuRoC_imu/V2_GT.txt f_dataset-V201_to_V203_monoi.txt --plot V201_to_V203_monoi.pdf
