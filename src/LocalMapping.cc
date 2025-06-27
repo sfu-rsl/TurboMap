@@ -968,8 +968,8 @@ void LocalMapping::SearchInNeighbors()
         }
     }
 
-    // matcher.Fuse(mpCurrentKeyFrame,vpFuseCandidates);
-    // if(mpCurrentKeyFrame->NLeft != -1) matcher.Fuse(mpCurrentKeyFrame,vpFuseCandidates,true);
+    matcher.Fuse(mpCurrentKeyFrame,vpFuseCandidates);
+    if(mpCurrentKeyFrame->NLeft != -1) matcher.Fuse(mpCurrentKeyFrame,vpFuseCandidates,true);
 
 
     // Update points
