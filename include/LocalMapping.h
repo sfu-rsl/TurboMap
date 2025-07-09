@@ -136,11 +136,13 @@ protected:
     bool CheckNewKeyFrames();
     void ProcessNewKeyFrame();
     void CreateNewMapPoints();
+    void CreateNewMapPointsGPU();
 
     void MapPointCulling();
     void SearchInNeighbors();
+    void SearchInNeighborsGPU();
     void KeyFrameCulling();
-    void KeyFrameCullingV2();
+    void KeyFrameCullingOptimized();
 
     System *mpSystem;
 
