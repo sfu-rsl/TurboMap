@@ -69,7 +69,7 @@ for system in systems:
 
         # Store average RMSE
         if rmse_vals:
-            results[system][sequence]["rmse"] = (np.mean(rmse_vals), np.std(rmse_vals))
+            results[system][sequence]["ATE.RMSE"] = (np.mean(rmse_vals), np.std(rmse_vals))
 
         # Store averaged means and stds for time files
         for time_file in time_files:
