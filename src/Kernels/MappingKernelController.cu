@@ -110,13 +110,13 @@ void MappingKernelController::launchSearchForTriangulationKernel(
     );
 }
 
-void MappingKernelController::launchFuseKernel(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currKF, const float th, 
+void MappingKernelController::launchFuseKernel(ORB_SLAM3::KeyFrame *neighKF, const vector<ORB_SLAM3::MapPoint*> &vpMapPoints, const float th, 
                                                const bool bRight, ORB_SLAM3::GeometricCamera* pCamera, Sophus::SE3f Tcw, Eigen::Vector3f Ow, 
                                                vector<ORB_SLAM3::MapPoint*> &validMapPoints, int* bestDists, int* bestIdxs) {
 
     DEBUG_PRINT("Launching Fuse Kernel");
     
-    mpFuseKernel->launch(neighKF, currKF, th, bRight, pCamera, Tcw, Ow, validMapPoints, bestDists, bestIdxs);
+    mpFuseKernel->launch(neighKF, vpMapPoints, th, bRight, pCamera, Tcw, Ow, validMapPoints, bestDists, bestIdxs);
 }
 
 void MappingKernelController::launchFuseKernelV2(

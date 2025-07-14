@@ -18,30 +18,10 @@ for i in $(seq 0 $(expr $num_itr - 1)); do
     done
 done
 
-for i in $(seq 0 $(expr $num_itr - 1)); do
-    for dataset in "${datasets[@]}"; do
-        echo -e "[bash:] -> ./run_script.sh $dataset $mode 1 $version.$i 1000"
-        ./run_script.sh $dataset $mode 1 $version.$i
-    done
-done
-
-for i in $(seq 0 $(expr $num_itr - 1)); do
-    for dataset in "${datasets[@]}"; do
-        echo -e "[bash:] -> ./run_script.sh $dataset $mode 1 $version.$i 0100"
-        ./run_script.sh $dataset $mode 1 $version.$i
-    done
-done
-
-for i in $(seq 0 $(expr $num_itr - 1)); do
-    for dataset in "${datasets[@]}"; do
-        echo -e "[bash:] -> ./run_script.sh $dataset $mode 1 $version.$i 0010"
-        ./run_script.sh $dataset $mode 1 $version.$i
-    done
-done
-
-for i in $(seq 0 $(expr $num_itr - 1)); do
-    for dataset in "${datasets[@]}"; do
-        echo -e "[bash:] -> ./run_script.sh $dataset $mode 1 $version.$i 0001"
-        ./run_script.sh $dataset $mode 1 $version.$i
-    done
-done
+# For the original system
+# for i in $(seq 0 $(expr $num_itr - 1)); do
+#     for dataset in "${datasets[@]}"; do
+#         echo -e "[bash:] -> ./run_script.sh $dataset 0 1 $version.$i"
+#         ./run_script.sh $dataset 0 1 $version.$i
+#     done
+# done

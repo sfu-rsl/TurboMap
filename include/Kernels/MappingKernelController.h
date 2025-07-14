@@ -40,7 +40,7 @@ public:
     );
     
     static void launchFuseKernel(
-        ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currKF, const float th, 
+        ORB_SLAM3::KeyFrame *neighKF, const vector<ORB_SLAM3::MapPoint*> &vpMapPoints, const float th, 
         const bool bRight, ORB_SLAM3::GeometricCamera* pCamera, Sophus::SE3f Tcw, Eigen::Vector3f Ow, 
         std::vector<ORB_SLAM3::MapPoint*> &validMapPoints, int* bestDists, int* bestIdxs
     );

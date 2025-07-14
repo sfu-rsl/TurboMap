@@ -20,7 +20,7 @@ class FuseKernel: public KernelInterface {
         void initialize() override;
         void shutdown() override;
         void launch() override { std::cout << "[FuseKernel:] provide input for kernel launch.\n"; };
-        void launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currKF, const float th, 
+        void launch(ORB_SLAM3::KeyFrame *neighKF, const vector<ORB_SLAM3::MapPoint*> &currKFMapPoints, const float th, 
                     const bool bRight, ORB_SLAM3::GeometricCamera* pCamera, Sophus::SE3f Tcw, Eigen::Vector3f Ow, 
                     vector<ORB_SLAM3::MapPoint*> &validMapPoints, int* bestDists, int* bestIdxs);
         void launchV2(std::vector<ORB_SLAM3::KeyFrame*> neighKFs, ORB_SLAM3::KeyFrame *currKF, float th, 

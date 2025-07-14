@@ -6,7 +6,7 @@ from collections import defaultdict
 
 # Set the base directory to Results (relative to current working directory)
 base_dir = os.path.join(os.getcwd(), "Results")
-systems = ["FastMap"]
+systems = ["FastMap", "ORB-SLAM3"]
 time_files = [
     "searchForTriangulation_time.txt",
     "MPCreation_time.txt",
@@ -19,7 +19,9 @@ time_files = [
 results = defaultdict(lambda: defaultdict(dict))
 
 for system in systems:
-    system_path = os.path.join(base_dir, system, '1111')
+    system_path = os.path.join(base_dir, system)
+    if (system == "FastMap"):
+        system_path = os.path.join(system_path, "1111")
     for sequence in os.listdir(system_path):
         sequence_path = os.path.join(system_path, sequence)
         if not os.path.isdir(sequence_path):

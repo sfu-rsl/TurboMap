@@ -1446,7 +1446,7 @@ namespace ORB_SLAM3
         return nFused;
     }
 
-    int ORBmatcher::GPUFuse(KeyFrame *neighKF, KeyFrame *currKF, const float th, const bool bRight)
+    int ORBmatcher::GPUFuse(KeyFrame *neighKF, const vector<MapPoint*> &vpMapPoints, const float th, const bool bRight)
     {
         GeometricCamera* pCamera;
         Sophus::SE3f Tcw;
@@ -1471,13 +1471,12 @@ namespace ORB_SLAM3
 
         int nFused = 0;
         
-        vector<MapPoint*> vpMapPoints = currKF->GetMapPointMatches();
         int numPoints = vpMapPoints.size();
         vector<MapPoint*> validMapPoints;
         int bestDists[numPoints];
         int bestIdxs[numPoints];
 
-        MappingKernelController::launchFuseKernel(neighKF, currKF, th,  bRight, pCamera, Tcw, Ow, validMapPoints, bestDists, bestIdxs);
+        MappingKernelController::launchFuseKernel(neighKF, vpMapPoints, th,  bRight, pCamera, Tcw, Ow, validMapPoints, bestDists, bestIdxs);
 
         for(size_t iMP = 0; iMP < validMapPoints.size(); iMP++) {
 
@@ -1525,7 +1524,7 @@ namespace ORB_SLAM3
 
         MappingKernelController::launchFuseKernelV2(neighKFs, currKF, th, validMapPoints, bestDists, bestIdxs);
         int validMapPointsSize = validMapPoints.size();
-        int iterations = (currKF->NLeft == -1) ? 1 : 2; 
+        vector<int> mapPointAlreadyReplaced(validMapPointsSize, 0);
 
         for (int iKF = 0; iKF < numNeighKFs; iKF++) {
             for (size_t iMP = 0; iMP < validMapPointsSize; iMP++) {
@@ -1544,8 +1543,9 @@ namespace ORB_SLAM3
                     MapPoint* pMPinKF = neighKFs[iKF]->GetMapPoint(bestIdx);
                     if (pMPinKF) {
                         if (!pMPinKF->isBad()) {
-                            if (pMPinKF->Observations() > pMP->Observations()) {
+                            if (pMPinKF->Observations() > pMP->Observations() && mapPointAlreadyReplaced[iMP] == 0) {
                                 pMP->Replace(pMPinKF);
+                                mapPointAlreadyReplaced[iMP] = 1;
                             }
                             else {
                                 pMPinKF->Replace(pMP);
@@ -1559,6 +1559,7 @@ namespace ORB_SLAM3
                     nFused++;
                 }
             }
+
             // For the right image in fisheye setting
             if (currKF->NLeft != -1) {
                 for (size_t iMP = 0; iMP < validMapPointsSize; iMP++) {

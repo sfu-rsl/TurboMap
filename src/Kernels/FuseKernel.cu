@@ -18,7 +18,7 @@ void FuseKernel::initialize() {
         neighborCount = MAX_NEIGHBOR_KF_COUNT;
     }
 
-    checkCudaError(cudaMalloc((void**)&d_currKFMapPoints, mapPointVecSize * sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint)), "Failed to allocate memory for d_currKFMapPoints");
+    checkCudaError(cudaMalloc((void**)&d_currKFMapPoints, MAX_NEIGHBOR_KF_COUNT * mapPointVecSize * sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint)), "Failed to allocate memory for d_currKFMapPoints");
     checkCudaError(cudaMalloc((void**)&d_neighKFs, neighborCount * sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame*)), "Failed to allocate memory for d_neighKFs");
     checkCudaError(cudaMalloc((void**)&d_Tcw, neighborCount * sizeof(Sophus::SE3f)), "Failed to allocate memory for d_Tcw");
     checkCudaError(cudaMalloc((void**)&d_TcwRight, neighborCount * sizeof(Sophus::SE3f)), "Failed to allocate memory for d_TcwRight");
@@ -227,7 +227,7 @@ __global__ void fuseKernel(MAPPING_DATA_WRAPPER::CudaMapPoint* currKFMapPoints, 
     bestIdxs[idx] = bestIdx;
 }
 
-void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currKF, const float th, 
+void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, const vector<ORB_SLAM3::MapPoint*> &currKFMapPoints, const float th, 
                         const bool bRight, ORB_SLAM3::GeometricCamera* pCamera, Sophus::SE3f Tcw, Eigen::Vector3f Ow, 
                         vector<ORB_SLAM3::MapPoint*> &validMapPoints, int* bestDists, int* bestIdxs) {
 
@@ -237,8 +237,6 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currK
 
     if (!memory_is_initialized)
         initialize();
-    
-    std::vector<ORB_SLAM3::MapPoint*> currKFMapPoints = currKF->GetMapPointMatches();
 
     MAPPING_DATA_WRAPPER::CudaKeyFrame* d_neighKF = CudaKeyFrameStorage::getCudaKeyFrame(neighKF->mnId);
     if (d_neighKF == nullptr) {
@@ -262,6 +260,9 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currK
         wrappedCurrKFMapPoints[numValidPoints] = MAPPING_DATA_WRAPPER::CudaMapPoint(pMP);
         numValidPoints++;
     }
+
+    if (numValidPoints == 0)
+        return;
 
 #ifdef REGISTER_LOCAL_MAPPING_STATS
     std::chrono::steady_clock::time_point endCopyObjectCreation = std::chrono::steady_clock::now();
@@ -300,11 +301,11 @@ void FuseKernel::launch(ORB_SLAM3::KeyFrame *neighKF, ORB_SLAM3::KeyFrame *currK
     double memcpyToCPU = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endMemcpyToCPU - startMemcpyToCPU).count();
     double total = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endTotal - startTotal).count();
 
-    input_data_wrap_time.emplace_back(frameCounter, copyObjectCreation);
-    input_data_transfer_time.emplace_back(frameCounter, memcpyToGPU);
-    kernel_exec_time.emplace_back(frameCounter, kernel);
-    output_data_transfer_time.emplace_back(frameCounter, memcpyToCPU);
-    total_exec_time.emplace_back(frameCounter, total);
+    input_data_wrap_time.back().second += copyObjectCreation;
+    input_data_transfer_time.back().second += memcpyToGPU;
+    kernel_exec_time.back().second += kernel;
+    output_data_transfer_time.back().second += memcpyToCPU;
+    total_exec_time.back().second += total;
 
     frameCounter++;
 #endif
@@ -597,8 +598,6 @@ void FuseKernel::launchV2(std::vector<ORB_SLAM3::KeyFrame*> neighKFs, ORB_SLAM3:
     kernel_exec_time.emplace_back(frameCounter, kernel);
     output_data_transfer_time.emplace_back(frameCounter, memcpyToCPU);
     total_exec_time.emplace_back(frameCounter, total);
-
-    frameCounter++;
 #endif
 
     // cout << "\n\n////////////////////////////////////////// Current KF: " << currKF->mnId << " //////////////////////////////////////////\n";

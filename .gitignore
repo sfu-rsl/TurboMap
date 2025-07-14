@@ -98,3 +98,5 @@ Examples/*.png
 !Dockerfile
 
 average_times.csv
+average_results.py
+generate_table.py

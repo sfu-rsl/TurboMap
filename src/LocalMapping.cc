@@ -1225,7 +1225,7 @@ void LocalMapping::SearchInNeighbors()
         KeyFrame* pKFi = *vit;
 
         matcher.Fuse(pKFi,vpMapPointMatches);
-        if(pKFi->NLeft != -1) matcher.Fuse(pKFi,vpMapPointMatches,true);
+        if(pKFi->NLeft != -1) matcher.Fuse(pKFi,vpMapPointMatches, 3.0, true);
     }
 
 
@@ -1255,7 +1255,7 @@ void LocalMapping::SearchInNeighbors()
     }
 
     matcher.Fuse(mpCurrentKeyFrame,vpFuseCandidates);
-    if(mpCurrentKeyFrame->NLeft != -1) matcher.Fuse(mpCurrentKeyFrame,vpFuseCandidates,true);
+    if(mpCurrentKeyFrame->NLeft != -1) matcher.Fuse(mpCurrentKeyFrame, vpFuseCandidates, 3.0, true);
 
 
     // Update points
@@ -1334,17 +1334,6 @@ void LocalMapping::SearchInNeighborsGPU()
 
     matcher.GPUFuseV2(vpTargetKFs, mpCurrentKeyFrame);
 
-    // Uncomment this part for GPUFuse, and comment the previous part
-    // for(vector<KeyFrame*>::iterator vit=vpTargetKFs.begin(), vend=vpTargetKFs.end(); vit!=vend; vit++)
-    // {
-    //     KeyFrame* pKFi = *vit;
-
-    //     matcher.GPUFuse(pKFi, mpCurrentKeyFrame);
-
-    //     if (pKFi->NLeft != -1)
-    //         matcher.GPUFuse(pKFi, mpCurrentKeyFrame, true);
-    // }
-
     if (mbAbortBA)
         return;
 
@@ -1370,9 +1359,9 @@ void LocalMapping::SearchInNeighborsGPU()
         }
     }
 
-    matcher.Fuse(mpCurrentKeyFrame,vpFuseCandidates);
-    if(mpCurrentKeyFrame->NLeft != -1) matcher.Fuse(mpCurrentKeyFrame,vpFuseCandidates,true);
-
+    matcher.GPUFuse(mpCurrentKeyFrame, vpFuseCandidates);
+    if (mpCurrentKeyFrame->NLeft != -1) 
+        matcher.GPUFuse(mpCurrentKeyFrame, vpFuseCandidates, 3.0, true);
 
     // Update points
     vpMapPointMatches = mpCurrentKeyFrame->GetMapPointMatches();
