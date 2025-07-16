@@ -90,10 +90,9 @@ my_settings.txt
 
 borrar/*
 
-*/ExecMean.txt
-
 Examples/*.csv
 Examples/*.png
+Examples/*.txt
 
 !Dockerfile
 
