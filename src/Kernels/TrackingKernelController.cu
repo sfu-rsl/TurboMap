@@ -9,11 +9,11 @@
 #endif
 
 bool TrackingKernelController::is_active = false;
-bool TrackingKernelController::orbExtractionKernelRunStatus;
-bool TrackingKernelController::stereoMatchKernelRunStatus;
-bool TrackingKernelController::searchLocalPointsKernelRunStatus;
-bool TrackingKernelController::poseEstimationKernelRunStatus;
-bool TrackingKernelController::poseOptimizationRunStatus;
+bool TrackingKernelController::orbExtractionKernelRunStatus = false;
+bool TrackingKernelController::stereoMatchKernelRunStatus = false;
+bool TrackingKernelController::searchLocalPointsKernelRunStatus = false;
+bool TrackingKernelController::poseEstimationKernelRunStatus = false;
+bool TrackingKernelController::poseOptimizationRunStatus = true;
 bool TrackingKernelController::memory_is_initialized = false;
 bool TrackingKernelController::stereoMatchDataHasMovedForward = false;
 std::unique_ptr<SearchLocalPointsKernel> TrackingKernelController::mpSearchLocalPointsKernel = std::make_unique<SearchLocalPointsKernel>();

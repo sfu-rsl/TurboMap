@@ -9,10 +9,10 @@
 #endif
 
 bool MappingKernelController::is_active = false;
-bool MappingKernelController::searchForTriangulationOnGPU;
-bool MappingKernelController::fuseOnGPU;
-bool MappingKernelController::optimizeKeyframeCulling;
-bool MappingKernelController::LBAOnGPU;
+bool MappingKernelController::searchForTriangulationOnGPU = false;
+bool MappingKernelController::fuseOnGPU = false;
+bool MappingKernelController::optimizeKeyframeCulling = false;
+bool MappingKernelController::LBAOnGPU = false;
 bool MappingKernelController::memory_is_initialized = false;
 bool MappingKernelController::isShuttingDown = false;
 bool MappingKernelController::localMappingFinished = false;
