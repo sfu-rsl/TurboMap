@@ -1524,12 +1524,12 @@ namespace ORB_SLAM3
 
         MappingKernelController::launchFuseKernelV2(neighKFs, currKF, th, validMapPoints, bestDists, bestIdxs);
         int validMapPointsSize = validMapPoints.size();
+        vector<int> mapPointAlreadyReplaced(validMapPointsSize, 0);
 
         for (int iKF = 0; iKF < numNeighKFs; iKF++) {
             for (size_t iMP = 0; iMP < validMapPointsSize; iMP++) {
                 MapPoint* pMP = validMapPoints[iMP];
-
-                if (pMP->isBad() || pMP->IsInKeyFrame(neighKFs[iKF]))
+                if (mapPointAlreadyReplaced[iMP] == 1 || pMP->IsInKeyFrame(neighKFs[iKF]))
                     continue;
 
                 int idx = (currKF->NLeft == -1) ? iKF*validMapPointsSize + iMP : iKF*validMapPointsSize*2 + iMP; 
@@ -1549,6 +1549,7 @@ namespace ORB_SLAM3
                             else {
                                 pMPinKF->Replace(pMP);
                             }   
+                            mapPointAlreadyReplaced[iMP] = 1;
                         }
                     }
                     else {
@@ -1563,7 +1564,7 @@ namespace ORB_SLAM3
             if (currKF->NLeft != -1) {
                 for (size_t iMP = 0; iMP < validMapPointsSize; iMP++) {
                     MapPoint* pMP = validMapPoints[iMP];
-                    if (pMP->IsInKeyFrame(neighKFs[iKF]))
+                    if (mapPointAlreadyReplaced[iMP] == 1 || pMP->IsInKeyFrame(neighKFs[iKF]))
                         continue;
 
                     int idx = iKF*validMapPointsSize*2 + validMapPointsSize + iMP; 
@@ -1583,6 +1584,7 @@ namespace ORB_SLAM3
                                 else {
                                     pMPinKF->Replace(pMP);
                                 }   
+                                mapPointAlreadyReplaced[iMP] = 1;
                             }
                         }
                         else {
