@@ -45,33 +45,33 @@ int main(int argc, char **argv)
     int min_num_argc = 7 + 3;
     if(argc < min_num_argc) {
         cerr << endl << "Usage: ./stereo_inertial_tum_vi path_to_vocabulary path_to_settings path_to_image_folder_1 path_to_image_folder_2 path_to_times_file path_to_imu_data (trajectory_file_name)" 
-                    << "strStatsFile <[0] for ORB-SLAM3, [1] for FastTrack, [2] for FastMap> FastMapMode"  << endl;
+                    << "strStatsFile <[0] for ORB-SLAM3, [1] for FastTrack, [2] for TurboMap> TurboMapMode"  << endl;
         return 1;
     }
 
     bool run_ORBSLAM = (strcmp(argv[argc-2], "0") == 0);
     bool run_FastTrack = (strcmp(argv[argc-2], "1") == 0);
-    bool run_FastMap = (strcmp(argv[argc-2], "2") == 0);
+    bool run_TurboMap = (strcmp(argv[argc-2], "2") == 0);
     string strStatsFile = argv[argc-3];
     
     if (run_ORBSLAM)
         cout << "Running the original ORB-SLAM3 code...\n";
     if (run_FastTrack)
         cout << "Running FastTrack...\n";
-    if (run_FastMap)
-        cout << "Running FastMap...\n";
+    if (run_TurboMap)
+        cout << "Running TurboMap...\n";
     
     if (run_FastTrack) {
         TrackingKernelController::activate();
     }
     
-    if (run_FastMap) {
+    if (run_TurboMap) {
         MappingKernelController::activate();
         bool searchForTriangulationEnabled = (argv[argc-1][0] == '1');
         bool fuseEnabled = (argv[argc-1][1] == '1');
         bool keyframeCullingEnabled = (argv[argc-1][2] == '1');
         bool LBAEnabled = (argv[argc-1][3] == '1');
-        cout << "Activated FastMap Kernels are: (";
+        cout << "Activated TurboMap Kernels are: (";
         if (searchForTriangulationEnabled)
             cout << "SearchForTriangulation ";
         if (fuseEnabled)
