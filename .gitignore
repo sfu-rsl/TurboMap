@@ -99,3 +99,7 @@ Examples/*.txt
 average_times.csv
 average_results.py
 generate_table.py
+
+evaluation/*.csv
+evaluation/ORB-SLAM3
+evaluation/TurboMap
