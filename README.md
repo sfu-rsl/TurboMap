@@ -56,7 +56,7 @@ The following diagram shows the data flow of the local mapping process in TurboM
 
 <br>
 
-⏳ TurboMap has been submitted for publication at [ICRA 2026](https://2026.ieee-icra.org/). You can check out the paper [here]().
+⏳ TurboMap has been submitted for publication at [ICRA 2026](https://2026.ieee-icra.org/). You can check out the paper [here](https://arxiv.org/abs/2511.02036).
 
 🚀 You can also check out our related project, [FastTrack](https://github.com/sfu-rsl/FastTrack), which this work builds upon and which has been accepted for publication at IROS 2025.
 
