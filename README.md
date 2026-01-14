@@ -121,20 +121,33 @@ This will create **libORB_SLAM3.so**  at *lib* folder and the executables in *Ex
 
 3. Execute the following script to run a single sequence:
 ```
-./run_script.sh <dataset_name> <[0] for ORB-SLAM3, [1] for FastTrack, [2] for TurboMap> <[0] for STDOUT output, [1] for file output> <run_version> <FastMap_mode>
+./run_script.sh <dataset_name> <[0] for ORB-SLAM3, [1] for FastTrack, [2] for TurboMap, [3] for FastTrack & TurboMap> <[0] for STDOUT output, [1] for file output> <version> <kernel_status1 [kernel_status2]>
 ```
-Using **`FastMap_mode`**, you can enable or disable each TurboMap kernel individually. It consists of **four digits**, each representing whether a specific task is optimized:
 
-1. **First digit:** Search for Triangulation on GPU  
-2. **Second digit:** Map-Point Fusion on GPU  
-3. **Third digit:** Optimized Keyframe Culling on CPU  
-4. **Fourth digit:** GPU-accelerated Local Bundle Adjustment (LBA)  
+The arguments **kernel_status1** and **kernel_status2** enable or disable FastTrack and TurboMap kernels.
 
-For example, setting `FastMap_mode = 1111` runs all accelerations. If you don't want to run TurboMap, simply omit this argument.
+TurboMap kernel status uses four digits:
+1) Triangulation search on GPU
+2) Map-point fusion on GPU
+3) Keyframe culling on CPU
+4) Local bundle adjustment (LBA) on GPU
 
-4. Alternatively, you can use this command to run multiple sequences for multiple times:
+Example: kernel_status1 = 1110 enables all except LBA. Omit this argument to enable all.
+
+FastTrack kernel status uses five digits:
+1) ORB extraction on GPU
+2) Stereo matching on GPU
+3) Search local points on GPU
+4) Pose estimation on GPU
+5) Pose optimization on/off
+
+Example: kernel_status1 = 11110 enables all accelerations and disables pose optimization. Omit this argument to enable all.
+
+To run FastTrack and TurboMap together, use mode 3. In this mode, kernel_status1 controls FastTrack and kernel_status2 controls TurboMap.
+
+4. Alternatively, you can use this command to run multiple sequences multiple times, with all of the optimizations enabled:
 ```
-./run_experiments.sh <[0] for ORB-SLAM3, [1] for FastTrack, [2] for TurboMap> <version> <num_iterations>
+./run_experiments.sh <[0] for ORB-SLAM3, [1] for FastTrack, [2] for TurboMap, [3] for FastTrack & TurboMap> <version> <num_iterations>
 ```
 
 ## TUM-VI Examples
