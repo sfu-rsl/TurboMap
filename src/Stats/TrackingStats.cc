@@ -20,8 +20,6 @@ void TrackingStats::saveStats(const string &file_path) {
 
     TrackingKernelController::saveKernelsStats(data_path);
 
-    std::ofstream myfile;
-
     myfile.open(data_path + "/tracking_time.txt");
     for (const auto& p : tracking_time) {
         myfile << p.first << ": " << p.second << std::endl;

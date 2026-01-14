@@ -46,19 +46,20 @@ void LoadIMU(const string &strImuPath, vector<double> &vTimeStamps, vector<cv::P
 
 int main(int argc, char **argv)
 {   
-    int min_num_argc = 5 + 3;
+    int min_num_argc = 6 + 4;
 
     if(argc < min_num_argc)
     {
         cerr << endl << "Usage: ./stereo_inertial_euroc path_to_vocabulary path_to_settings path_to_sequence_folder_1 path_to_times_file_1 (path_to_image_folder_2 path_to_times_file_2 ... path_to_image_folder_N path_to_times_file_N) " 
-            << "strStatsFile <[0] for ORB-SLAM3, [1] for FastTrack, [2] for TurboMap> TurboMapMode"  << endl;
+            << "strStatsFile <[0] for ORB-SLAM3, [1] for FastTrack, [2] for TurboMap, [3] for FastTrack & TurboMap> kernel_status_FT kernel_status_TM"  << endl;
         return 1;
     }
 
-    bool run_ORBSLAM = (strcmp(argv[argc-2], "0") == 0);
-    bool run_FastTrack = (strcmp(argv[argc-2], "1") == 0);
-    bool run_TurboMap = (strcmp(argv[argc-2], "2") == 0);
-    string strStatsFile = argv[argc-3];
+    bool run_ORBSLAM = (strcmp(argv[argc-3], "0") == 0);
+    bool run_FastTrack = (strcmp(argv[argc-3], "1") == 0);
+    bool run_TurboMap = (strcmp(argv[argc-3], "2") == 0);
+    bool run_all = (strcmp(argv[argc-3], "3") == 0);
+    string strStatsFile = argv[argc-4];
     
     if (run_ORBSLAM)
         cout << "Running the original ORB-SLAM3 code...\n";
@@ -66,32 +67,57 @@ int main(int argc, char **argv)
         cout << "Running FastTrack...\n";
     if (run_TurboMap)
         cout << "Running TurboMap...\n";
+    if (run_all)
+        cout << "Running FastTrack & TurboMap...\n";
+
+    bool FT_orbExtractionEnabled = (argv[argc-2][0] == '1');
+    bool FT_stereoMatchEnabled = (argv[argc-2][1] == '1');
+    bool FT_searchLocalPointsEnabled = (argv[argc-2][2] == '1');
+    bool FT_poseEstimationEnabled = (argv[argc-2][3] == '1');
+    bool FT_poseOptimizationEnabled = (argv[argc-2][4] == '1');
     
-    if (run_FastTrack) {
+    bool TM_searchForTriangulationEnabled = (argv[argc-1][0] == '1');
+    bool TM_fuseEnabled = (argv[argc-1][1] == '1');
+    bool TM_keyframeCullingEnabled = (argv[argc-1][2] == '1');
+    bool TM_LBAEnabled = (argv[argc-1][3] == '1');
+    
+    if (run_FastTrack || run_all) {
         TrackingKernelController::activate();
+        TrackingKernelController::setGPURunMode(
+            FT_orbExtractionEnabled, FT_stereoMatchEnabled, FT_searchLocalPointsEnabled, FT_poseEstimationEnabled, FT_poseOptimizationEnabled
+        );
+
+        cout << "Activated FastTrack Kernels are: (";
+        if (FT_orbExtractionEnabled)
+            cout << "OrbExtraction ";
+        if (FT_stereoMatchEnabled)
+            cout << "StereoMatch ";
+        if (FT_searchLocalPointsEnabled)
+            cout << "SearchLocalPoints ";
+        if (FT_poseEstimationEnabled)
+            cout << "PoseEstimation ";
+        if (!FT_poseOptimizationEnabled)
+            cout << "PoseOptimization_off";
+        cout << ")\n";
     }
 
-    if (run_TurboMap) {
+    if (run_TurboMap || run_all) {
         MappingKernelController::activate();
-        bool searchForTriangulationEnabled = (argv[argc-1][0] == '1');
-        bool fuseEnabled = (argv[argc-1][1] == '1');
-        bool keyframeCullingEnabled = (argv[argc-1][2] == '1');
-        bool LBAEnabled = (argv[argc-1][3] == '1');
+        MappingKernelController::setGPURunMode(TM_searchForTriangulationEnabled, TM_fuseEnabled, TM_keyframeCullingEnabled, TM_LBAEnabled);
+
         cout << "Activated TurboMap Kernels are: (";
-        if (searchForTriangulationEnabled)
+        if (TM_searchForTriangulationEnabled)
             cout << "SearchForTriangulation ";
-        if (fuseEnabled)
+        if (TM_fuseEnabled)
             cout << "Fuse ";
-        if (keyframeCullingEnabled)
+        if (TM_keyframeCullingEnabled)
             cout << "KeyframeCulling ";
-        if (LBAEnabled)
+        if (TM_LBAEnabled)
             cout << "LBA";
         cout << ")\n";
-        
-        MappingKernelController::setGPURunMode(searchForTriangulationEnabled, fuseEnabled, keyframeCullingEnabled, LBAEnabled);
     }
     
-    argc-=3;
+    argc-=4;
     const int num_seq = (argc-3)/2;
 
     cout << "num_seq = " << num_seq << endl;

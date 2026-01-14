@@ -31,7 +31,6 @@ void TrackingKernelController::setCUDADevice(int deviceID) {
 
 void TrackingKernelController::activate(){
     is_active = true;
-    setGPURunMode(1,1,1,1,0);
 }
 
 void TrackingKernelController::setGPURunMode(bool orbExtractionStatus, bool stereoMatchStatus, bool searchLocalPointsStatus, bool poseEstimationStatus, bool poseOptimizationStatus) {
