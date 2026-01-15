@@ -22,6 +22,7 @@
 #include "Converter.h"
 #include "Kernels/StereoMatchKernel.h"
 #include <csignal>
+#include "Optimizer.h"
 #include <thread>
 #include <pangolin/pangolin.h>
 #include <iomanip>
@@ -201,6 +202,9 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     if (mSensor==IMU_STEREO || mSensor==IMU_MONOCULAR || mSensor==IMU_RGBD)
         mpAtlas->SetInertialSensor();
 
+    // Initialize compute engine
+    initialize_compute_engine();
+
     //Create Drawers. These are used by the Viewer
     mpFrameDrawer = new FrameDrawer(mpAtlas);
     mpMapDrawer = new MapDrawer(mpAtlas, strSettingsFile, settings_);
@@ -208,7 +212,6 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     //Initialize the Tracking thread
     //(it will live in the main thread of execution, the one that called this constructor)
     cout << "Seq. Name: " << strSequence << endl;
-    
     mpTracker = new Tracking(this, mpVocabulary, mpFrameDrawer, mpMapDrawer,
                              mpAtlas, mpKeyFrameDatabase, strSettingsFile, mSensor, settings_, strSequence);
 
@@ -262,7 +265,10 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
 
 }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> ORB_SLAM3_pg-opt/pg-opt
 Sophus::SE3f System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp, const vector<IMU::Point>& vImuMeas, string filename)
 {
     if(mSensor!=STEREO && mSensor!=IMU_STEREO)
@@ -589,6 +595,8 @@ void System::Shutdown()
         Verbose::PrintMess("Atlas saving to file " + mStrSaveAtlasToFile, Verbose::VERBOSITY_NORMAL);
         SaveAtlas(FileType::BINARY_FILE);
     }
+
+    destroy_compute_engine();
 
     /*if(mpViewer)
         pangolin::BindToContext("ORB-SLAM2: Map Viewer");*/

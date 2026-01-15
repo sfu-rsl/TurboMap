@@ -580,6 +580,7 @@ bool OptimizableGraph::load(const char* filename, bool createEdges)
 
 bool OptimizableGraph::save(const char* filename, int level) const
 {
+  // std::cout << "Saving graph to " << filename << std::endl;
   ofstream ofs(filename);
   if (!ofs)
     return false;
@@ -605,6 +606,8 @@ bool OptimizableGraph::save(ostream& os, int level) const
     saveVertex(os, v);
   }
 
+  // std::cout << "Saving " << verticesToSave.size() << " edges" << std::endl;
+
   EdgeContainer edgesToSave;
   for (HyperGraph::EdgeSet::const_iterator it = edges().begin(); it != edges().end(); ++it) {
     const OptimizableGraph::Edge* e = dynamic_cast<const OptimizableGraph::Edge*>(*it);
@@ -617,6 +620,8 @@ bool OptimizableGraph::save(ostream& os, int level) const
     OptimizableGraph::Edge* e = *it;
     saveEdge(os, e);
   }
+
+  // std::cout << "Saving " << edgesToSave.size() << " edges" << std::endl;
 
   return os.good();
 }
@@ -818,9 +823,10 @@ bool OptimizableGraph::saveVertex(std::ostream& os, OptimizableGraph::Vertex* v)
 {
   Factory* factory = Factory::instance();
   string tag = factory->tag(v);
-  if (tag.size() > 0) {
-    os << tag << " " << v->id() << " ";
-    v->write(os);
+  // if (tag.size() > 0) {
+    // os << tag << " " << v->id() << " ";
+    os << "V " << v->id() << " ";
+    bool result = v->write(os);
     os << endl;
     Data* d=v->userData();
     while (d) { // write the data packet for the vertex
@@ -836,16 +842,17 @@ bool OptimizableGraph::saveVertex(std::ostream& os, OptimizableGraph::Vertex* v)
       os << "FIX " << v->id() << endl;
     }
     return os.good();
-  }
-  return false;
+  // }
+  // return false;
 }
 
 bool OptimizableGraph::saveEdge(std::ostream& os, OptimizableGraph::Edge* e) const
 {
   Factory* factory = Factory::instance();
   string tag = factory->tag(e);
-  if (tag.size() > 0) {
-    os << tag << " ";
+  // if (tag.size() > 0) {
+    // os << tag << " ";
+    os << "E ";
     if (_edge_has_id)
       os << e->id() << " ";
     for (vector<HyperGraph::Vertex*>::const_iterator it = e->vertices().begin(); it != e->vertices().end(); ++it) {
@@ -855,8 +862,8 @@ bool OptimizableGraph::saveEdge(std::ostream& os, OptimizableGraph::Edge* e) con
     e->write(os);
     os << endl;
     return os.good();
-  }
-  return false;
+  // }
+  // return false;
 }
 
 void OptimizableGraph::clearParameters()

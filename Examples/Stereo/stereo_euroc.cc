@@ -25,7 +25,6 @@
 #include<opencv2/core/core.hpp>
 
 #include<System.h>
-#include<Stats/TrackingStats.h>
 
 using namespace std;
 
@@ -34,33 +33,12 @@ void LoadImages(const string &strPathLeft, const string &strPathRight, const str
 
 int main(int argc, char **argv)
 {  
-
-    int min_num_argc = 5 + 7;
-
-    if(argc < min_num_argc)
+    if(argc < 5)
     {
-        cerr << endl << "Usage: ./stereo_euroc path_to_vocabulary path_to_settings path_to_sequence_folder_1 path_to_times_file_1 (path_to_image_folder_2 path_to_times_file_2 ... path_to_image_folder_N path_to_times_file_N) (trajectory_file_name)"
-            << "strStatsFile OrbExtractionRunStatus StereoMatchRunStatus SearchLocalPointsRunStatus PoseEstimationRunStatus PoseOptimizationRunStatus SearchForTriangulationRunStatus"  << endl;
+        cerr << endl << "Usage: ./stereo_euroc path_to_vocabulary path_to_settings path_to_sequence_folder_1 path_to_times_file_1 (path_to_image_folder_2 path_to_times_file_2 ... path_to_image_folder_N path_to_times_file_N) (trajectory_file_name)" << endl;
+
         return 1;
     }
-
-    bool SearchForTriangulationRunStatus = (strcmp(argv[argc-1], "1") == 0);
-    bool RunPoseOptimization = (strcmp(argv[argc-2], "1") == 0);
-    bool RunPoseEstimationOnGPU = (strcmp(argv[argc-3], "1") == 0);
-    bool RunSearchLocalPointsOnGPU = (strcmp(argv[argc-4], "1") == 0);
-    bool RunStereoMatchOnGPU = (strcmp(argv[argc-5], "1") == 0);
-    bool RunOrbExtractionOnGPU = (strcmp(argv[argc-6], "1") == 0);
-    string strStatsFile = argv[argc-7];
-    argc-=7;
-
-    cout << "[Kernels Run Status::] ORB Extraction: " << RunOrbExtractionOnGPU <<
-            " Stereo Match: " << RunStereoMatchOnGPU <<
-            " Search Local Points: " << RunSearchLocalPointsOnGPU <<
-            " Pose Estimation: " << RunPoseEstimationOnGPU <<
-            " Pose Optimization: " << RunPoseOptimization << 
-            " Search For Triangulation: " << SearchForTriangulationRunStatus << endl;
-
-    TrackingKernelController::setGPURunMode(RunOrbExtractionOnGPU, RunStereoMatchOnGPU, RunSearchLocalPointsOnGPU, RunPoseEstimationOnGPU, RunPoseOptimization);
 
     const int num_seq = (argc-3)/2;
     cout << "num_seq = " << num_seq << endl;
@@ -110,10 +88,9 @@ int main(int argc, char **argv)
     cout.precision(17);
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::STEREO, false);
+    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::STEREO, true);
 
     cv::Mat imLeft, imRight;
-    int proccIm = 0;
     for (seq = 0; seq<num_seq; seq++)
     {
 
@@ -122,6 +99,7 @@ int main(int argc, char **argv)
         double t_rect = 0;
         double t_track = 0;
         int num_rect = 0;
+        int proccIm = 0;
         for(int ni=0; ni<nImages[seq]; ni++, proccIm++)
         {
             // Read left and right images from file
@@ -147,7 +125,7 @@ int main(int argc, char **argv)
     #ifdef COMPILEDWITHC11
             std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
     #else
-            std::chrono::monotonic_clock::time_point t1 = std::chrono::monotonic_clock::now();
+            std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
     #endif
 
             // Pass the images to the SLAM system
@@ -156,13 +134,8 @@ int main(int argc, char **argv)
     #ifdef COMPILEDWITHC11
             std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
     #else
-            std::chrono::monotonic_clock::time_point t2 = std::chrono::monotonic_clock::now();
+            std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
     #endif
-
-#ifdef REGISTER_TRACKING_STATS
-            t_track = t_resize + t_rect + std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t2 - t1).count();
-            TrackingStats::getInstance().tracking_time.emplace_back(ni, t_track);
-#endif
 
 #ifdef REGISTER_TIMES
             t_track = t_resize + t_rect + std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t2 - t1).count();
@@ -194,7 +167,6 @@ int main(int argc, char **argv)
     }
     // Stop all threads
     SLAM.Shutdown();
-    TrackingStats::getInstance().saveStats(strStatsFile);
 
     // Save camera trajectory
     if (bFileName)
@@ -209,17 +181,6 @@ int main(int argc, char **argv)
         SLAM.SaveTrajectoryEuRoC("CameraTrajectory.txt");
         SLAM.SaveKeyFrameTrajectoryEuRoC("KeyFrameTrajectory.txt");
     }
-
-    sort(vTimesTrack.begin(),vTimesTrack.end());
-    // vTimesTrack.pop_back();
-
-    float totaltime = 0;
-    for (int ni=0; ni<vTimesTrack.size(); ni++)
-        totaltime += vTimesTrack[ni];
-
-    cout << "-------" << endl << endl;
-    cout << "median tracking time: " << vTimesTrack[nImages[0]/2] << endl;
-    cout << "mean tracking time: " << totaltime/proccIm << endl;
 
     return 0;
 }

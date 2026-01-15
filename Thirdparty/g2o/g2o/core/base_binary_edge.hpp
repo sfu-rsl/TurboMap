@@ -24,6 +24,8 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+// #include "../../../../include/LoopClosureDetector.h"
+
 template <int D, typename E, typename VertexXiType, typename VertexXjType>
 OptimizableGraph::Vertex* BaseBinaryEdge<D, E, VertexXiType, VertexXjType>::createFrom(){
   return new VertexXiType();
@@ -52,15 +54,19 @@ bool BaseBinaryEdge<D, E, VertexXiType, VertexXjType>::allVerticesFixed() const
 }
 
 template <int D, typename E, typename VertexXiType, typename VertexXjType>
-void BaseBinaryEdge<D, E, VertexXiType, VertexXjType>::constructQuadraticForm()
+void BaseBinaryEdge<D, E, VertexXiType, VertexXjType>::constructQuadraticForm(
+    const Eigen::Map<Eigen::Matrix<double, 6, 4, Eigen::ColMajor>>* optionalJacobianX, 
+    const Eigen::Map<Eigen::Matrix<double, 6, 4, Eigen::ColMajor>>* optionalJacobianY)
 {
   VertexXiType* from = static_cast<VertexXiType*>(_vertices[0]);
   VertexXjType* to   = static_cast<VertexXjType*>(_vertices[1]);
 
-  // get the Jacobian of the nodes in the manifold domain
+
   const JacobianXiOplusType& A = jacobianOplusXi();
   const JacobianXjOplusType& B = jacobianOplusXj();
 
+  // const JacobianXiOplusType& A_temp = *optionalJacobianX;
+  // const JacobianXjOplusType& B_temp = *optionalJacobianY; 
 
   bool fromNotFixed = !(from->fixed());
   bool toNotFixed = !(to->fixed());
@@ -120,16 +126,28 @@ void BaseBinaryEdge<D, E, VertexXiType, VertexXjType>::constructQuadraticForm()
 }
 
 template <int D, typename E, typename VertexXiType, typename VertexXjType>
-void BaseBinaryEdge<D, E, VertexXiType, VertexXjType>::linearizeOplus(JacobianWorkspace& jacobianWorkspace)
+void BaseBinaryEdge<D, E, VertexXiType, VertexXjType>::linearizeOplus(JacobianWorkspace& jacobianWorkspace, std::chrono::microseconds& totalLockTime, 
+                                                                      double* jacobianX, double* jacobianY)
 {
   new (&_jacobianOplusXi) JacobianXiOplusType(jacobianWorkspace.workspaceForVertex(0), D, Di);
   new (&_jacobianOplusXj) JacobianXjOplusType(jacobianWorkspace.workspaceForVertex(1), D, Dj);
-  linearizeOplus();
+  if(jacobianX && jacobianY){
+    for (int i = 0; i < 4; ++i) {
+        _jacobianOplusXi.col(i) = Eigen::Map<ErrorVector>(&jacobianX[i * 6]);
+        _jacobianOplusXj.col(i) = Eigen::Map<ErrorVector>(&jacobianY[i * 6]);
+    }
+  } else {
+    linearizeOplus();
+  }
 }
 
 template <int D, typename E, typename VertexXiType, typename VertexXjType>
 void BaseBinaryEdge<D, E, VertexXiType, VertexXjType>::linearizeOplus()
 {
+
+  // std::chrono::microseconds totalLockTime(0);
+  // std::cout << "| ";
+  auto start = std::chrono::steady_clock::now();
   VertexXiType* vi = static_cast<VertexXiType*>(_vertices[0]);
   VertexXjType* vj = static_cast<VertexXjType*>(_vertices[1]);
 
@@ -140,14 +158,20 @@ void BaseBinaryEdge<D, E, VertexXiType, VertexXjType>::linearizeOplus()
     return;
 
 #ifdef G2O_OPENMP
+  // auto lock_start = std::chrono::high_resolution_clock::now();
   vi->lockQuadraticForm();
   vj->lockQuadraticForm();
+  // auto lock_end = std::chrono::high_resolution_clock::now();
+  // totalLockTime += std::chrono::duration_cast<std::chrono::microseconds>(lock_end - lock_start);
 #endif
 
   const double delta = 1e-9;
   const double scalar = 1.0 / (2*delta);
   ErrorVector errorBak;
   ErrorVector errorBeforeNumeric = _error;
+
+  auto first_vertex = std::chrono::steady_clock::now();
+  // std::cout << std::chrono::duration_cast<std::chrono::microseconds>(first_vertex - start).count() << ", ";
 
   if (iNotFixed) {
     //Xi - estimate the jacobian numerically
@@ -172,6 +196,9 @@ void BaseBinaryEdge<D, E, VertexXiType, VertexXjType>::linearizeOplus()
       _jacobianOplusXi.col(d) = scalar * errorBak;
     } // end dimension
   }
+
+  auto second_vertex = std::chrono::steady_clock::now();
+  // std::cout << std::chrono::duration_cast<std::chrono::microseconds>(second_vertex - first_vertex).count() << ", ";
 
   if (jNotFixed) {
     //Xj - estimate the jacobian numerically
@@ -198,10 +225,15 @@ void BaseBinaryEdge<D, E, VertexXiType, VertexXjType>::linearizeOplus()
   } // end dimension
 
   _error = errorBeforeNumeric;
+
 #ifdef G2O_OPENMP
   vj->unlockQuadraticForm();
   vi->unlockQuadraticForm();
+  // std::cout << totalLockTime.count() << ", ";
 #endif
+
+auto end = std::chrono::steady_clock::now();
+// std::cout << std::chrono::duration_cast<std::chrono::microseconds>(end - second_vertex).count() << " |, ";
 }
 
 template <int D, typename E, typename VertexXiType, typename VertexXjType>

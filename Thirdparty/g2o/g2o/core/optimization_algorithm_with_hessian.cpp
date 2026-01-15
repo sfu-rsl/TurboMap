@@ -85,7 +85,7 @@ namespace g2o {
   void OptimizationAlgorithmWithHessian::updateLinearSystem()
   {
     if (_solver)
-      _solver->buildSystem();
+      _solver->buildSystem(0);
   }
 
   bool OptimizationAlgorithmWithHessian::updateStructure(const std::vector<HyperGraph::Vertex*>& vset, const HyperGraph::EdgeSet& edges)

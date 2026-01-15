@@ -1,5 +1,8 @@
+<<<<<<< HEAD
 #!/bin/sh
 
+=======
+>>>>>>> ORB_SLAM3_pg-opt/pg-opt
 echo "Configuring and building Thirdparty/DBoW2 ..."
 
 cd Thirdparty/DBoW2
@@ -8,13 +11,28 @@ cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j
 
+<<<<<<< HEAD
+=======
+cd ../../pose-graph-optimizer
+echo "Configuring and building Thirdparty/pose-graph-optimizer ..."
+mkdir build
+cd build
+cmake ..
+make -j
+
+>>>>>>> ORB_SLAM3_pg-opt/pg-opt
 cd ../../g2o
 
 echo "Configuring and building Thirdparty/g2o ..."
 
 mkdir build
 cd build
+<<<<<<< HEAD
 cmake .. -DCMAKE_BUILD_TYPE=Release
+=======
+cmake .. -DCMAKE_BUILD_TYPE=Release -DG2O_USE_OPENMP=ON
+# cmake .. -DCMAKE_BUILD_TYPE=Release
+>>>>>>> ORB_SLAM3_pg-opt/pg-opt
 make -j
 
 cd ../../Sophus
@@ -38,5 +56,12 @@ echo "Configuring and building ORB_SLAM3 ..."
 
 mkdir build
 cd build
+<<<<<<< HEAD
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j4
+=======
+cmake .. -DCMAKE_BUILD_TYPE=Release -DG2O_USE_OPENMP=ON -DOS3_USE_OPENMP=ON
+# cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DG2O_USE_OPENMP=ON -DOS3_USE_OPENMP=ON
+# cmake .. -DCMAKE_BUILD_TYPE=Release
+make -j4
+>>>>>>> ORB_SLAM3_pg-opt/pg-opt

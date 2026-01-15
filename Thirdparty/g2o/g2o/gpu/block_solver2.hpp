@@ -107,7 +107,7 @@ void BlockSolver2::deallocate()
 {
 
   // std::cout << "BlockSolver2: Deallocating!\n";
-  // auto t0 = get_monotonic_time();
+
   // wait for all tasks 
   if (gpu_alloc_task.valid()) {
     gpu_alloc_task.get();
@@ -135,48 +135,25 @@ void BlockSolver2::deallocate()
   if (task_rec_Hschur.valid()) {
     task_rec_Hschur.get();
   }
-  // auto t1 = get_monotonic_time();
-  // std::cout << "BlockSolver2: Waiting for tasks took " << t1-t0 << " seconds.\n";
-  // Multiplication objects
-  engine->recycle_sequence(mult_HplinvHll);
-  engine->recycle_sequence(mult_bschur);
-  engine->recycle_sequence(mult_Hschur);
-  engine->recycle_sequence(mult_HplTxp);
-  engine->recycle_sequence(mult_Hllinv);
-  engine->recycle_sequence(inversion_op);
 
+  // Multiplication objects
   mult_HplinvHll.reset();
   mult_bschur.reset();
   mult_Hschur.reset();
   mult_HplTxp.reset();
   mult_Hllinv.reset();
   inversion_op.reset();
-  // auto t2 = get_monotonic_time();
-  // std::cout << "BlockSolver2: Waiting for mult objects took " << t2-t1 << " seconds.\n";
+
   // Sequences
-
-  engine->recycle_sequence(Schur_seq2);
-  engine->recycle_sequence(Schur_seq);
-  engine->recycle_sequence(bschur_seq);
-  engine->recycle_sequence(set_lambda_seq);
-  engine->recycle_sequence(restore_diagonal_seq);
-
   Schur_seq2.reset();
   Schur_seq.reset();
   bschur_seq.reset();
   set_lambda_seq.reset();
   restore_diagonal_seq.reset();
 
-  // auto t3 = get_monotonic_time();
-  // std::cout << "BlockSolver2: Waiting for sequences took " << t3-t2 << " seconds.\n";
-
   // Sync objects
-  engine->recycle_sequence(sync_H);
-  engine->recycle_sequence(sync_x);
   sync_H.reset();
   sync_x.reset();
-  // auto t4 = get_monotonic_time();
-  // std::cout << "BlockSolver2: Waiting for sync objects took " << t4-t3 << " seconds.\n";
 
   // Matrices
   _Hpp.reset();
@@ -186,17 +163,13 @@ void BlockSolver2::deallocate()
   _Hllinv.reset();
   _HplinvHll.reset();
 
-  // auto t5 = get_monotonic_time();
-  // std::cout << "BlockSolver2: Waiting for matrices took " << t5-t4 << " seconds.\n";
-
   // Vectors
   _bschur.reset();
   _bl.reset();
   _xp.reset();
   _xl.reset();
   _lambda.reset();
-  // auto t6 = get_monotonic_time();
-  // std::cout << "BlockSolver2: Waiting for vectors took " << t6-t5 << " seconds.\n";
+
   // std::cout<< "Deallocated!\n";
 }
 
@@ -238,7 +211,7 @@ bool BlockSolver2::buildStructure(bool zeroBlocks)
   #else
   constexpr auto async_mode = std::launch::async;
   #endif
-  // std::cout << "BlockSolver2: buildStructure!\n";
+  std::cout << "BlockSolver2: buildStructure!\n";
 
   auto tr0 = std::chrono::high_resolution_clock::now();
   assert(_optimizer);
@@ -253,6 +226,9 @@ bool BlockSolver2::buildStructure(bool zeroBlocks)
   std::vector<BlockIndex> blockLandmarkIndices;
   blockLandmarkIndices.reserve(_optimizer->indexMapping().size()+1);
   // std::cout << "BlockSolver2: buildStructure - Finding dimensions...\n";
+
+  std::cout << "Poses and landmarks: " << _optimizer->indexMapping().size() << "\n";
+  std::cout << "_numPoses and _numLandmarks: " << _numPoses << " " << _numLandmarks << "\n";
 
 
   for (size_t i = 0; i < _optimizer->indexMapping().size(); ++i) {
@@ -272,7 +248,7 @@ bool BlockSolver2::buildStructure(bool zeroBlocks)
     sparseDim += dim;
   }
 
-  if (_sizeLandmarks && _sizePoses) {
+  if (_sizePoses) {
     blockPoseIndices.push_back(_sizePoses);
     blockLandmarkIndices.push_back(_sizeLandmarks);
   }
@@ -285,7 +261,7 @@ bool BlockSolver2::buildStructure(bool zeroBlocks)
 
   // std::cout << "Resizing!";
   resize(blockPoseIndices, _numPoses, blockLandmarkIndices, _numLandmarks, sparseDim);
-  // std::cout << "Done resizing!";
+  std::cout << "Done resizing!";
 
   // allocate the diagonal on Hpp and Hll
   int poseIdx = 0;
@@ -926,7 +902,7 @@ bool BlockSolver2::computeMarginals(SparseBlockMatrix<MatrixXd>& spinv, const st
   return false;
 }
 
-bool BlockSolver2::buildSystem()
+bool BlockSolver2::buildSystem(int iteration)
 {
   auto ta = get_monotonic_time();
   gpu_alloc_task.get();
@@ -948,32 +924,85 @@ bool BlockSolver2::buildSystem()
   }
   auto tb = get_monotonic_time();
 
+  auto totalLockTime = std::chrono::microseconds(0);
   // resetting the terms for the pairwise constraints
   // built up the current system by storing the Hessian blocks in the edges and vertices
-# ifndef G2O_OPENMP
-  // no threading, we do not need to copy the workspace
-  JacobianWorkspace& jacobianWorkspace = _optimizer->jacobianWorkspace();
-# else
-  // if running with threads need to produce copies of the workspace for each thread
-  JacobianWorkspace jacobianWorkspace = _optimizer->jacobianWorkspace();
-# pragma omp parallel for default (shared) firstprivate(jacobianWorkspace) if (_optimizer->activeEdges().size() > 100)
-# endif
-  for (int k = 0; k < static_cast<int>(_optimizer->activeEdges().size()); ++k) {
-    OptimizableGraph::Edge* e = _optimizer->activeEdges()[k];
-    e->linearizeOplus(jacobianWorkspace); // jacobian of the nodes' oplus (manifold)
-    e->constructQuadraticForm();
-#  ifndef NDEBUG
-    for (size_t i = 0; i < e->vertices().size(); ++i) {
-      const OptimizableGraph::Vertex* v = static_cast<const OptimizableGraph::Vertex*>(e->vertex(i));
-      if (! v->fixed()) {
-        bool hasANan = arrayHasNaN(jacobianWorkspace.workspaceForVertex(i), e->dimension() * v->dimension());
-        if (hasANan) {
-          cerr << "buildSystem(): NaN within Jacobian for edge " << e << " for vertex " << i << endl;
-          break;
-        }
-      }
+
+  if(_optimizer->getUseGPU()){
+    std::cout << "Computing Jacobians on GPU" << std::endl;
+    chrono::steady_clock::time_point gpu_start = chrono::steady_clock::now();
+    int numEdges = _optimizer->activeEdges().size();
+    chrono::steady_clock::time_point edgeMap_start = chrono::steady_clock::now();
+    std::map<int, int>& edgeIdMap = _optimizer->getGPUEdgeMap();
+    chrono::steady_clock::time_point edgeMap_stop = chrono::steady_clock::now();
+    std::vector<double> jacobiansX(numEdges*24), jacobiansY(numEdges*24);
+    _optimizer->graphInterface()->computeJacobians();
+    chrono::steady_clock::time_point jacobianStop = chrono::steady_clock::now();
+    _optimizer->graphInterface()->getJacobianX(jacobiansX);
+    _optimizer->graphInterface()->getJacobianY(jacobiansY);
+
+    chrono::steady_clock::time_point gpu_mid = chrono::steady_clock::now();
+    # ifndef G2O_OPENMP
+      // no threading, we do not need to copy the workspace
+      JacobianWorkspace& jacobianWorkspace = _optimizer->jacobianWorkspace();
+      if(_stats) std::cout << "No OpenMP for Jacobian computation on GPU" << std::endl;
+    # else
+      // if running with threads need to produce copies of the workspace for each thread
+      JacobianWorkspace jacobianWorkspace = _optimizer->jacobianWorkspace();
+    # pragma omp parallel for default (shared) firstprivate(jacobianWorkspace) if (_optimizer->activeEdges().size() > 100)
+    #endif
+    for (int k = 0; k < static_cast<int>(_optimizer->activeEdges().size()); ++k) {
+      OptimizableGraph::Edge* e = _optimizer->activeEdges()[k];
+      const OptimizableGraph::Vertex* v1 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(0));
+      const OptimizableGraph::Vertex* v2 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(1));
+      // e->linearizeOplus(jacobianWorkspace, totalLockTime,
+      //                   &jacobiansX[edgeIdMap[e->internalId()]*24],
+      //                   &jacobiansY[edgeIdMap[e->internalId()]*24]);
+      e->linearizeOplus(jacobianWorkspace, totalLockTime,
+                  &jacobiansX[edgeIdMap[e->internalId()]*24],
+                  &jacobiansY[edgeIdMap[e->internalId()]*24]);
+      // jacobianFile_gpu << v1->id() << " " << v2->id() << ": ";
+      // for(int i = 0; i < 24; i++){
+      //   jacobianFile_gpu << jacobiansX[edgeIdMap[e->internalId()]*24 + i] << " ";
+      //   jacobianFile << jacobiansX[k*24 + i] << " ";
+      // }
+      // jacobianFile_gpu << ", ";
+      // jacobianFile << ", ";
+      // for(int i = 0; i < 24; i++){
+      //   jacobianFile_gpu << jacobiansY[edgeIdMap[e->internalId()]*24 + i] << " ";
+      //   jacobianFile << jacobiansY[k*24 + i] << " ";
+      // }
+      // jacobianFile_gpu << std::endl;
+      // jacobianFile << std::endl;
+      e->constructQuadraticForm();
     }
-#  endif
+    chrono::steady_clock::time_point gpu_end = chrono::steady_clock::now();
+    std::cout << "Library times: " << std::chrono::duration_cast<std::chrono::microseconds>(edgeMap_stop - edgeMap_start).count();
+    std::cout << ", " << std::chrono::duration_cast<std::chrono::microseconds>(jacobianStop - edgeMap_stop).count();
+    std::cout << ", " << std::chrono::duration_cast<std::chrono::microseconds>(gpu_mid - jacobianStop).count() << std::endl;
+    std::cout << "GPU time: " << std::chrono::duration_cast<std::chrono::microseconds>(gpu_mid - gpu_start).count();
+    std::cout << ", " << std::chrono::duration_cast<std::chrono::microseconds>(gpu_end - gpu_mid).count() << " microseconds" << std::endl;
+  } else {
+    if(_stats) std::cout << "Computing Jacobians on CPU" << std::endl;
+    chrono::steady_clock::time_point cpu_start = chrono::steady_clock::now();
+    # ifndef G2O_OPENMP
+      // no threading, we do not need to copy the workspace
+      JacobianWorkspace& jacobianWorkspace = _optimizer->jacobianWorkspace();
+      if(_stats) std::cout << "No OpenMP for Jacobian computation on CPU" << std::endl;
+    # else
+      // if running with threads need to produce copies of the workspace for each thread
+      JacobianWorkspace jacobianWorkspace = _optimizer->jacobianWorkspace();
+    # pragma omp parallel for default (shared) firstprivate(jacobianWorkspace) if (_optimizer->activeEdges().size() > 100)
+    #endif
+    for (int k = 0; k < static_cast<int>(_optimizer->activeEdges().size()); ++k) {
+      OptimizableGraph::Edge* e = _optimizer->activeEdges()[k];
+      const OptimizableGraph::Vertex* v1 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(0));
+      const OptimizableGraph::Vertex* v2 = static_cast<const OptimizableGraph::Vertex*>(e->vertex(1));
+      e->linearizeOplus(jacobianWorkspace, totalLockTime);
+      e->constructQuadraticForm();
+    }
+    chrono::steady_clock::time_point cpu_end = chrono::steady_clock::now();
+    if(_stats) std::cout << "CPU time: " << std::chrono::duration_cast<std::chrono::microseconds>(cpu_end - cpu_start).count() << " microseconds" << std::endl;
   }
 
 auto tc = get_monotonic_time();

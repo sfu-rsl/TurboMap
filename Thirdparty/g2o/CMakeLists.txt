@@ -6,6 +6,14 @@ PROJECT(g2o)
 SET(g2o_C_FLAGS)
 SET(g2o_CXX_FLAGS)
 
+<<<<<<< HEAD
+=======
+if(POLICY CMP0015)
+  cmake_policy(SET CMP0015 NEW)
+endif()
+
+
+>>>>>>> ORB_SLAM3_pg-opt/pg-opt
 # default built type
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
@@ -46,6 +54,7 @@ ENDIF(UNIX)
 # OPENMP is experimental. We experienced some slowdown with it
 FIND_PACKAGE(OpenMP)
 SET(G2O_USE_OPENMP OFF CACHE BOOL "Build g2o with OpenMP support (EXPERIMENTAL)")
+<<<<<<< HEAD
 IF(OPENMP_FOUND AND G2O_USE_OPENMP)
   SET (G2O_OPENMP 1)
   SET(g2o_C_FLAGS "${g2o_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -58,6 +67,26 @@ SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native")
 SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -march=native")
 # SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 # SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3")
+=======
+# IF(OPENMP_FOUND AND G2O_USE_OPENMP)
+#   SET (G2O_OPENMP 1)
+#   SET(g2o_C_FLAGS "${g2o_C_FLAGS} ${OpenMP_C_FLAGS}")
+#   SET(g2o_CXX_FLAGS "${g2o_CXX_FLAGS} -DEIGEN_DONT_PARALLELIZE ${OpenMP_CXX_FLAGS}")
+#   MESSAGE(STATUS "Compiling with OpenMP support")
+# ENDIF(OPENMP_FOUND AND G2O_USE_OPENMP)
+
+# set(CMAKE_C_COMPILE "clang")
+# set(CMAKE_CXX_COMPILER "clang++")
+
+# Compiler specific options for gcc
+# SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native -fopenmp")
+SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -march=native")
+SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -march=native")
+SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -std=c++17 -fopenmp")
+SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3")
+
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -std=c++17 --hipsycl-targets=cuda:sm_86")
+>>>>>>> ORB_SLAM3_pg-opt/pg-opt
 
 # activate warnings !!!
 SET(g2o_C_FLAGS "${g2o_C_FLAGS} -Wall -W")
@@ -73,21 +102,46 @@ FIND_PACKAGE(Eigen3 3.1.0 REQUIRED)
 IF(EIGEN3_FOUND)
   SET(G2O_EIGEN3_INCLUDE ${EIGEN3_INCLUDE_DIR} CACHE PATH "Directory of Eigen3")
 ELSE(EIGEN3_FOUND)
+<<<<<<< HEAD
   SET(G2O_EIGEN3_INCLUDE "" CACHE PATH "Directory of Eigen3")
+=======
+  # SET(G2O_EIGEN3_INCLUDE "" CACHE PATH "Directory of Eigen3")
+  SET(G2O_EIGEN3_INCLUDE "/usr/local/include/eigen3" CACHE PATH "Directory of Eigen3")
+>>>>>>> ORB_SLAM3_pg-opt/pg-opt
 ENDIF(EIGEN3_FOUND)
 
 # Generate config.h
 SET(G2O_CXX_COMPILER "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER}")
 configure_file(config.h.in ${g2o_SOURCE_DIR}/config.h)
 
+<<<<<<< HEAD
+=======
+SET(pose-graph-optimizer_INCLUDE_DIR ${g2o_SOURCE_DIR}/../pose-graph-optimizer/include)
+SET(pose-graph-optimizer_LIBRARY_DIR ${g2o_SOURCE_DIR}/../pose-graph-optimizer/build/liboptimizer.so)
+
+>>>>>>> ORB_SLAM3_pg-opt/pg-opt
 # Set up the top-level include directories
 INCLUDE_DIRECTORIES(
 ${g2o_SOURCE_DIR}/core
 ${g2o_SOURCE_DIR}/types
+<<<<<<< HEAD
 ${g2o_SOURCE_DIR}/stuff 
 ${G2O_EIGEN3_INCLUDE})
 
 # new
+=======
+${g2o_SOURCE_DIR}/stuff
+${g2o_SOURCE_DIR}/gpu
+${G2O_EIGEN3_INCLUDE}
+${pose-graph-optimizer_INCLUDE_DIR}
+)
+
+# Set up the top-level link directories
+LINK_DIRECTORIES( g2o
+${pose-graph-optimizer_LIBRARY_DIR}
+)
+
+>>>>>>> ORB_SLAM3_pg-opt/pg-opt
 add_compile_definitions(SPDLOG_ACTIVE_LEVEL=5)
 add_subdirectory(compute-engine)
 
@@ -178,12 +232,29 @@ g2o/stuff/os_specific.c
 g2o/stuff/os_specific.h
 g2o/stuff/string_tools.cpp
 g2o/stuff/property.cpp       
+<<<<<<< HEAD
 g2o/stuff/property.h       
 # new
+=======
+g2o/stuff/property.h     
+
+#gpu
+>>>>>>> ORB_SLAM3_pg-opt/pg-opt
 g2o/gpu/BAStats.hpp
 g2o/gpu/BAStats.cpp
 g2o/gpu/block_solver2.h
 g2o/gpu/block_solver2.hpp
 )
+<<<<<<< HEAD
 # new
 target_link_libraries(g2o compute)
+=======
+
+target_link_libraries(g2o compute)
+
+IF(OPENMP_FOUND AND G2O_USE_OPENMP)
+  add_definitions(-DG2O_OPENMP)  
+  target_link_libraries(g2o OpenMP::OpenMP_CXX)
+  MESSAGE(STATUS "Compiling with OpenMP support")
+ENDIF(OPENMP_FOUND AND G2O_USE_OPENMP)
+>>>>>>> ORB_SLAM3_pg-opt/pg-opt

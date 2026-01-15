@@ -345,7 +345,96 @@ bool VertexPose::write(std::ostream& os) const
     return os.good();
 }
 
+// Write the value of the estimated parameters in row-major order
+bool VertexPose4DoF::write(std::ostream& os) const
+{
 
+    std::vector<Eigen::Matrix<double,3,3> > Rcw = _estimate.Rcw;
+    std::vector<Eigen::Matrix<double,3,1> > tcw = _estimate.tcw;
+
+    std::vector<Eigen::Matrix<double,3,3> > Rcb = _estimate.Rcb;
+    std::vector<Eigen::Matrix<double,3,1> > tcb = _estimate.tcb;
+
+    std::vector<Eigen::Matrix<double,3,3> > Rbc = _estimate.Rbc;
+    std::vector<Eigen::Matrix<double,3,1> > tbc = _estimate.tbc;
+
+    Eigen::Matrix3d Rwb = _estimate.Rwb;
+    Eigen::Vector3d twb = _estimate.twb;
+
+
+    // const int num_cams = tcw.size();
+    const int num_cams = 1;
+
+    for(int idx = 0; idx<num_cams; idx++)
+    {
+        os << ":";
+        for (int i=0; i<3; i++){
+            for (int j=0; j<3; j++)
+                os << std::setprecision(15) << Rcw[idx](i,j) << " ";
+        }
+        os << ",";
+        for (int i=0; i<3; i++){
+            for (int j=0; j<3; j++)
+                os << std::setprecision(15) << Rcb[idx](i,j) << " ";
+        }
+        os << ",";
+        for (int i=0; i<3; i++){
+            for (int j=0; j<3; j++)
+                os << std::setprecision(15) << Rbc[idx](i,j) << " ";
+        }
+        os << ",";
+        for (int i=0; i<3; i++){
+            for (int j=0; j<3; j++)
+                os << std::setprecision(15) << Rwb(i,j) << " ";
+        }
+        os << ",";
+        for (int i=0; i<3; i++){
+            os << std::setprecision(15) << tcw[idx](i) << " ";
+        }
+        os << ",";
+        for (int i=0; i<3; i++){
+            os << std::setprecision(15) << tcb[idx](i) << " ";
+        }
+        os << ",";
+        for (int i=0; i<3; i++){
+            os << std::setprecision(15) << tbc[idx](i) << " ";
+        }
+        os << ",";
+        for (int i=0; i<3; i++){
+            os << std::setprecision(15) << twb(i) << " ";
+        }
+        // os << ",";
+        // for(size_t i = 0; i < _estimate.pCamera[idx]->size(); i++){
+        //     os << _estimate.pCamera[idx]->getParameter(i) << " ";
+        // }
+    }
+
+    os << "," <<  _estimate.bf;
+
+    return os.good();
+}
+
+bool Edge4DoF::write(std::ostream& os) const
+{
+    os <<":";
+    for(int i=0; i<3; i++){
+        for(int j=0; j<3; j++)
+        os << std::setprecision(15) << dRij(i,j) << " ";
+    }
+    os << ",";
+    for(int i=0; i<3; i++){
+        os << std::setprecision(15) << dtij(i) << " ";
+    }
+
+    return os.good();
+}
+
+bool Edge4DoF::writeError(std::ostream& os) const
+{
+
+    std::cout << _error << std::endl;
+    return os.good();
+}
 void EdgeMono::linearizeOplus()
 {
     const VertexPose* VPose = static_cast<const VertexPose*>(_vertices[1]);

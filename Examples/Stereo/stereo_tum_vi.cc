@@ -26,7 +26,6 @@
 #include<opencv2/core/core.hpp>
 
 #include<System.h>
-#include<Stats/TrackingStats.h>
 
 using namespace std;
 
@@ -36,39 +35,18 @@ void LoadImages(const string &strPathLeft, const string &strPathRight, const str
 double ttrack_tot = 0;
 int main(int argc, char **argv)
 {
-
-    int min_num_argc = 6 + 7;
-    if(argc < min_num_argc)
-    {
-        cerr << endl << "Usage: ./stereo_tum_vi path_to_vocabulary path_to_settings path_to_image_folder1_1 path_to_image_folder2_1 path_to_times_file_1 (path_to_image_folder1_2 path_to_image_folder2_2 path_to_times_file_2 ... path_to_image_folder1_N path_to_image_folder2_N path_to_times_file_N) (trajectory_file_name)"
-                    << "strStatsFile OrbExtractionRunStatus StereoMatchRunStatus SearchLocalPointsRunStatus PoseEstimationRunStatus poseOptimizationStatus SearchForTriangulationRunStatus"  << endl;
-        return 1;
-    }
-
-    bool SearchForTriangulationRunStatus = (strcmp(argv[argc-1], "1") == 0);
-    bool RunPoseOptimization = (strcmp(argv[argc-2], "1") == 0);
-    bool RunPoseEstimationOnGPU = (strcmp(argv[argc-3], "1") == 0);
-    bool RunSearchLocalPointsOnGPU = (strcmp(argv[argc-4], "1") == 0);
-    bool RunStereoMatchOnGPU = (strcmp(argv[argc-5], "1") == 0);
-    bool RunOrbExtractionOnGPU = (strcmp(argv[argc-6], "1") == 0);
-    string strStatsFile = argv[argc-7];
-    argc-=7;
-
-    cout << "[Kernels Run Status::] ORB Extraction: " << RunOrbExtractionOnGPU <<
-            " Stereo Match: " << RunStereoMatchOnGPU <<
-            " Search Local Points: " << RunSearchLocalPointsOnGPU <<
-            " Pose Estimation: " << RunPoseEstimationOnGPU <<
-            " Pose Optimization: " << RunPoseOptimization << 
-            " Search For Triangulation: " << SearchForTriangulationRunStatus << endl;
-
-    TrackingKernelController::setGPURunMode(RunOrbExtractionOnGPU, RunStereoMatchOnGPU, RunSearchLocalPointsOnGPU, RunPoseEstimationOnGPU, RunPoseOptimization);
-
     const int num_seq = (argc-3)/3;
     cout << "num_seq = " << num_seq << endl;
     bool bFileName= (((argc-3) % 3) == 1);
     string file_name;
     if (bFileName)
         file_name = string(argv[argc-1]);
+
+    if(argc < 6)
+    {
+        cerr << endl << "Usage: ./stereo_tum_vi path_to_vocabulary path_to_settings path_to_image_folder1_1 path_to_image_folder2_1 path_to_times_file_1 (path_to_image_folder1_2 path_to_image_folder2_2 path_to_times_file_2 ... path_to_image_folder1_N path_to_image_folder2_N path_to_times_file_N) (trajectory_file_name)" << endl;
+        return 1;
+    }
 
     // Load all sequences:
     int seq;
@@ -112,7 +90,7 @@ int main(int argc, char **argv)
     cout.precision(17);
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::STEREO,false);
+    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::STEREO,true);
     float imageScale = SLAM.GetImageScale();
 
     cout << endl << "-------" << endl;
@@ -142,7 +120,7 @@ int main(int argc, char **argv)
     #ifdef COMPILEDWITHC11
                 std::chrono::steady_clock::time_point t_Start_Resize = std::chrono::steady_clock::now();
     #else
-                std::chrono::monotonic_clock::time_point t_Start_Resize = std::chrono::monotonic_clock::now();
+                std::chrono::steady_clock::time_point t_Start_Resize = std::chrono::steady_clock::now();
     #endif
 #endif
                 int width = imLeft.cols * imageScale;
@@ -153,7 +131,7 @@ int main(int argc, char **argv)
     #ifdef COMPILEDWITHC11
                 std::chrono::steady_clock::time_point t_End_Resize = std::chrono::steady_clock::now();
     #else
-                std::chrono::monotonic_clock::time_point t_End_Resize = std::chrono::monotonic_clock::now();
+                std::chrono::steady_clock::time_point t_End_Resize = std::chrono::steady_clock::now();
     #endif
                 t_resize = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t_End_Resize - t_Start_Resize).count();
                 SLAM.InsertResizeTime(t_resize);
@@ -176,7 +154,7 @@ int main(int argc, char **argv)
     #ifdef COMPILEDWITHC11
             std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
     #else
-            std::chrono::monotonic_clock::time_point t1 = std::chrono::monotonic_clock::now();
+            std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
     #endif
 
             // Pass the image to the SLAM system
@@ -185,7 +163,7 @@ int main(int argc, char **argv)
     #ifdef COMPILEDWITHC11
             std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
     #else
-            std::chrono::monotonic_clock::time_point t2 = std::chrono::monotonic_clock::now();
+            std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
     #endif
 
 #ifdef REGISTER_TIMES
@@ -220,7 +198,6 @@ int main(int argc, char **argv)
 
     // Stop all threads
     SLAM.Shutdown();
-    TrackingStats::getInstance().saveStats(strStatsFile);
 
     // Tracking time statistics
 

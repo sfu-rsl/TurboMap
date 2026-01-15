@@ -35,12 +35,17 @@
 #include "Thirdparty/g2o/g2o/types/types_six_dof_expmap.h"
 #include "Thirdparty/g2o/g2o/core/robust_kernel_impl.h"
 #include "Thirdparty/g2o/g2o/solvers/linear_solver_dense.h"
+#include "Thirdparty/pose-graph-optimizer/include/Vertex.h"
+#include "Thirdparty/pose-graph-optimizer/include/Edge.h"
 #include "G2oTypes.h"
 #include "Converter.h"
+#include "LoopClosureDetector.h"
 
 #include<mutex>
 
 #include "OptimizableTypes.h"
+
+#include "Thirdparty/g2o/g2o/gpu/block_solver2.h"
 
 
 namespace ORB_SLAM3
@@ -52,11 +57,6 @@ void initialize_compute_engine() {
     if (!engine) {
         engine = new compute::ComputeEngine();
     }
-
-    // Temporary allocation to reduce initialization overhead on first use
-    auto buf = engine->create_buffer<double>(nullptr, 1000000, compute::BufferType::DeviceCached);
-    auto buf2 = engine->create_buffer<double>(nullptr, 1000000, compute::BufferType::Host);
-    auto buf3 = engine->create_buffer<double>(nullptr, 1000000, compute::BufferType::Storage);
 }
 
 void destroy_compute_engine() {
@@ -71,6 +71,7 @@ bool sortByVal(const pair<MapPoint*, int> &a, const pair<MapPoint*, int> &b)
 
 void Optimizer::GlobalBundleAdjustemnt(Map* pMap, int nIterations, bool* pbStopFlag, const unsigned long nLoopKF, const bool bRobust)
 {
+    std::cout << "GlobalBundleAdjustment" << std::endl;
     vector<KeyFrame*> vpKFs = pMap->GetAllKeyFrames();
     vector<MapPoint*> vpMP = pMap->GetAllMapPoints();
     BundleAdjustment(vpKFs,vpMP,nIterations,pbStopFlag, nLoopKF, bRobust);
@@ -411,6 +412,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
 
 void Optimizer::FullInertialBA(Map *pMap, int its, const bool bFixLocal, const long unsigned int nLoopId, bool *pbStopFlag, bool bInit, float priorG, float priorA, Eigen::VectorXd *vSingVal, bool *bHess)
 {
+    std::cout << "FullInertialBA" << std::endl;
     long unsigned int maxKFid = pMap->GetMaxKFid();
     const vector<KeyFrame*> vpKFs = pMap->GetAllKeyFrames();
     const vector<MapPoint*> vpMPs = pMap->GetAllMapPoints();
@@ -424,6 +426,10 @@ void Optimizer::FullInertialBA(Map *pMap, int its, const bool bFixLocal, const l
     g2o::BlockSolverX * solver_ptr = new g2o::BlockSolverX(linearSolver);
 
     g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
+
+    // solver->setGbaStats(true);
+
+    // solver_ptr->setStats(true);
     solver->setUserLambdaInit(1e-5);
     optimizer.setAlgorithm(solver);
     optimizer.setVerbose(false);
@@ -1523,16 +1529,39 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
                                        const LoopClosing::KeyFrameAndPose &CorrectedSim3,
                                        const map<KeyFrame *, set<KeyFrame *> > &LoopConnections, const bool &bFixScale)
 {   
+    std::cout << "OptimizeEssentialGraph" << std::endl;
     // Setup optimizer
     g2o::SparseOptimizer optimizer;
-    optimizer.setVerbose(false);
+    optimizer.setVerbose(true);
     g2o::BlockSolver_7_3::LinearSolverType * linearSolver =
            new g2o::LinearSolverEigen<g2o::BlockSolver_7_3::PoseMatrixType>();
     g2o::BlockSolver_7_3 * solver_ptr= new g2o::BlockSolver_7_3(linearSolver);
     g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
+    
+    // solver->setGbaStats(true);
 
     solver->setUserLambdaInit(1e-16);
     optimizer.setAlgorithm(solver);
+
+    solver_ptr->setStats(true);
+
+    g2o::SparseOptimizer optimizer_gpu;
+    optimizer_gpu.setVerbose(true);
+    g2o::BlockSolver_7_3::LinearSolverType * linearSolver_gpu =
+           new g2o::LinearSolverEigen<g2o::BlockSolver_7_3::PoseMatrixType>();
+    g2o::BlockSolver_7_3 * solver_ptr_gpu= new g2o::BlockSolver_7_3(linearSolver_gpu);
+    g2o::OptimizationAlgorithmLevenberg* solver_gpu = new g2o::OptimizationAlgorithmLevenberg(solver_ptr_gpu);
+
+    solver_gpu->setUserLambdaInit(1e-16);
+    optimizer_gpu.setAlgorithm(solver_gpu);
+
+    solver_ptr_gpu->setStats(true);
+
+    optimizer_gpu.setUseGPU(true);
+
+    optimizer_gpu.createGraphInterface();
+
+    optimizer::GraphInterface* graph_interface = optimizer_gpu.graphInterface();
 
     const vector<KeyFrame*> vpKFs = pMap->GetAllKeyFrames();
     const vector<MapPoint*> vpMPs = pMap->GetAllMapPoints();
@@ -3968,6 +3997,9 @@ void Optimizer::LocalBundleAdjustment(KeyFrame* pMainKF,vector<KeyFrame*> vpAdju
 
 void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbStopFlag, Map *pMap, LoopClosing::KeyFrameAndPose &corrPoses)
 {
+
+    auto start = chrono::steady_clock::now();
+
     const int Nd = 6;
     const unsigned long maxKFid = pCurrKF->mnId;
 
@@ -4119,7 +4151,7 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
     solver->setUserLambdaInit(1e3);
 
     optimizer.setAlgorithm(solver);
-    optimizer.setVerbose(false);
+    optimizer.setVerbose(true);
 
     // Set Local KeyFrame vertices
     N=vpOptimizableKFs.size();
@@ -4394,8 +4426,16 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
         if(*pbStopFlag)
             return;
 
+    cout << "Time before optimizer: " << chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - start).count() << endl;
+    
+    auto t1 = chrono::steady_clock::now();
+
     optimizer.initializeOptimization();
     optimizer.optimize(8);
+
+    auto t2 = chrono::steady_clock::now();
+
+    cout << "Optimzer time : " << chrono::duration_cast<chrono::milliseconds>(t2 - t1).count() << endl;
 
     vector<pair<KeyFrame*,MapPoint*> > vToErase;
     vToErase.reserve(vpEdgesMono.size()+vpEdgesStereo.size());
@@ -4446,7 +4486,10 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
         }
     }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> ORB_SLAM3_pg-opt/pg-opt
     // Recover optimized data
     //Keyframes
     for(int i=0; i<N; i++)
@@ -4507,6 +4550,8 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
     }
 
     pMap->IncreaseChangeIndex();
+
+    cout << "Time after optimizer: " << chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - t2).count() << endl;
 }
 
 int Optimizer::PoseInertialOptimizationLastKeyFrame(Frame *pFrame, bool bRecInit)
@@ -5317,16 +5362,41 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
 {
     typedef g2o::BlockSolver< g2o::BlockSolverTraits<4, 4> > BlockSolver_4_4;
 
+    chrono::steady_clock::time_point start = chrono::steady_clock::now();
+
     // Setup optimizer
     g2o::SparseOptimizer optimizer;
-    optimizer.setVerbose(false);
+    optimizer.setVerbose(true);
     g2o::BlockSolverX::LinearSolverType * linearSolver =
             new g2o::LinearSolverEigen<g2o::BlockSolverX::PoseMatrixType>();
     g2o::BlockSolverX * solver_ptr = new g2o::BlockSolverX(linearSolver);
 
+    // compute::LinearSolver<double> *_linearSolver = new compute::LDLTSolver<double>();
+    // g2o::BlockSolver2X *solver_ptr_ = new g2o::BlockSolver2X(engine, _linearSolver);
+
+    solver_ptr->setStats(true);
+
     g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
 
     optimizer.setAlgorithm(solver);
+
+    g2o::SparseOptimizer optimizer_gpu;
+    optimizer_gpu.setVerbose(true);
+    g2o::BlockSolverX::LinearSolverType * linearSolver_gpu =
+            new g2o::LinearSolverEigen<g2o::BlockSolverX::PoseMatrixType>();
+    g2o::BlockSolverX * solver_ptr_gpu = new g2o::BlockSolverX(linearSolver_gpu);
+
+    solver_ptr_gpu->setStats(true);
+
+    g2o::OptimizationAlgorithmLevenberg* solver_gpu = new g2o::OptimizationAlgorithmLevenberg(solver_ptr_gpu);
+
+    optimizer_gpu.setAlgorithm(solver_gpu);
+
+    optimizer_gpu.setUseGPU(true);
+
+    optimizer_gpu.createGraphInterface();
+
+    optimizer::GraphInterface* graph_interface = optimizer_gpu.graphInterface();
 
     const vector<KeyFrame*> vpKFs = pMap->GetAllKeyFrames();
     const vector<MapPoint*> vpMPs = pMap->GetAllMapPoints();
@@ -5337,7 +5407,7 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
     vector<g2o::Sim3,Eigen::aligned_allocator<g2o::Sim3> > vCorrectedSwc(nMaxKFid+1);
 
     vector<VertexPose4DoF*> vpVertices(nMaxKFid+1);
-
+    
     const int minFeat = 100;
     // Set KeyFrame vertices
     for(size_t i=0, iend=vpKFs.size(); i<iend;i++)
@@ -5347,6 +5417,7 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
             continue;
 
         VertexPose4DoF* V4DoF;
+        VertexPose4DoF* V4DoF_gpu;
 
         const int nIDi = pKF->mnId;
 
@@ -5359,6 +5430,7 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
             Eigen::Matrix3d Rwc = Swc.rotation().toRotationMatrix();
             Eigen::Vector3d twc = Swc.translation();
             V4DoF = new VertexPose4DoF(Rwc, twc, pKF);
+            V4DoF_gpu = new VertexPose4DoF(Rwc, twc, pKF);
         }
         else
         {
@@ -5367,17 +5439,30 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
 
             vScw[nIDi] = Siw;
             V4DoF = new VertexPose4DoF(pKF);
+            V4DoF_gpu = new VertexPose4DoF(pKF);
         }
 
-        if(pKF==pLoopKF)
+        if(pKF==pLoopKF){
             V4DoF->setFixed(true);
+            V4DoF_gpu->setFixed(true);
+        }
 
         V4DoF->setId(nIDi);
         V4DoF->setMarginalized(false);
 
         optimizer.addVertex(V4DoF);
         vpVertices[nIDi]=V4DoF;
+
+        V4DoF_gpu->setId(nIDi);
+        V4DoF_gpu->setMarginalized(false);
+
+        optimizer_gpu.addVertex(V4DoF_gpu);
+
+        auto estimate = V4DoF->estimate();
+        optimizer::Vertex* v = new optimizer::Vertex(nIDi, estimate.Rcw[0], estimate.Rcb[0], estimate.Rbc[0], estimate.Rwb, estimate.tcw[0], estimate.tcb[0], estimate.tbc[0], estimate.twb, estimate.bf);
+        graph_interface->addVertex(*v);
     }
+
     set<pair<long unsigned int,long unsigned int> > sInsertedEdges;
 
     // Edge used in posegraph has still 6Dof, even if updates of camera poses are just in 4DoF
@@ -5416,7 +5501,16 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
             e_loop = e;
             optimizer.addEdge(e);
 
+            Edge4DoF* e_gpu = new Edge4DoF(Tij);
+            e_gpu->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer_gpu.vertex(nIDj)));
+            e_gpu->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer_gpu.vertex(nIDi)));
+            e_gpu->information() = matLambda;
+            optimizer_gpu.addEdge(e_gpu);
+
             sInsertedEdges.insert(make_pair(min(nIDi,nIDj),max(nIDi,nIDj)));
+
+            optimizer::Edge* e_opt = new optimizer::Edge(e->internalId(), nIDi, nIDj, Tij.block<3,3>(0,0), Tij.block<3,1>(0,3));
+            graph_interface->addEdge(*e_opt);
         }
     }
 
@@ -5463,6 +5557,15 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
             e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(nIDj)));
             e->information() = matLambda;
             optimizer.addEdge(e);
+
+            Edge4DoF* e_gpu = new Edge4DoF(Tij);
+            e_gpu->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer_gpu.vertex(nIDi)));
+            e_gpu->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer_gpu.vertex(nIDj)));
+            e_gpu->information() = matLambda;
+            optimizer_gpu.addEdge(e_gpu);
+
+            optimizer::Edge* e_opt = new optimizer::Edge(e->internalId(), nIDi, nIDj, Tij.block<3,3>(0,0), Tij.block<3,1>(0,3));
+            graph_interface->addEdge(*e_opt);
         }
 
         // 1.1.1 Inertial edges
@@ -5491,6 +5594,15 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
             e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(nIDj)));
             e->information() = matLambda;
             optimizer.addEdge(e);
+
+            Edge4DoF* e_gpu = new Edge4DoF(Tij);
+            e_gpu->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer_gpu.vertex(nIDi)));
+            e_gpu->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer_gpu.vertex(nIDj)));
+            e_gpu->information() = matLambda;
+            optimizer_gpu.addEdge(e_gpu);
+
+            optimizer::Edge* e_opt = new optimizer::Edge(e->internalId(), nIDi, nIDj, Tij.block<3,3>(0,0), Tij.block<3,1>(0,3));
+            graph_interface->addEdge(*e_opt);
         }
 
         // 1.2 Loop edges
@@ -5520,6 +5632,15 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
                 e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(pLKF->mnId)));
                 e->information() = matLambda;
                 optimizer.addEdge(e);
+
+                Edge4DoF* e_gpu = new Edge4DoF(Til);
+                e_gpu->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer_gpu.vertex(nIDi)));
+                e_gpu->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer_gpu.vertex(pLKF->mnId)));
+                e_gpu->information() = matLambda;
+                optimizer_gpu.addEdge(e_gpu);
+
+                optimizer::Edge* e_opt = new optimizer::Edge(e->internalId(), nIDi, pLKF->mnId, Til.block<3,3>(0,0), Til.block<3,1>(0,3));
+                graph_interface->addEdge(*e_opt);
             }
         }
 
@@ -5554,14 +5675,51 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
                     e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(pKFn->mnId)));
                     e->information() = matLambda;
                     optimizer.addEdge(e);
+
+                    Edge4DoF* e_gpu = new Edge4DoF(Tin);
+                    e_gpu->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer_gpu.vertex(nIDi)));
+                    e_gpu->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer_gpu.vertex(pKFn->mnId)));
+                    e_gpu->information() = matLambda;
+                    optimizer_gpu.addEdge(e_gpu);
+
+                    optimizer::Edge* e_opt = new optimizer::Edge(e->internalId(), nIDi, pKFn->mnId, Tin.block<3,3>(0,0), Tin.block<3,1>(0,3));
+                    graph_interface->addEdge(*e_opt);
                 }
             }
         }
     }
 
+    chrono::steady_clock::time_point stop = chrono::steady_clock::now();
+
+    // if(optimizer.getUseGPU()) {
+    //     graph_interface->initializeBuffers();
+    // }
+
+    graph_interface->initializeBuffers();
+
+    optimizer_gpu.setGPUEdgeMap();
+
+    // std::string filename = "opt_initial.txt";
+    // optimizer.save(filename.c_str());
+    // cout << endl << "g2o before optimization file saved" << endl;
+
+    std::cout << "--------------------------- OpenMP -------------------------------" << std::endl;
+
     optimizer.initializeOptimization();
     optimizer.computeActiveErrors();
     optimizer.optimize(20);
+
+    std::cout << " ---------------------------- GPU ----------------------------- " << std::endl;
+
+    // optimizer_gpu.initializeOptimization();
+    // optimizer_gpu.computeActiveErrors();
+    // optimizer_gpu.optimize(20);
+
+    // std::string filename2 = "opt_final.txt";
+    // optimizer.save(filename2.c_str());
+    // cout << endl << "g2o after optimization file saved" << endl;
+
+    chrono::steady_clock::time_point stop2 = chrono::steady_clock::now();
 
     unique_lock<mutex> lock(pMap->mMutexMapUpdate);
 
@@ -5606,6 +5764,11 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
         pMP->UpdateNormalAndDepth();
     }
     pMap->IncreaseChangeIndex();
+
+    solver_ptr->setStats(false);
+
+    cout << "Pose graph optimization time1 : " << chrono::duration_cast<chrono::milliseconds>(stop - start).count() << endl;
+    cout << "Pose graph optimization time2 : " << chrono::duration_cast<chrono::milliseconds>(stop2 - stop).count() << endl;
 }
 
 } //namespace ORB_SLAM

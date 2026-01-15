@@ -32,6 +32,8 @@
 #include "optimizable_graph.h"
 #include "sparse_block_matrix.h"
 #include "batch_stats.h"
+#include "../../../pose-graph-optimizer/include/GraphInterface.h"
+#include <memory>
 
 #include <map>
 
@@ -284,7 +286,21 @@ namespace g2o {
     //! remove an action that should no longer be execured before computing the error vectors
     bool removeComputeErrorAction(HyperGraphAction* action);
 
-    
+    void createGraphInterface() {_graphInterface = optimizer::GraphInterface::create();};
+
+    optimizer::GraphInterface* graphInterface() {return _graphInterface.get();}
+
+    void setUseGPU(bool useGPU) {this->useGPU = useGPU;}
+
+    bool getUseGPU() {return useGPU;}
+
+    void setGPUEdgeMap() { _gpuEdgeMap = _graphInterface->getEdgeIDMap();}
+
+    void setUseOpenMP(bool useOpenMP) {this->useOpenMP = useOpenMP;}
+
+    bool getUseOpenMP() {return useOpenMP;}
+
+    std::map<int, int>& getGPUEdgeMap() { return _gpuEdgeMap;}
 
     protected:
     bool* _forceStopFlag;
@@ -306,6 +322,15 @@ namespace g2o {
 
     BatchStatisticsContainer _batchStatistics;   ///< global statistics of the optimizer, e.g., timing, num-non-zeros
     bool _computeBatchStatistics;
+
+    std::unique_ptr<optimizer::GraphInterface> _graphInterface;
+
+    std::map<int, int> _gpuEdgeMap;
+
+    bool useGPU = false;
+
+    bool useOpenMP = false;
+
   };
 } // end namespace
 

@@ -70,7 +70,7 @@ namespace g2o {
     }
 
     t=get_monotonic_time();
-    _solver->buildSystem();
+    _solver->buildSystem(iteration);
     if (globalStats) {
       globalStats->timeQuadraticForm = get_monotonic_time()-t;
       t=get_monotonic_time();

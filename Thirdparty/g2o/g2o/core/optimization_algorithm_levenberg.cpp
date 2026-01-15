@@ -32,10 +32,13 @@
 #include <iostream>
 
 #include "../stuff/timeutil.h"
+#include "../../../../include/LoopClosureDetector.h"
+#include "base_edge.h"
 
 #include "sparse_optimizer.h"
 #include "solver.h"
 #include "batch_stats.h"
+#include "chrono"
 using namespace std;
 
 namespace g2o {
@@ -60,6 +63,7 @@ namespace g2o {
 
   OptimizationAlgorithm::SolverResult OptimizationAlgorithmLevenberg::solve(int iteration, bool online)
   {
+    chrono::steady_clock::time_point buildStructureStart = chrono::steady_clock::now();
     assert(_optimizer && "_optimizer not set");
     assert(_solver->optimizer() == _optimizer && "underlying linear solver operates on different graph");
 
@@ -71,7 +75,13 @@ namespace g2o {
       }
     }
 
-    double t=get_monotonic_time();
+    chrono::steady_clock::time_point buildStructureEnd = chrono::steady_clock::now();
+    if(LoopClosureDetector::instance().isLoopClosureDetected() || _gbaStats)
+    {
+      cout << "Levenberg [Build Structure]: " << chrono::duration_cast<chrono::microseconds>(buildStructureEnd - buildStructureStart).count() << " ms" << endl;
+    }
+
+    double t = get_monotonic_time();
     _optimizer->computeActiveErrors();
     G2OBatchStatistics* globalStats = G2OBatchStatistics::globalStats();
     if (globalStats) {
@@ -79,14 +89,29 @@ namespace g2o {
       t=get_monotonic_time();
     }
 
+    chrono::steady_clock::time_point computeActiveErrors = chrono::steady_clock::now();
+
+    if(LoopClosureDetector::instance().isLoopClosureDetected() || _gbaStats)
+    {
+      cout << "Levenberg [ComputeActiveErrors]: " << chrono::duration_cast<chrono::microseconds>(computeActiveErrors - buildStructureEnd).count() << " ms" << endl;
+    }
+
     double currentChi = _optimizer->activeRobustChi2();
     double tempChi=currentChi;
 
     double iniChi = currentChi;
 
-    _solver->buildSystem();
+    _solver->buildSystem(iteration);
+
     if (globalStats) {
       globalStats->timeQuadraticForm = get_monotonic_time()-t;
+    }
+
+    chrono::steady_clock::time_point buildSystemEnd = chrono::steady_clock::now();
+
+    if(LoopClosureDetector::instance().isLoopClosureDetected() || _gbaStats)
+    {
+      cout << "Levenberg [Build System]: " << chrono::duration_cast<chrono::microseconds>(buildSystemEnd - computeActiveErrors).count() << " ms" << endl;
     }
 
     // core part of the Levenbarg algorithm
@@ -95,6 +120,18 @@ namespace g2o {
       _ni = 2;
       _nBad = 0;
     }
+
+    chrono::steady_clock::time_point computeLambdaInit = chrono::steady_clock::now();
+
+    if(LoopClosureDetector::instance().isLoopClosureDetected() || LoopClosureDetector::instance().isMergeDetected() || _gbaStats)
+    {
+      cout << "Levenberg [computeLambdaInit]: " << chrono::duration_cast<chrono::microseconds>(computeLambdaInit - buildSystemEnd).count() << " ms" << endl;
+    }
+
+    std::chrono::steady_clock::time_point start, end, t1, t2, t3;
+    std::chrono::duration<double> updateSolution = std::chrono::duration<double>::zero();
+    std::chrono::duration<double> linearSolution = std::chrono::duration<double>::zero();
+    std::chrono::duration<double> restSolution = std::chrono::duration<double>::zero();
 
     double rho=0;
     int& qmax = _levenbergIterations;
@@ -105,18 +142,34 @@ namespace g2o {
         globalStats->levenbergIterations++;
         t=get_monotonic_time();
       }
+      start = std::chrono::steady_clock::now();
       // update the diagonal of the system matrix
+      t1 = std::chrono::steady_clock::now();
       _solver->setLambda(_currentLambda, true);
+      t2 = std::chrono::steady_clock::now();
       bool ok2 = _solver->solve();
+      t3 = std::chrono::steady_clock::now();
       if (globalStats) {
         globalStats->timeLinearSolution+=get_monotonic_time()-t;
         t=get_monotonic_time();
       }
-      _optimizer->update(_solver->x());
+      end = std::chrono::steady_clock::now();
+      linearSolution += end - start;
+      start = std::chrono::steady_clock::now();
+      if(_optimizer->getUseGPU())
+      {
+        _optimizer->graphInterface()->update(_solver->x());
+        _optimizer->update(_solver->x());
+      } else {
+        _optimizer->update(_solver->x());
+      }
       if (globalStats) {
         globalStats->timeUpdate = get_monotonic_time()-t;
       }
 
+      end = std::chrono::steady_clock::now();
+      updateSolution = end - start;
+      start = std::chrono::steady_clock::now();
       // restore the diagonal
       _solver->restoreDiagonal();
 
@@ -146,6 +199,8 @@ namespace g2o {
         _optimizer->pop(); // restore the last state before trying to optimize
       }
       qmax++;
+      end = std::chrono::steady_clock::now();
+      restSolution += end - start;
     } while (rho<0 && qmax < _maxTrialsAfterFailure->value() && ! _optimizer->terminate());
 
     if (qmax == _maxTrialsAfterFailure->value() || rho==0)
@@ -163,6 +218,22 @@ namespace g2o {
     if(_nBad>=3)
     {
         return Terminate;
+    }
+
+    chrono::steady_clock::time_point mainAlgorithmEnd = chrono::steady_clock::now();
+
+    if(LoopClosureDetector::instance().isLoopClosureDetected() || _gbaStats)
+    {
+      cout << "Update: " << chrono::duration_cast<chrono::microseconds>(updateSolution).count() << " ms" << endl;
+      cout << "Linear: " << chrono::duration_cast<chrono::microseconds>(linearSolution).count() << " [ " <<
+      chrono::duration_cast<chrono::microseconds>(t2 - t1).count() << ", " << chrono::duration_cast<chrono::microseconds>(t3 - t2).count() << "] ms" << endl;
+      cout << "Rest: " << chrono::duration_cast<chrono::microseconds>(restSolution).count() << " ms" << endl;
+      cout << "Levenberg [Main Algorithm]: " << chrono::duration_cast<chrono::microseconds>(mainAlgorithmEnd - computeLambdaInit).count() << " ms" << endl;
+      // cout << "Iteration : " << iteration << endl;
+      // cout << "Edges: " << _optimizer->activeEdges().size() << endl;
+      // cout << "Vertices: " << _optimizer->activeVertices().size() << endl;
+      // std::string filename = "opt_" + std::to_string(iteration) + ".txt";
+      // _optimizer->save(filename.c_str());
     }
 
     return OK;

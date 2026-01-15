@@ -65,6 +65,8 @@ namespace g2o {
       //! return the number of levenberg iterations performed in the last round
       int levenbergIteration() { return _levenbergIterations;}
 
+      void setGbaStats(bool value) { _gbaStats = value; }
+
     protected:
       // Levenberg parameters
       Property<int>* _maxTrialsAfterFailure;
@@ -84,6 +86,8 @@ namespace g2o {
        */
       double computeLambdaInit() const;
       double computeScale() const;
+
+      bool _gbaStats = false;
 
   };
 

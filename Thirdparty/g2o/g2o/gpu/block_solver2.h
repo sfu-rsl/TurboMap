@@ -58,7 +58,7 @@ namespace g2o
     virtual bool init(SparseOptimizer *optmizer, bool online = false);
     virtual bool buildStructure(bool zeroBlocks = false);
     virtual bool updateStructure(const std::vector<HyperGraph::Vertex *> &vset, const HyperGraph::EdgeSet &edges);
-    virtual bool buildSystem();
+    virtual bool buildSystem(int iteration);
     virtual bool solve();
     virtual bool computeMarginals(SparseBlockMatrix<MatrixXd> &spinv, const std::vector<std::pair<int, int>> &blockIndices);
     virtual bool setLambda(double lambda, bool backup = false);
@@ -81,6 +81,10 @@ namespace g2o
     {
       throw std::runtime_error("BlockSolver2: multiplyHessian not implemented!");
     }
+
+    virtual void setStats(bool status) {_stats = status;}
+
+    virtual bool getStats() {return _stats;}
 
     // gpu timing
     void setBAStatistics(gpu::BAStats::BAStatistics *ba_stats) { _ba_stats = ba_stats; }
@@ -164,6 +168,7 @@ namespace g2o
     gpu::BAStats::BAStatistics *_ba_stats;
     compute::BufferType _alloc_type;
 
+    bool _stats;
 
   };
 

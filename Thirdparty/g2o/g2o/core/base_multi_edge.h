@@ -36,6 +36,7 @@
 #include "base_edge.h"
 #include "robust_kernel.h"
 #include "../../config.h"
+#include "Eigen/Dense"
 
 namespace g2o {
 
@@ -72,7 +73,7 @@ namespace g2o {
       {
       }
       
-      virtual void linearizeOplus(JacobianWorkspace& jacobianWorkspace);
+      virtual void linearizeOplus(JacobianWorkspace& jacobianWorkspace, std::chrono::microseconds& totalLockTime, double* jacobianX = nullptr, double* jacobianY = nullptr);
 
       /**
        * Linearizes the oplus operator in the vertex, and stores
@@ -84,7 +85,9 @@ namespace g2o {
 
       virtual bool allVerticesFixed() const;
 
-      virtual void constructQuadraticForm() ;
+      virtual void constructQuadraticForm(
+        const Eigen::Map<Eigen::Matrix<double, 6, 4, Eigen::ColMajor>>* optionalJacobianX = nullptr,
+        const Eigen::Map<Eigen::Matrix<double, 6, 4, Eigen::ColMajor>>* optionalJacobianY = nullptr);
 
       virtual void mapHessianMemory(double* d, int i, int j, bool rowMajor);
 
