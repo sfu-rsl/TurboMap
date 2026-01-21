@@ -1,3 +1,5 @@
-rm -r build
-rm -r Thirdparty/*/build
-rm -r Thirdparty/*/lib/*.so
+#!/bin/bash
+
+rm -rf build
+rm -rf Thirdparty/*/build
+rm -rf Thirdparty/*/lib/*.so

@@ -4486,10 +4486,6 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
         }
     }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> ORB_SLAM3_pg-opt/pg-opt
     // Recover optimized data
     //Keyframes
     for(int i=0; i<N; i++)

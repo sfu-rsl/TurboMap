@@ -1,31 +1,38 @@
 cmake_minimum_required(VERSION 2.8)
-project(ORB_SLAM3)
+project(ORB_SLAM3 LANGUAGES CUDA CXX)
 
 IF(NOT CMAKE_BUILD_TYPE)
-  SET(CMAKE_BUILD_TYPE Debug)
+  SET(CMAKE_BUILD_TYPE Release)
 ENDIF()
 
 MESSAGE("Build type: " ${CMAKE_BUILD_TYPE})
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -Wall   -g ")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall   -g ")
+add_compile_options(-w)
+# -fsanitize=address for debugging
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -Wall   -O3")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O3  ${OpenMP_CXX_FLAGS} -g")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -march=native")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native")
 
-# Check C++17 support
+# Check C++14 or C++0x support
 include(CheckCXXCompilerFlag)
-CHECK_CXX_COMPILER_FLAG("-std=c++17" COMPILER_SUPPORTS_CXX17)
-if(COMPILER_SUPPORTS_CXX17)
-   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -O3 -fopenmp")
-#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -O3")
-   add_definitions(-DCOMPILEDWITHC17)
-   message(STATUS "Using flag -std=c++17.")
+CHECK_CXX_COMPILER_FLAG("-std=c++14" COMPILER_SUPPORTS_CXX14)
+CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
+if(COMPILER_SUPPORTS_CXX14)
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+   add_definitions(-DCOMPILEDWITHC11)
+   message(STATUS "Using flag -std=c++14.")
+elseif(COMPILER_SUPPORTS_CXX0X)
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+   add_definitions(-DCOMPILEDWITHC0X)
+   message(STATUS "Using flag -std=c++0x.")
 else()
-   message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++17 support. Please use a different C++ compiler.")
+   message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++14 support. Please use a different C++ compiler.")
 endif()
 
-message(STATUS "CXX Compiler: ${CMAKE_CXX_COMPILER}")
-message(STATUS "CXX Flags: ${CMAKE_CXX_FLAGS}")
+add_compile_definitions(SPDLOG_ACTIVE_LEVEL=5)
+add_compile_definitions(KOMPUTE_VK_API_MAJOR_VERSION=1 KOMPUTE_VK_API_MINOR_VERSION=2)
+add_compile_definitions(KOMPUTE_DISABLE_VK_DEBUG_LAYERS)
 
 LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
 
@@ -40,6 +47,7 @@ MESSAGE(${OpenCV_VERSION})
 cmake_policy(SET CMP0012 NEW)
 find_package(Eigen3 3.1.0 REQUIRED)
 find_package(Pangolin REQUIRED)
+find_package(OpenMP REQUIRED)
 find_package(realsense2)
 
 
@@ -51,6 +59,8 @@ ${PROJECT_SOURCE_DIR}/Thirdparty/Sophus
 ${EIGEN3_INCLUDE_DIR}
 ${Pangolin_INCLUDE_DIRS}
 ${PROJECT_SOURCE_DIR}/Thirdparty/pose-graph-optimizer/include
+${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
+# new
 ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/compute-engine/src/include
 ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/compute-engine/external/kompute/src/include
 ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/compute-engine/external/kompute/external/VulkanMemoryAllocator/include
@@ -65,6 +75,11 @@ src/Tracking.cc
 src/LocalMapping.cc
 src/LoopClosing.cc
 src/ORBextractor.cc
+src/fast.cu
+src/orientation.cu
+src/resize.cu
+src/gaussian_blur.cu
+src/descriptor.cu
 src/ORBmatcher.cc
 src/FrameDrawer.cc
 src/Converter.cc
@@ -88,13 +103,31 @@ src/GeometricTools.cc
 src/TwoViewReconstruction.cc
 src/Config.cc
 src/Settings.cc
+src/Stats/TrackingStats.cc
+src/Stats/LocalMappingStats.cc
+src/Kernels/CudaUtils.cu
+src/Kernels/CudaWrappers/CudaMapPoint.cu
+src/Kernels/CudaWrappers/CudaFrame.cu
+src/Kernels/CudaWrappers/CudaKeyFrame.cu
+src/Kernels/StereoMatchKernel.cu
+src/Kernels/SearchLocalPointsKernel.cu
+src/Kernels/PoseEstimationKernel.cu
+src/Kernels/SearchForTriangulationKernel.cu
+src/Kernels/TrackingKernelController.cu
+src/Kernels/MappingKernelController.cu
+src/Kernels/CudaKeyFrameStorage.cu
+src/Kernels/FuseKernel.cu
 src/LoopClosureDetector.cc
-include/LoopClosureDetector.h
 include/System.h
 include/Tracking.h
 include/LocalMapping.h
 include/LoopClosing.h
 include/ORBextractor.h
+include/fast.h
+include/orientation.h
+include/resize.h
+include/gaussian_blur.h
+include/descriptor.h
 include/ORBmatcher.h
 include/FrameDrawer.h
 include/Converter.h
@@ -119,10 +152,48 @@ include/GeometricTools.h
 include/TwoViewReconstruction.h
 include/SerializationUtils.h
 include/Config.h
-include/Settings.h)
+include/Settings.h
+include/Stats/StatsInterface.h
+include/Stats/TrackingStats.h
+include/Stats/LocalMappingStats.h
+include/Kernels/CudaUtils.h
+include/Kernels/CudaWrappers/CudaMapPoint.h
+include/Kernels/CudaWrappers/CudaKeyPoint.h
+include/Kernels/CudaWrappers/CudaFrame.h
+include/Kernels/CudaWrappers/CudaKeyFrame.h
+include/Kernels/CudaWrappers/CudaCamera.h
+include/Kernels/StereoMatchKernel.h
+include/Kernels/SearchLocalPointsKernel.h
+include/Kernels/PoseEstimationKernel.h
+include/Kernels/SearchForTriangulationKernel.h
+include/Kernels/KernelInterface.h
+include/Kernels/FuseKernel.h
+include/Kernels/TrackingKernelController.h
+include/Kernels/MappingKernelController.h
+include/Kernels/CudaKeyFrameStorage.h
+include/LoopClosureDetector.h
+)
 
-add_compile_definitions(SPDLOG_ACTIVE_LEVEL=5) # suppress log
+set_target_properties( ${PROJECT_NAME}
+                       PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+
+set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+add_compile_options(-w)
+
+add_compile_definitions(SPDLOG_ACTIVE_LEVEL=5)
 add_subdirectory(Thirdparty/g2o)
+
+check_language(CUDA)
+
+if(CMAKE_CUDA_COMPILER)
+message("CUDA IS AVAILABLE")
+
+find_package(CUDAToolkit REQUIRED)
+target_link_libraries(${PROJECT_NAME} CUDA::cusparse CUDA::cusolver CUDA::cudart)
+add_compile_definitions(CUDA_ENABLED)
+else()
+message("CUDA IS NOT AVAILABLE")
+endif()
 
 target_link_libraries(${PROJECT_NAME}
 ${OpenCV_LIBS}
@@ -133,7 +204,10 @@ ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
 -lboost_serialization
 -lcrypto
 ${PROJECT_SOURCE_DIR}/Thirdparty/pose-graph-optimizer/build/liboptimizer.so
+OpenMP::OpenMP_CXX
+# new
 compute
+fmt::fmt
 )
 
 # Enable OpenMP
