@@ -743,7 +743,7 @@ void KeyFrameDatabase::DetectNBestCandidates(KeyFrame *pKF, vector<KeyFrame*> &v
     auto duration1 = duration_cast<microseconds>(stop1 - start);
     auto duration2 = duration_cast<microseconds>(stop2 - stop1);
 
-    std::cout << duration1.count() << ", " << duration2.count() << std::endl;
+    // std::cout << duration1.count() << ", " << duration2.count() << std::endl;
 
     // myFileDetectCandidates << duration1.count() << ", " << duration2.count() << std::endl;
 }
