@@ -125,3 +125,14 @@ if __name__ == "__main__":
             relative_path = os.path.relpath(data_file_path, SM_dir)
             plot_file_path = os.path.join(SM_plot_dir, filename[:-4] + '.png')
             plot(data_file_path, plot_file_path)
+
+    data_dir = stats_dir + '/LoopClosing/data'
+    plot_dir = stats_dir + '/LoopClosing/plots'
+    os.makedirs(plot_dir, exist_ok=True)
+
+    for filename in os.listdir(data_dir):
+        if filename.endswith('.txt'):
+            data_file_path = os.path.join(data_dir, filename)
+            relative_path = os.path.relpath(data_file_path, data_dir)
+            plot_file_path = os.path.join(plot_dir, filename[:-4] + '.png')
+            plot(data_file_path, plot_file_path)

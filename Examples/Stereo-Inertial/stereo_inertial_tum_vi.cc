@@ -30,6 +30,7 @@
 #include<Stats/LocalMappingStats.h>
 #include "Kernels/TrackingKernelController.h"
 #include "Kernels/MappingKernelController.h"
+#include "Stats/LoopClosingStats.h"
 #include "ImuTypes.h"
 
 using namespace std;
@@ -321,12 +322,17 @@ int main(int argc, char **argv)
 
     // Stop all threads
     SLAM.Shutdown();
+    
 #ifdef REGISTER_TRACKING_STATS
     TrackingStats::getInstance().saveStats(strStatsFile);
 #endif
 
 #ifdef REGISTER_LOCAL_MAPPING_STATS
     LocalMappingStats::getInstance().saveStats(strStatsFile);
+#endif
+
+#ifdef REGISTER_LOOP_CLOSING_STATS
+    LoopClosingStats::getInstance().saveStats(strStatsFile);
 #endif
 
     // Tracking time statistics

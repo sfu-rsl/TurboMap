@@ -105,6 +105,7 @@ src/Config.cc
 src/Settings.cc
 src/Stats/TrackingStats.cc
 src/Stats/LocalMappingStats.cc
+src/Stats/LoopClosingStats.cc
 src/Kernels/CudaUtils.cu
 src/Kernels/CudaWrappers/CudaMapPoint.cu
 src/Kernels/CudaWrappers/CudaFrame.cu
@@ -156,6 +157,7 @@ include/Settings.h
 include/Stats/StatsInterface.h
 include/Stats/TrackingStats.h
 include/Stats/LocalMappingStats.h
+include/Stats/LoopClosingStats.h
 include/Kernels/CudaUtils.h
 include/Kernels/CudaWrappers/CudaMapPoint.h
 include/Kernels/CudaWrappers/CudaKeyPoint.h

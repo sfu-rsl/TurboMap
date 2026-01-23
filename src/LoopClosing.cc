@@ -26,6 +26,7 @@
 #include "G2oTypes.h"
 #include "LoopClosureDetector.h"
 #include "Kernels/MappingKernelController.h"
+#include "Stats/LoopClosingStats.h"
 
 #include<mutex>
 #include<thread>
@@ -95,6 +96,9 @@ void LoopClosing::Run()
 
     while(1)
     {
+#ifdef REGISTER_LOOP_CLOSING_STATS
+        std::chrono::steady_clock::time_point time_startLoopClosing = std::chrono::steady_clock::now();
+#endif
 
         //NEW LOOP AND MERGE DETECTION ALGORITHM
         //----------------------------
@@ -308,6 +312,12 @@ void LoopClosing::Run()
                 MappingKernelController::shutdownKernels(false, true);
             break;
         }
+
+#ifdef REGISTER_LOOP_CLOSING_STATS
+        std::chrono::steady_clock::time_point time_endLoopClosing = std::chrono::steady_clock::now();
+        double timeLoopClosing = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_endLoopClosing - time_startLoopClosing).count();
+        LoopClosingStats::getInstance().loopClosing_time.push_back(timeLoopClosing);
+#endif
 
         usleep(5000);
     }

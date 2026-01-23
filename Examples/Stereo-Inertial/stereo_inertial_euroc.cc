@@ -32,6 +32,7 @@
 #include<Stats/LocalMappingStats.h>
 #include "Kernels/TrackingKernelController.h"
 #include "Kernels/MappingKernelController.h"
+#include "Stats/LoopClosingStats.h"
 
 #include "ImuTypes.h"
 #include "Optimizer.h"
@@ -306,6 +307,10 @@ int main(int argc, char **argv)
 
 #ifdef REGISTER_LOCAL_MAPPING_STATS
     LocalMappingStats::getInstance().saveStats(strStatsFile);
+#endif
+
+#ifdef REGISTER_LOOP_CLOSING_STATS
+    LoopClosingStats::getInstance().saveStats(strStatsFile);
 #endif
 
 
