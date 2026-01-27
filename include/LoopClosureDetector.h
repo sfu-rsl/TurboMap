@@ -11,10 +11,14 @@ public:
     bool isMergeDetected() const;
     void setMergeDetected(bool val);
 
+    bool getJacobiGPUStatus(void);
+    void setJacobiGPUStatus(bool status);
+
 private:
     LoopClosureDetector();
     bool loopClosureDetected;
     bool mergeDetected;
+    bool JacobiGPUStatus;
 };
 
 #endif // LOOPCLOSUREDETECTOR_H

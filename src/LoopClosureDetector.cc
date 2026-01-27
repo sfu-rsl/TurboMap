@@ -21,4 +21,12 @@ void LoopClosureDetector::setMergeDetected(bool val) {
     mergeDetected = val;
 }
 
+bool LoopClosureDetector::getJacobiGPUStatus(void) {
+    return JacobiGPUStatus;
+}
+
+void LoopClosureDetector::setJacobiGPUStatus(bool status) {
+    JacobiGPUStatus = status;
+}
+
 LoopClosureDetector::LoopClosureDetector() : loopClosureDetected(false), mergeDetected(false) {}

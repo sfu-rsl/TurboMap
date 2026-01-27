@@ -23,6 +23,12 @@ void LoopClosingStats::saveStats(const string &file_path) {
         myfile << i << ": " << loopClosing_time[i] << std::endl;
     }
     myfile.close();
+
+    myfile.open(data_path + "/optimizeEssentialGraph_time.txt");
+    for (size_t i = 0; i < optimizeEssentialGraph_time.size(); ++i) {
+        myfile << i << ": " << optimizeEssentialGraph_time[i] << std::endl;
+    }
+    myfile.close();
     
 #endif
 }

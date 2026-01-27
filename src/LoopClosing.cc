@@ -1193,18 +1193,34 @@ void LoopClosing::CorrectLoop()
         double timeFusion = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_EndFusion - time_StartFusion).count();
         vdLoopFusion_ms.push_back(timeFusion);
 #endif
+#ifdef REGISTER_LOOP_CLOSING_STATS
+        std::chrono::steady_clock::time_point time_startOptimizeEssentialGraph = std::chrono::steady_clock::now();
+#endif
     //cout << "Optimize essential graph" << endl;
     if(pLoopMap->IsInertial() && pLoopMap->isImuInitialized())
     {
-        LoopClosureDetector::instance().setLoopClosureDetected(true);
-        Optimizer::OptimizeEssentialGraph4DoF(pLoopMap, mpLoopMatchedKF, mpCurrentKF, NonCorrectedSim3, CorrectedSim3, LoopConnections);
-        LoopClosureDetector::instance().setLoopClosureDetected(false);
+        if (LoopClosureDetector::instance().getJacobiGPUStatus()) { 
+            LoopClosureDetector::instance().setLoopClosureDetected(true);
+            Optimizer::JacobiOptimizeEssentialGraph4DoF(pLoopMap, mpLoopMatchedKF, mpCurrentKF, NonCorrectedSim3, CorrectedSim3, LoopConnections);
+            LoopClosureDetector::instance().setLoopClosureDetected(false);
+        }
+        else {
+            Optimizer::OptimizeEssentialGraph4DoF(pLoopMap, mpLoopMatchedKF, mpCurrentKF, NonCorrectedSim3, CorrectedSim3, LoopConnections);
+        }
     }
     else
     {
         //cout << "Loop -> Scale correction: " << mg2oLoopScw.scale() << endl;
-        Optimizer::OptimizeEssentialGraph(pLoopMap, mpLoopMatchedKF, mpCurrentKF, NonCorrectedSim3, CorrectedSim3, LoopConnections, bFixedScale);
+        if (LoopClosureDetector::instance().getJacobiGPUStatus()) 
+            Optimizer::JacobiOptimizeEssentialGraph(pLoopMap, mpLoopMatchedKF, mpCurrentKF, NonCorrectedSim3, CorrectedSim3, LoopConnections, bFixedScale);
+        else
+            Optimizer::OptimizeEssentialGraph(pLoopMap, mpLoopMatchedKF, mpCurrentKF, NonCorrectedSim3, CorrectedSim3, LoopConnections, bFixedScale);
     }
+#ifdef REGISTER_LOOP_CLOSING_STATS
+        std::chrono::steady_clock::time_point time_endOptimizeEssentialGraph = std::chrono::steady_clock::now();
+        double timeOptimizeEssentialGraph = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_endOptimizeEssentialGraph - time_startOptimizeEssentialGraph).count();
+        LoopClosingStats::getInstance().optimizeEssentialGraph_time.push_back(timeOptimizeEssentialGraph);
+#endif
 #ifdef REGISTER_TIMES
     std::chrono::steady_clock::time_point time_EndOpt = std::chrono::steady_clock::now();
 

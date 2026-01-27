@@ -22,6 +22,7 @@ class LoopClosingStats: public StatsInterface {
 
     public:
         std::vector<double> loopClosing_time;
+        std::vector<double> optimizeEssentialGraph_time;
 
     private:
         LoopClosingStats() = default; // Private constructor

@@ -2,11 +2,13 @@
 # pathDatasetEuroc='../EuRoC-Dataset' #Example, it is necesary to change it by the dataset path
 pathDatasetEuroc=$HOME/SLAM/Datasets/EuRoc
 
-mode=$1
-kernel_status_FT=$2
-kernel_status_TM=$3
-dataset_name=$4
-statsDir=$5
+FastTrack_on=$1
+TurboMap_on=$2
+JacobiGPU_on=$3
+kernel_status_FT=$4
+kernel_status_TM=$6
+dataset_name=$6
+statsDir=$7
 
 file_name="dataset-${dataset_name}_stereoi"
 
@@ -14,12 +16,12 @@ echo "Launching $dataset_name with Stereo-Inertial sensor"
 
 #with gdb
 # EXECUTABLE=./Stereo-Inertial/stereo_inertial_euroc
-# ARGS="../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${mode} ${kernel_status_FT} ${kernel_status_TM}"
+# ARGS="../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${FastTrack_on} ${TurboMap_on} ${JacobiGPU_on} ${kernel_status_FT} ${kernel_status_TM}"
 # gdb -ex "set print thread-events off" -ex "set args $ARGS" -ex "run" $EXECUTABLE
 
 #without gdb
-./Stereo-Inertial/stereo_inertial_euroc ../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt ${file_name} ${statsDir} ${mode} ${kernel_status_FT} ${kernel_status_TM}
-# compute-sanitizer --tool memcheck --report-api-errors all --show-backtrace no ./Stereo-Inertial/stereo_inertial_euroc ../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${mode} ${kernel_status_FT} ${kernel_status_TM}
+./Stereo-Inertial/stereo_inertial_euroc ../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt ${file_name} ${statsDir} ${FastTrack_on} ${TurboMap_on} ${JacobiGPU_on} ${kernel_status_FT} ${kernel_status_TM}
+# compute-sanitizer --tool memcheck --report-api-errors all --show-backtrace no ./Stereo-Inertial/stereo_inertial_euroc ../Vocabulary/ORBvoc.txt ./Stereo-Inertial/EuRoC.yaml "${pathDatasetEuroc}"/"${dataset_name}" ./Stereo-Inertial/EuRoC_TimeStamps/${dataset_name}.txt "${file_name}" "${statsDir}" ${FastTrack_on} ${TurboMap_on} ${JacobiGPU_on} ${kernel_status_FT} ${kernel_status_TM}
 
 echo "------------------------------------"
 
