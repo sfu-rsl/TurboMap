@@ -34,35 +34,25 @@
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/xml_iarchive.hpp>
 #include <boost/archive/xml_oarchive.hpp>
-#include <csignal>
 #include <iostream>
 #include <cstdlib> // For std::exit
 #include "Kernels/TrackingKernelController.h"
 #include "Kernels/MappingKernelController.h"
+#include "Kernels/LoopClosingKernelController.h"
 #include "Kernels/CudaUtils.h"
+#include "Optimizer.h"
+
 
 namespace ORB_SLAM3
 {
 
 Verbose::eLevel Verbose::th = Verbose::VERBOSITY_NORMAL;
 
-// void signalHandler(int signum) {
-//     std::cout << "Interrupt signal (" << signum << ") received.\n";
-
-//     // Release resources here
-//     TrackingKernelController::shutdownKernels();
-    
-//     // Exit the program
-//     std::exit(signum);
-// }
-
 System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor,
                const bool bUseViewer, const int initFr, const string &strSequence):
     mSensor(sensor), mpViewer(static_cast<Viewer*>(NULL)), mbReset(false), mbResetActiveMap(false),
     mbActivateLocalizationMode(false), mbDeactivateLocalizationMode(false), mbShutDown(false)
 {
-    // std::signal(SIGINT, signalHandler);
-
     // Output welcome message
     cout << endl <<
     "ORB-SLAM3 Copyright (C) 2017-2020 Carlos Campos, Richard Elvira, Juan J. Gómez, José M.M. Montiel and Juan D. Tardós, University of Zaragoza." << endl <<
@@ -557,10 +547,6 @@ void System::Shutdown()
             cout << "mpLoopCloser is not finished" << endl;
         usleep(100000);
     }
-    // if (MappingKernelController::is_active) {
-    //     MappingKernelController::shutdownKernels();
-    // }
-    // CudaUtils::shutdown();
 
     /*if(mpViewer)
     {

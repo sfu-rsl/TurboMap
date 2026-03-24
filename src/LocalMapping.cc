@@ -26,6 +26,7 @@
 #include "Stats/LocalMappingStats.h"
 #include "Kernels/MappingKernelController.h"
 #include "Kernels/CudaKeyFrameStorage.h"
+#include "Kernels/LoopClosingKernelController.h"
 #include<mutex>
 #include<chrono>
 #include <csignal>
@@ -357,6 +358,9 @@ void LocalMapping::Run()
             if(CheckFinish()) {
                 if (MappingKernelController::is_active)
                     MappingKernelController::shutdownKernels(true, false);
+                if (LoopClosingKernelController::is_active)
+                    LoopClosingKernelController::shutdownKernels(true, false);
+                    
                 break;
             }
         }
@@ -369,6 +373,9 @@ void LocalMapping::Run()
         if(CheckFinish()) {
             if (MappingKernelController::is_active)
                 MappingKernelController::shutdownKernels(true, false);
+            if (LoopClosingKernelController::is_active)
+                    LoopClosingKernelController::shutdownKernels(true, false);
+                    
             break;
         }
 

@@ -62,6 +62,14 @@ namespace ORB_SLAM3
         // Used in Place Recognition (Loop Closing and Merging)
         int SearchByProjection(KeyFrame* pKF, Sophus::Sim3<float> &Scw, const std::vector<MapPoint*> &vpPoints, const std::vector<KeyFrame*> &vpPointsKFs, std::vector<MapPoint*> &vpMatched, std::vector<KeyFrame*> &vpMatchedKF, int th, float ratioHamming=1.0);
 
+        void MergedSearchByProjection(KeyFrame* pKF, const std::vector<MapPoint*> &vpPoints, Sophus::Sim3<float> &Scw1,
+                                    const std::vector<KeyFrame*> &vpPointsKFs, std::vector<MapPoint*> &vpMatched, std::vector<KeyFrame*> &vpMatchedKF, int th, float ratioHamming,
+                                    std::vector<MapPoint*> &vpMatched1, int th1, float ratioHamming1,
+                                    int &numProjMatches, int &numProjOptMatches);
+        
+        void Merged3SearchByProjection(vector<KeyFrame*> currentCovKFs, vector<Sophus::Sim3f> currentCovmScws, const std::vector<MapPoint*> &vpMapPoints,
+                                    int th, float ratioHamming, int* num_matches, int covKFsSize);
+
         // Search matches between MapPoints in a KeyFrame and ORB in a Frame.
         // Brute force constrained to ORB that belong to the same vocabulary node (at a certain level)
         // Used in Relocalisation and Loop Detection
@@ -89,6 +97,7 @@ namespace ORB_SLAM3
 
         // Project MapPoints into KeyFrame using a given Sim3 and search for duplicated MapPoints.
         int Fuse(KeyFrame* pKF, Sophus::Sim3f &Scw, const std::vector<MapPoint*> &vpPoints, float th, vector<MapPoint *> &vpReplacePoint);
+        int GPUFuse(vector<KeyFrame*> connectedKFs, vector<Sophus::Sim3f> connectedScws, vector<MapPoint*> vpMapPoints, const float th, vector<MapPoint*> &vpReplacePoints);
 
     public:
 

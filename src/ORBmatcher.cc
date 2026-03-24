@@ -31,12 +31,12 @@
 
 #include "Kernels/TrackingKernelController.h"
 #include "Kernels/MappingKernelController.h"
+#include "Kernels/LoopClosingKernelController.h"
 #include "Stats/TrackingStats.h"
 #include "Stats/LocalMappingStats.h"
 #include "Kernels/CudaKeyFrameStorage.h"
 
 using namespace std;
-
 
 namespace ORB_SLAM3
 {
@@ -310,7 +310,6 @@ namespace ORB_SLAM3
                 }
             }
         }
-
         return nmatches;
     }
 
@@ -529,105 +528,113 @@ namespace ORB_SLAM3
     int ORBmatcher::SearchByProjection(KeyFrame* pKF, Sophus::Sim3f &Scw, const vector<MapPoint*> &vpPoints,
                                        vector<MapPoint*> &vpMatched, int th, float ratioHamming)
     {
-        // Get Calibration Parameters for later projection
-        const float &fx = pKF->fx;
-        const float &fy = pKF->fy;
-        const float &cx = pKF->cx;
-        const float &cy = pKF->cy;
-
-        Sophus::SE3f Tcw = Sophus::SE3f(Scw.rotationMatrix(),Scw.translation()/Scw.scale());
-        Eigen::Vector3f Ow = Tcw.inverse().translation();
-
-        // Set of MapPoints already found in the KeyFrame
-        set<MapPoint*> spAlreadyFound(vpMatched.begin(), vpMatched.end());
-        spAlreadyFound.erase(static_cast<MapPoint*>(NULL));
-
         int nmatches=0;
 
-        // For each Candidate MapPoint Project and Match
-        for(int iMP=0, iendMP=vpPoints.size(); iMP<iendMP; iMP++)
+        if(LoopClosingKernelController::singleSearchByProjectionOnGPU)
         {
-            MapPoint* pMP = vpPoints[iMP];
+            // SearchByProjectionKernel kernel;
+            // nmatches = kernel.launch2(pKF, Scw, vpPoints, vpMatched, th, ratioHamming);
+            nmatches = LoopClosingKernelController::launchSingleSearchByProjectionKernel2(pKF, Scw, vpPoints, vpMatched, th, ratioHamming);
+        }
+        else{
+            // Get Calibration Parameters for later projection
+            const float &fx = pKF->fx;
+            const float &fy = pKF->fy;
+            const float &cx = pKF->cx;
+            const float &cy = pKF->cy;
 
-            // Discard Bad MapPoints and already found
-            if(pMP->isBad() || spAlreadyFound.count(pMP))
-                continue;
+            Sophus::SE3f Tcw = Sophus::SE3f(Scw.rotationMatrix(),Scw.translation()/Scw.scale());
+            Eigen::Vector3f Ow = Tcw.inverse().translation();
 
-            // Get 3D Coords.
-            Eigen::Vector3f p3Dw = pMP->GetWorldPos();
+            // Set of MapPoints already found in the KeyFrame
+            set<MapPoint*> spAlreadyFound(vpMatched.begin(), vpMatched.end());
+            spAlreadyFound.erase(static_cast<MapPoint*>(NULL));
 
-            // Transform into Camera Coords.
-            Eigen::Vector3f p3Dc = Tcw * p3Dw;
-
-            // Depth must be positive
-            if(p3Dc(2)<0.0)
-                continue;
-
-            // Project into Image
-            const Eigen::Vector2f uv = pKF->mpCamera->project(p3Dc);
-
-            // Point must be inside the image
-            if(!pKF->IsInImage(uv(0),uv(1)))
-                continue;
-
-            // Depth must be inside the scale invariance region of the point
-            const float maxDistance = pMP->GetMaxDistanceInvariance();
-            const float minDistance = pMP->GetMinDistanceInvariance();
-            Eigen::Vector3f PO = p3Dw-Ow;
-            const float dist = PO.norm();
-
-            if(dist<minDistance || dist>maxDistance)
-                continue;
-
-            // Viewing angle must be less than 60 deg
-            Eigen::Vector3f Pn = pMP->GetNormal();
-
-            if(PO.dot(Pn)<0.5*dist)
-                continue;
-
-            int nPredictedLevel = pMP->PredictScale(dist,pKF);
-
-            // Search in a radius
-            const float radius = th*pKF->mvScaleFactors[nPredictedLevel];
-
-            const vector<size_t> vIndices = pKF->GetFeaturesInArea(uv(0),uv(1),radius);
-
-            if(vIndices.empty())
-                continue;
-
-            // Match to the most similar keypoint in the radius
-            const cv::Mat dMP = pMP->GetDescriptor();
-
-            int bestDist = 256;
-            int bestIdx = -1;
-            for(vector<size_t>::const_iterator vit=vIndices.begin(), vend=vIndices.end(); vit!=vend; vit++)
+            // For each Candidate MapPoint Project and Match
+            for(int iMP=0, iendMP=vpPoints.size(); iMP<iendMP; iMP++)
             {
-                const size_t idx = *vit;
-                if(vpMatched[idx])
+                MapPoint* pMP = vpPoints[iMP];
+
+                // Discard Bad MapPoints and already found
+                if(pMP->isBad() || spAlreadyFound.count(pMP))
                     continue;
 
-                const int &kpLevel= pKF->mvKeysUn[idx].octave;
+                // Get 3D Coords.
+                Eigen::Vector3f p3Dw = pMP->GetWorldPos();
 
-                if(kpLevel<nPredictedLevel-1 || kpLevel>nPredictedLevel)
+                // Transform into Camera Coords.
+                Eigen::Vector3f p3Dc = Tcw * p3Dw;
+
+                // Depth must be positive
+                if(p3Dc(2)<0.0)
                     continue;
 
-                const cv::Mat &dKF = pKF->mDescriptors.row(idx);
+                // Project into Image
+                const Eigen::Vector2f uv = pKF->mpCamera->project(p3Dc);
 
-                const int dist = DescriptorDistance(dMP,dKF);
+                // Point must be inside the image
+                if(!pKF->IsInImage(uv(0),uv(1)))
+                    continue;
 
-                if(dist<bestDist)
+                // Depth must be inside the scale invariance region of the point
+                const float maxDistance = pMP->GetMaxDistanceInvariance();
+                const float minDistance = pMP->GetMinDistanceInvariance();
+                Eigen::Vector3f PO = p3Dw-Ow;
+                const float dist = PO.norm();
+
+                if(dist<minDistance || dist>maxDistance)
+                    continue;
+
+                // Viewing angle must be less than 60 deg
+                Eigen::Vector3f Pn = pMP->GetNormal();
+
+                if(PO.dot(Pn)<0.5*dist)
+                    continue;
+
+                int nPredictedLevel = pMP->PredictScale(dist,pKF);
+
+                // Search in a radius
+                const float radius = th*pKF->mvScaleFactors[nPredictedLevel];
+
+                const vector<size_t> vIndices = pKF->GetFeaturesInArea(uv(0),uv(1),radius);
+
+                if(vIndices.empty())
+                    continue;
+
+                // Match to the most similar keypoint in the radius
+                const cv::Mat dMP = pMP->GetDescriptor();
+
+                int bestDist = 256;
+                int bestIdx = -1;
+                for(vector<size_t>::const_iterator vit=vIndices.begin(), vend=vIndices.end(); vit!=vend; vit++)
                 {
-                    bestDist = dist;
-                    bestIdx = idx;
+                    const size_t idx = *vit;
+                    if(vpMatched[idx])
+                        continue;
+
+                    const int &kpLevel= pKF->mvKeysUn[idx].octave;
+
+                    if(kpLevel<nPredictedLevel-1 || kpLevel>nPredictedLevel)
+                        continue;
+
+                    const cv::Mat &dKF = pKF->mDescriptors.row(idx);
+
+                    const int dist = DescriptorDistance(dMP,dKF);
+
+                    if(dist<bestDist)
+                    {
+                        bestDist = dist;
+                        bestIdx = idx;
+                    }
                 }
-            }
 
-            if(bestDist<=TH_LOW*ratioHamming)
-            {
-                vpMatched[bestIdx]=pMP;
-                nmatches++;
-            }
+                if(bestDist<=TH_LOW*ratioHamming)
+                {
+                    vpMatched[bestIdx]=pMP;
+                    nmatches++;
+                }
 
+            }
         }
 
         return nmatches;
@@ -636,115 +643,146 @@ namespace ORB_SLAM3
     int ORBmatcher::SearchByProjection(KeyFrame* pKF, Sophus::Sim3<float> &Scw, const std::vector<MapPoint*> &vpPoints, const std::vector<KeyFrame*> &vpPointsKFs,
                                        std::vector<MapPoint*> &vpMatched, std::vector<KeyFrame*> &vpMatchedKF, int th, float ratioHamming)
     {
-        // Get Calibration Parameters for later projection
-        const float &fx = pKF->fx;
-        const float &fy = pKF->fy;
-        const float &cx = pKF->cx;
-        const float &cy = pKF->cy;
-
-        Sophus::SE3f Tcw = Sophus::SE3f(Scw.rotationMatrix(),Scw.translation()/Scw.scale());
-        Eigen::Vector3f Ow = Tcw.inverse().translation();
-
-        // Set of MapPoints already found in the KeyFrame
-        set<MapPoint*> spAlreadyFound(vpMatched.begin(), vpMatched.end());
-        spAlreadyFound.erase(static_cast<MapPoint*>(NULL));
-
         int nmatches=0;
 
-        // For each Candidate MapPoint Project and Match
-        for(int iMP=0, iendMP=vpPoints.size(); iMP<iendMP; iMP++)
+        if(LoopClosingKernelController::singleSearchByProjectionOnGPU)
         {
-            MapPoint* pMP = vpPoints[iMP];
-            KeyFrame* pKFi = vpPointsKFs[iMP];
+            // SearchByProjectionKernel kernel;
+            // nmatches = kernel.launch2(pKF, Scw, vpPoints, vpMatched, th, ratioHamming);
+            nmatches = LoopClosingKernelController::launchSingleSearchByProjectionKernel(pKF, Scw, vpPoints, vpPointsKFs, vpMatched, vpMatchedKF, th, ratioHamming);
+        }
+        else{
+            // Get Calibration Parameters for later projection
+            const float &fx = pKF->fx;
+            const float &fy = pKF->fy;
+            const float &cx = pKF->cx;
+            const float &cy = pKF->cy;
 
-            // Discard Bad MapPoints and already found
-            if(pMP->isBad() || spAlreadyFound.count(pMP))
-                continue;
+            Sophus::SE3f Tcw = Sophus::SE3f(Scw.rotationMatrix(),Scw.translation()/Scw.scale());
+            Eigen::Vector3f Ow = Tcw.inverse().translation();
 
-            // Get 3D Coords.
-            Eigen::Vector3f p3Dw = pMP->GetWorldPos();
+            // Set of MapPoints already found in the KeyFrame
+            set<MapPoint*> spAlreadyFound(vpMatched.begin(), vpMatched.end());
+            spAlreadyFound.erase(static_cast<MapPoint*>(NULL));
 
-            // Transform into Camera Coords.
-            Eigen::Vector3f p3Dc = Tcw * p3Dw;
+            int nmatches=0;
 
-            // Depth must be positive
-            if(p3Dc(2)<0.0)
-                continue;
-
-            // Project into Image
-            const float invz = 1/p3Dc(2);
-            const float x = p3Dc(0)*invz;
-            const float y = p3Dc(1)*invz;
-
-            const float u = fx*x+cx;
-            const float v = fy*y+cy;
-
-            // Point must be inside the image
-            if(!pKF->IsInImage(u,v))
-                continue;
-
-            // Depth must be inside the scale invariance region of the point
-            const float maxDistance = pMP->GetMaxDistanceInvariance();
-            const float minDistance = pMP->GetMinDistanceInvariance();
-            Eigen::Vector3f PO = p3Dw-Ow;
-            const float dist = PO.norm();
-
-            if(dist<minDistance || dist>maxDistance)
-                continue;
-
-            // Viewing angle must be less than 60 deg
-            Eigen::Vector3f Pn = pMP->GetNormal();
-
-            if(PO.dot(Pn)<0.5*dist)
-                continue;
-
-            int nPredictedLevel = pMP->PredictScale(dist,pKF);
-
-            // Search in a radius
-            const float radius = th*pKF->mvScaleFactors[nPredictedLevel];
-
-            const vector<size_t> vIndices = pKF->GetFeaturesInArea(u,v,radius);
-
-            if(vIndices.empty())
-                continue;
-
-            // Match to the most similar keypoint in the radius
-            const cv::Mat dMP = pMP->GetDescriptor();
-
-            int bestDist = 256;
-            int bestIdx = -1;
-            for(vector<size_t>::const_iterator vit=vIndices.begin(), vend=vIndices.end(); vit!=vend; vit++)
+            // For each Candidate MapPoint Project and Match
+            for(int iMP=0, iendMP=vpPoints.size(); iMP<iendMP; iMP++)
             {
-                const size_t idx = *vit;
-                if(vpMatched[idx])
+                MapPoint* pMP = vpPoints[iMP];
+                KeyFrame* pKFi = vpPointsKFs[iMP];
+
+                // Discard Bad MapPoints and already found
+                if(pMP->isBad() || spAlreadyFound.count(pMP))
                     continue;
 
-                const int &kpLevel= pKF->mvKeysUn[idx].octave;
+                // Get 3D Coords.
+                Eigen::Vector3f p3Dw = pMP->GetWorldPos();
 
-                if(kpLevel<nPredictedLevel-1 || kpLevel>nPredictedLevel)
+                // Transform into Camera Coords.
+                Eigen::Vector3f p3Dc = Tcw * p3Dw;
+
+                // Depth must be positive
+                if(p3Dc(2)<0.0)
                     continue;
 
-                const cv::Mat &dKF = pKF->mDescriptors.row(idx);
+                // Project into Image
+                const float invz = 1/p3Dc(2);
+                const float x = p3Dc(0)*invz;
+                const float y = p3Dc(1)*invz;
 
-                const int dist = DescriptorDistance(dMP,dKF);
+                const float u = fx*x+cx;
+                const float v = fy*y+cy;
 
-                if(dist<bestDist)
+                // Point must be inside the image
+                if(!pKF->IsInImage(u,v))
+                    continue;
+
+                // Depth must be inside the scale invariance region of the point
+                const float maxDistance = pMP->GetMaxDistanceInvariance();
+                const float minDistance = pMP->GetMinDistanceInvariance();
+                Eigen::Vector3f PO = p3Dw-Ow;
+                const float dist = PO.norm();
+
+                if(dist<minDistance || dist>maxDistance)
+                    continue;
+
+                // Viewing angle must be less than 60 deg
+                Eigen::Vector3f Pn = pMP->GetNormal();
+
+                if(PO.dot(Pn)<0.5*dist)
+                    continue;
+
+                int nPredictedLevel = pMP->PredictScale(dist,pKF);
+
+                // Search in a radius
+                const float radius = th*pKF->mvScaleFactors[nPredictedLevel];
+
+                const vector<size_t> vIndices = pKF->GetFeaturesInArea(u,v,radius);
+
+                if(vIndices.empty())
+                    continue;
+
+                // Match to the most similar keypoint in the radius
+                const cv::Mat dMP = pMP->GetDescriptor();
+
+                int bestDist = 256;
+                int bestIdx = -1;
+                for(vector<size_t>::const_iterator vit=vIndices.begin(), vend=vIndices.end(); vit!=vend; vit++)
                 {
-                    bestDist = dist;
-                    bestIdx = idx;
+                    const size_t idx = *vit;
+                    if(vpMatched[idx])
+                        continue;
+
+                    const int &kpLevel= pKF->mvKeysUn[idx].octave;
+
+                    if(kpLevel<nPredictedLevel-1 || kpLevel>nPredictedLevel)
+                        continue;
+
+                    const cv::Mat &dKF = pKF->mDescriptors.row(idx);
+
+                    const int dist = DescriptorDistance(dMP,dKF);
+
+                    if(dist<bestDist)
+                    {
+                        bestDist = dist;
+                        bestIdx = idx;
+                    }
                 }
-            }
 
-            if(bestDist<=TH_LOW*ratioHamming)
-            {
-                vpMatched[bestIdx] = pMP;
-                vpMatchedKF[bestIdx] = pKFi;
-                nmatches++;
-            }
+                if(bestDist<=TH_LOW*ratioHamming)
+                {
+                    vpMatched[bestIdx] = pMP;
+                    vpMatchedKF[bestIdx] = pKFi;
+                    nmatches++;
+                }
 
+            }
         }
 
         return nmatches;
+    }
+
+    void ORBmatcher::MergedSearchByProjection(KeyFrame* pKF, const std::vector<MapPoint*> &vpPoints, Sophus::Sim3<float> &Scw1,
+                                    const std::vector<KeyFrame*> &vpPointsKFs, std::vector<MapPoint*> &vpMatched, std::vector<KeyFrame*> &vpMatchedKF, int th, float ratioHamming,
+                                    std::vector<MapPoint*> &vpMatched1, int th1, float ratioHamming1,
+                                    int &numProjMatches, int &numProjOptMatches)
+    {
+        LoopClosingKernelController::launchSearchByProjectionKernel(pKF, vpPoints, Scw1,
+                            vpPointsKFs, vpMatched, vpMatchedKF, th, ratioHamming,
+                            vpMatched1, th1, ratioHamming1,
+                            numProjMatches, numProjOptMatches);
+        return;
+
+    }
+
+    void ORBmatcher::Merged3SearchByProjection(vector<KeyFrame*> currentCovKFs, vector<Sophus::Sim3f> currentCovmScws, const std::vector<MapPoint*> &vpMapPoints,
+                                    int th, float ratioHamming, int* num_matches, int covKFsSize)
+    {
+        LoopClosingKernelController::launch3SearchByProjectionKernel(currentCovKFs, currentCovmScws,
+                            vpMapPoints, th, ratioHamming, num_matches, covKFsSize);
+        return;
     }
 
     int ORBmatcher::SearchForInitialization(Frame &F1, Frame &F2, vector<cv::Point2f> &vbPrevMatched, vector<int> &vnMatches12, int windowSize)
@@ -1276,7 +1314,6 @@ namespace ORB_SLAM3
 
         // For debbuging
         int count_notMP = 0, count_bad=0, count_isinKF = 0, count_negdepth = 0, count_notinim = 0, count_dist = 0, count_normal=0, count_notidx = 0, count_thcheck = 0;
-
         for(int i=0; i<nMPs; i++)
         {
             MapPoint* pMP = vpMapPoints[i];
@@ -1292,7 +1329,6 @@ namespace ORB_SLAM3
                 count_bad++;
                 continue;
             }
-
             else if(pMP->IsInKeyFrame(pKF))
             {
                 count_isinKF++;
@@ -1716,6 +1752,15 @@ namespace ORB_SLAM3
 
         return nFused;
     }
+
+
+    int ORBmatcher::GPUFuse(vector<KeyFrame*> connectedKFs, vector<Sophus::Sim3f> connectedScws, vector<MapPoint*> vpMapPoints, const float th, vector<MapPoint*> &vpReplacePoints)
+    {
+        int nFused = 0;
+        nFused = LoopClosingKernelController::launchSearchAndFuseKernel(connectedKFs, connectedScws, th, vpMapPoints, vpReplacePoints);
+        return nFused;
+    }
+
 
     int ORBmatcher::SearchBySim3(KeyFrame* pKF1, KeyFrame* pKF2, std::vector<MapPoint *> &vpMatches12, const Sophus::Sim3f &S12, const float th)
     {

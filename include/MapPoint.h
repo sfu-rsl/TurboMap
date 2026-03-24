@@ -112,6 +112,15 @@ public:
     MapPoint(const Eigen::Vector3f &Pos,  Map* pMap, Frame* pFrame, const int &idxF);
 
     void SetWorldPos(const Eigen::Vector3f &Pos);
+    
+    void AssignWorldPos_MaxD_MinD_Normal_Descriptor(
+        Eigen::Vector3f& worldPos,
+        float& maxDistance,
+        float& minDistance,
+        Eigen::Vector3f& normalVector,
+        uint8_t* descriptorArray
+    ) const;
+
     Eigen::Vector3f GetWorldPos();
 
     Eigen::Vector3f GetNormal();
@@ -253,6 +262,7 @@ protected:
      std::mutex mMutexPos;
      std::mutex mMutexFeatures;
      std::mutex mMutexMap;
+     mutable std::mutex mLockAssign;
 
 };
 

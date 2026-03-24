@@ -1,6 +1,7 @@
 #include "Kernels/CudaUtils.h"
 #include "Kernels/TrackingKernelController.h"
 #include "Kernels/MappingKernelController.h"
+#include "Kernels/LoopClosingKernelController.h"
 
 int CudaUtils::nFeatures_with_th;
 int CudaUtils::nLevels; 
@@ -96,6 +97,8 @@ void checkCudaError(cudaError_t err, const char* msg) {
             TrackingKernelController::shutdownKernels();
         if (MappingKernelController::is_active)
             MappingKernelController::shutdownKernels(true, true);
+        if (LoopClosingKernelController::is_active)
+            LoopClosingKernelController::shutdownKernels(true, true);
         // CudaUtils::shutdown();
 
         exit(EXIT_FAILURE);

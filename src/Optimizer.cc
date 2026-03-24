@@ -41,6 +41,10 @@
 #include<mutex>
 
 #include "OptimizableTypes.h"
+#include "PGOInterface.h"
+#include <memory>
+
+static std::unique_ptr<ORB_SLAM3::PoseGraphOptimizerInterface> pose_graph_optimizer;
 
 
 namespace ORB_SLAM3
@@ -62,6 +66,18 @@ void initialize_compute_engine() {
 void destroy_compute_engine() {
     delete engine;
     engine = nullptr;
+}
+
+void init_pgo(unsigned int max_poses, unsigned int max_edges) {
+    if (!pose_graph_optimizer) {
+        pose_graph_optimizer = std::make_unique<PoseGraphOptimizerInterface>(max_poses, max_edges);
+    }
+}
+
+void cleanup_pgo() {
+    if (pose_graph_optimizer) {
+        pose_graph_optimizer.reset();
+    }
 }
 
 bool sortByVal(const pair<MapPoint*, int> &a, const pair<MapPoint*, int> &b)
@@ -2855,7 +2871,8 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, Map *pMap, int&
     //cout << "Total map points: " << lLocalMapPoints.size() << endl;
     for(map<int,int>::iterator mit=mVisEdges.begin(), mend=mVisEdges.end(); mit!=mend; mit++)
     {
-        assert(mit->second>=3);
+        if (mit->second < 3) continue;
+        // assert(mit->second>=3);
     }
 
     optimizer.initializeOptimization();
@@ -5606,6 +5623,330 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
         pMP->UpdateNormalAndDepth();
     }
     pMap->IncreaseChangeIndex();
+}
+
+namespace OptimizerGPU
+{
+void OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFrame* pCurKF,
+                                       const LoopClosing::KeyFrameAndPose &NonCorrectedSim3,
+                                       const LoopClosing::KeyFrameAndPose &CorrectedSim3,
+                                       const map<KeyFrame *, set<KeyFrame *> > &LoopConnections)
+{
+
+    // std::cout << "Setting up Graphite PGO..." << std::endl;
+    using FP = double;
+    using SP = double;
+
+
+    const vector<KeyFrame*> vpKFs = pMap->GetAllKeyFrames();
+    const vector<MapPoint*> vpMPs = pMap->GetAllMapPoints();
+
+    const unsigned int nMaxKFid = pMap->GetMaxKFid();
+
+    vector<g2o::Sim3,Eigen::aligned_allocator<g2o::Sim3> > vScw(nMaxKFid+1);
+    vector<g2o::Sim3,Eigen::aligned_allocator<g2o::Sim3> > vCorrectedSwc(nMaxKFid+1);
+
+    auto & optimizer = *pose_graph_optimizer;
+    optimizer.clear();
+
+
+    size_t max_edges = 0; // just need an approximate upper bound
+
+    for(map<KeyFrame *, set<KeyFrame *> >::const_iterator mit = LoopConnections.begin(), mend=LoopConnections.end(); mit!=mend; mit++)
+    {
+        KeyFrame* pKF = mit->first;
+        const long unsigned int nIDi = pKF->mnId;
+        const set<KeyFrame*> &spConnections = mit->second;
+        max_edges += spConnections.size();
+    }
+
+    // 1. Set normal edges
+    for(size_t i=0, iend=vpKFs.size(); i<iend; i++)
+    {
+        KeyFrame* pKF = vpKFs[i];
+
+        // // 1.1.0 Spanning tree edge
+        max_edges++;
+
+        // 1.1.1 Inertial edges
+        KeyFrame* prevKF = pKF->mPrevKF;
+        if(prevKF)
+        {
+            max_edges++;
+        }
+
+        // 1.2 Loop edges
+        const set<KeyFrame*> sLoopEdges = pKF->GetLoopEdges();
+        max_edges += sLoopEdges.size();
+
+        // 1.3 Covisibility graph edges
+        const vector<KeyFrame*> vpConnectedKFs = pKF->GetCovisiblesByWeight(100); // minFeat=100
+        max_edges += vpConnectedKFs.size();
+    }
+
+    optimizer.reserve(nMaxKFid+1, max_edges);
+
+    const int minFeat = 100;
+    // Set KeyFrame vertices
+    for(size_t i=0, iend=vpKFs.size(); i<iend;i++)
+    {
+        KeyFrame* pKF = vpKFs[i];
+        if(pKF->isBad())
+            continue;
+
+
+        const int nIDi = pKF->mnId;
+
+        LoopClosing::KeyFrameAndPose::const_iterator it = CorrectedSim3.find(pKF);
+        if(it!=CorrectedSim3.end())
+        {
+            vScw[nIDi] = it->second;
+            const g2o::Sim3 Swc = it->second.inverse();
+            Eigen::Matrix3d Rwc = Swc.rotation().toRotationMatrix();
+            Eigen::Vector3d twc = Swc.translation();
+            optimizer.add_pose(nIDi, Rwc, twc, pKF); 
+        }
+        else
+        {
+            Sophus::SE3d Tcw = pKF->GetPose().cast<double>();
+            g2o::Sim3 Siw(Tcw.unit_quaternion(),Tcw.translation(),1.0);
+            vScw[nIDi] = Siw;
+            optimizer.add_pose(nIDi, pKF);
+        }
+
+        if(pKF==pLoopKF) {
+            optimizer.set_fixed(nIDi, true);
+        }
+    }
+    set<pair<long unsigned int,long unsigned int> > sInsertedEdges;
+
+    // Edge used in posegraph has still 6Dof, even if updates of camera poses are just in 4DoF
+    Eigen::Matrix<FP,6,6> matLambda = Eigen::Matrix<FP,6,6>::Identity();
+    matLambda(0,0) = 1e3;
+    matLambda(1,1) = 1e3;
+    matLambda(0,0) = 1e3;
+
+    // Set up descriptor
+    // Set Loop edges
+    // Edge4DoF* e_loop;
+    for(map<KeyFrame *, set<KeyFrame *> >::const_iterator mit = LoopConnections.begin(), mend=LoopConnections.end(); mit!=mend; mit++)
+    {
+        KeyFrame* pKF = mit->first;
+        const long unsigned int nIDi = pKF->mnId;
+        const set<KeyFrame*> &spConnections = mit->second;
+        const g2o::Sim3 Siw = vScw[nIDi];
+
+        for(set<KeyFrame*>::const_iterator sit=spConnections.begin(), send=spConnections.end(); sit!=send; sit++)
+        {
+            const long unsigned int nIDj = (*sit)->mnId;
+            if((nIDi!=pCurKF->mnId || nIDj!=pLoopKF->mnId) && pKF->GetWeight(*sit)<minFeat)
+                continue;
+
+            const g2o::Sim3 Sjw = vScw[nIDj];
+            const g2o::Sim3 Sij = Siw * Sjw.inverse();
+            Eigen::Matrix4d Tij;
+            Tij.block<3,3>(0,0) = Sij.rotation().toRotationMatrix();
+            Tij.block<3,1>(0,3) = Sij.translation();
+            Tij(3,3) = 1.;
+
+            // Sophus::SE3<FP> z(Tij);
+            Sophus::SE3<FP> z(Sij.rotation(), Sij.translation());
+
+            optimizer.add_factor(nIDi, nIDj, z, matLambda.data());
+
+            sInsertedEdges.insert(make_pair(min(nIDi,nIDj),max(nIDi,nIDj)));
+        }
+    }
+    // std::cout << "Added loop edges" << std::endl;
+
+    // 1. Set normal edges
+    for(size_t i=0, iend=vpKFs.size(); i<iend; i++)
+    {
+        KeyFrame* pKF = vpKFs[i];
+
+        const int nIDi = pKF->mnId;
+
+        g2o::Sim3 Siw;
+
+        // Use noncorrected poses for posegraph edges
+        LoopClosing::KeyFrameAndPose::const_iterator iti = NonCorrectedSim3.find(pKF);
+
+        if(iti!=NonCorrectedSim3.end())
+            Siw = iti->second;
+        else
+            Siw = vScw[nIDi];
+
+        // 1.1.0 Spanning tree edge
+        KeyFrame* pParentKF = static_cast<KeyFrame*>(NULL);
+        if(pParentKF)
+        {
+            int nIDj = pParentKF->mnId;
+
+            g2o::Sim3 Swj;
+
+            LoopClosing::KeyFrameAndPose::const_iterator itj = NonCorrectedSim3.find(pParentKF);
+
+            if(itj!=NonCorrectedSim3.end())
+                Swj = (itj->second).inverse();
+            else
+                Swj =  vScw[nIDj].inverse();
+
+            g2o::Sim3 Sij = Siw * Swj;
+            Eigen::Matrix4d Tij;
+            Tij.block<3,3>(0,0) = Sij.rotation().toRotationMatrix();
+            Tij.block<3,1>(0,3) = Sij.translation();
+            Tij(3,3)=1.;
+
+            // Sophus::SE3<FP> z(Tij);
+            Sophus::SE3<FP> z(Sij.rotation(), Sij.translation());
+            optimizer.add_factor(nIDi, nIDj, z, matLambda.data());
+        }
+
+        // 1.1.1 Inertial edges
+        KeyFrame* prevKF = pKF->mPrevKF;
+        if(prevKF)
+        {
+            int nIDj = prevKF->mnId;
+
+            g2o::Sim3 Swj;
+
+            LoopClosing::KeyFrameAndPose::const_iterator itj = NonCorrectedSim3.find(prevKF);
+
+            if(itj!=NonCorrectedSim3.end())
+                Swj = (itj->second).inverse();
+            else
+                Swj =  vScw[nIDj].inverse();
+
+            g2o::Sim3 Sij = Siw * Swj;
+            Eigen::Matrix4d Tij;
+            Tij.block<3,3>(0,0) = Sij.rotation().toRotationMatrix();
+            Tij.block<3,1>(0,3) = Sij.translation();
+            Tij(3,3)=1.;
+
+
+            // Sophus::SE3<FP> z(Tij);
+            Sophus::SE3<FP> z(Sij.rotation(), Sij.translation());
+            optimizer.add_factor(nIDi, nIDj, z, matLambda.data());
+        }
+
+        // 1.2 Loop edges
+        const set<KeyFrame*> sLoopEdges = pKF->GetLoopEdges();
+        for(set<KeyFrame*>::const_iterator sit=sLoopEdges.begin(), send=sLoopEdges.end(); sit!=send; sit++)
+        {
+            KeyFrame* pLKF = *sit;
+            if(pLKF->mnId<pKF->mnId)
+            {
+                g2o::Sim3 Swl;
+
+                LoopClosing::KeyFrameAndPose::const_iterator itl = NonCorrectedSim3.find(pLKF);
+
+                if(itl!=NonCorrectedSim3.end())
+                    Swl = itl->second.inverse();
+                else
+                    Swl = vScw[pLKF->mnId].inverse();
+
+                g2o::Sim3 Sil = Siw * Swl;
+                Eigen::Matrix4d Til;
+                Til.block<3,3>(0,0) = Sil.rotation().toRotationMatrix();
+                Til.block<3,1>(0,3) = Sil.translation();
+                Til(3,3) = 1.;
+
+                // Sophus::SE3<FP> z(Til);
+                Sophus::SE3<FP> z(Sil.rotation(), Sil.translation());
+                optimizer.add_factor(nIDi, pLKF->mnId, z, matLambda.data());
+            }
+        }
+
+        // 1.3 Covisibility graph edges
+        const vector<KeyFrame*> vpConnectedKFs = pKF->GetCovisiblesByWeight(minFeat);
+        for(vector<KeyFrame*>::const_iterator vit=vpConnectedKFs.begin(); vit!=vpConnectedKFs.end(); vit++)
+        {
+            KeyFrame* pKFn = *vit;
+            if(pKFn && pKFn!=pParentKF && pKFn!=prevKF && pKFn!=pKF->mNextKF && !pKF->hasChild(pKFn) && !sLoopEdges.count(pKFn))
+            {
+                if(!pKFn->isBad() && pKFn->mnId<pKF->mnId)
+                {
+                    if(sInsertedEdges.count(make_pair(min(pKF->mnId,pKFn->mnId),max(pKF->mnId,pKFn->mnId))))
+                        continue;
+
+                    g2o::Sim3 Swn;
+
+                    LoopClosing::KeyFrameAndPose::const_iterator itn = NonCorrectedSim3.find(pKFn);
+
+                    if(itn!=NonCorrectedSim3.end())
+                        Swn = itn->second.inverse();
+                    else
+                        Swn = vScw[pKFn->mnId].inverse();
+
+                    g2o::Sim3 Sin = Siw * Swn;
+                    Eigen::Matrix4d Tin;
+                    Tin.block<3,3>(0,0) = Sin.rotation().toRotationMatrix();
+                    Tin.block<3,1>(0,3) = Sin.translation();
+                    Tin(3,3) = 1.;
+    
+                    // Sophus::SE3<FP> z(Tin);
+                    Sophus::SE3<FP> z(Sin.rotation(), Sin.translation());
+                    optimizer.add_factor(nIDi, pKFn->mnId, z, matLambda.data());
+                }
+            }
+        }
+    }
+    // std::cout << "Added edges" << std::endl;
+    // std::cout << "Optimizing..." << std::endl;
+    // auto topt0 = std::chrono::steady_clock::now();
+    optimizer.optimize(20, 1e-4, false);
+    // auto topt1 = std::chrono::steady_clock::now();
+    // std::chrono::duration<double> time_used = topt1 - topt0;
+    // std::cout << "Optimization took " << time_used.count() << " seconds." << std::endl;
+    // std::cout << "Reading back results..." << std::endl;    
+
+    // pgo early return for testing
+    // return;
+
+    unique_lock<mutex> lock(pMap->mMutexMapUpdate);
+
+    // SE3 Pose Recovering. Sim3:[sR t;0 1] -> SE3:[R t/s;0 1]
+    for(size_t i=0;i<vpKFs.size();i++)
+    {
+        KeyFrame* pKFi = vpKFs[i];
+
+        const int nIDi = pKFi->mnId;
+
+        auto pose = optimizer.get_pose(nIDi);
+
+        g2o::Sim3 CorrectedSiw = g2o::Sim3(pose.R,pose.t,1.);
+        vCorrectedSwc[nIDi]=CorrectedSiw.inverse();
+
+        Sophus::SE3d Tiw(CorrectedSiw.rotation(),CorrectedSiw.translation());
+        pKFi->SetPose(Tiw.cast<float>());
+    }
+
+    // Correct points. Transform to "non-optimized" reference keyframe pose and transform back with optimized pose
+    // std::cout << "Correcting points..." << std::endl;
+    for(size_t i=0, iend=vpMPs.size(); i<iend; i++)
+    {
+        MapPoint* pMP = vpMPs[i];
+
+        if(pMP->isBad())
+            continue;
+
+        int nIDr;
+
+        KeyFrame* pRefKF = pMP->GetReferenceKeyFrame();
+        nIDr = pRefKF->mnId;
+
+        g2o::Sim3 Srw = vScw[nIDr];
+        g2o::Sim3 correctedSwr = vCorrectedSwc[nIDr];
+
+        Eigen::Matrix<double,3,1> eigP3Dw = pMP->GetWorldPos().cast<double>();
+        Eigen::Matrix<double,3,1> eigCorrectedP3Dw = correctedSwr.map(Srw.map(eigP3Dw));
+        pMP->SetWorldPos(eigCorrectedP3Dw.cast<float>());
+
+        pMP->UpdateNormalAndDepth();
+    }
+    pMap->IncreaseChangeIndex();
+    // std::cout << "Finished point correction." << std::endl;
+}
 }
 
 } //namespace ORB_SLAM

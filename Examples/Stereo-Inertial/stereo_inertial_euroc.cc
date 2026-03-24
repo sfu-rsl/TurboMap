@@ -32,6 +32,7 @@
 #include<Stats/LocalMappingStats.h>
 #include "Kernels/TrackingKernelController.h"
 #include "Kernels/MappingKernelController.h"
+#include "Kernels/LoopClosingKernelController.h"
 
 #include "ImuTypes.h"
 #include "Optimizer.h"
@@ -46,42 +47,43 @@ void LoadIMU(const string &strImuPath, vector<double> &vTimeStamps, vector<cv::P
 
 int main(int argc, char **argv)
 {   
-    int min_num_argc = 6 + 4;
+    int min_num_argc = 6 + 7;
 
     if(argc < min_num_argc)
     {
         cerr << endl << "Usage: ./stereo_inertial_euroc path_to_vocabulary path_to_settings path_to_sequence_folder_1 path_to_times_file_1 (path_to_image_folder_2 path_to_times_file_2 ... path_to_image_folder_N path_to_times_file_N) " 
-            << "strStatsFile <[0] for ORB-SLAM3, [1] for FastTrack, [2] for TurboMap, [3] for FastTrack & TurboMap> kernel_status_FT kernel_status_TM"  << endl;
+            << "strStatsFile <FastTrack[0|1]> <TurboMap[0|1]> <FastLoop[0|1]> kernel_status_FT kernel_status_TM kernel_status_FL"  << endl;
         return 1;
     }
 
-    bool run_ORBSLAM = (strcmp(argv[argc-3], "0") == 0);
-    bool run_FastTrack = (strcmp(argv[argc-3], "1") == 0);
-    bool run_TurboMap = (strcmp(argv[argc-3], "2") == 0);
-    bool run_all = (strcmp(argv[argc-3], "3") == 0);
-    string strStatsFile = argv[argc-4];
+    bool run_FastTrack = (strcmp(argv[argc-6], "1") == 0);
+    bool run_TurboMap = (strcmp(argv[argc-5], "1") == 0);
+    bool run_FastLoop = (strcmp(argv[argc-4], "1") == 0);
+    string strStatsFile = argv[argc-7];
     
-    if (run_ORBSLAM)
+    if (!run_FastTrack && !run_TurboMap && !run_FastLoop)
         cout << "Running the original ORB-SLAM3 code...\n";
-    if (run_FastTrack)
-        cout << "Running FastTrack...\n";
-    if (run_TurboMap)
-        cout << "Running TurboMap...\n";
-    if (run_all)
-        cout << "Running FastTrack & TurboMap...\n";
+    else {
+        cout << "Running FastTrack->" << run_FastTrack << ", TurboMap->" << run_TurboMap << ", FastLoop->" << run_FastLoop << endl;
+    }
 
-    bool FT_orbExtractionEnabled = (argv[argc-2][0] == '1');
-    bool FT_stereoMatchEnabled = (argv[argc-2][1] == '1');
-    bool FT_searchLocalPointsEnabled = (argv[argc-2][2] == '1');
-    bool FT_poseEstimationEnabled = (argv[argc-2][3] == '1');
-    bool FT_poseOptimizationEnabled = (argv[argc-2][4] == '1');
+    bool FT_orbExtractionEnabled = (argv[argc-3][0] == '1');
+    bool FT_stereoMatchEnabled = (argv[argc-3][1] == '1');
+    bool FT_searchLocalPointsEnabled = (argv[argc-3][2] == '1');
+    bool FT_poseEstimationEnabled = (argv[argc-3][3] == '1');
+    bool FT_poseOptimizationEnabled = (argv[argc-3][4] == '1');
     
-    bool TM_searchForTriangulationEnabled = (argv[argc-1][0] == '1');
-    bool TM_fuseEnabled = (argv[argc-1][1] == '1');
-    bool TM_keyframeCullingEnabled = (argv[argc-1][2] == '1');
-    bool TM_LBAEnabled = (argv[argc-1][3] == '1');
+    bool TM_searchForTriangulationEnabled = (argv[argc-2][0] == '1');
+    bool TM_fuseEnabled = (argv[argc-2][1] == '1');
+    bool TM_keyframeCullingEnabled = (argv[argc-2][2] == '1');
+    bool TM_LBAEnabled = (argv[argc-2][3] == '1');
+
+    bool FL_mergedSearchByProjectionEnabled = (argv[argc-1][0] == '1');
+    bool FL_merged3SearchByProjectionEnabled = (argv[argc-1][1] == '1');
+    bool FL_searchAndFuseEnabled = (argv[argc-1][2] == '1');
+    bool FL_singleSearchByProjectionEnabled = (argv[argc-1][3] == '1');
     
-    if (run_FastTrack || run_all) {
+    if (run_FastTrack) {
         TrackingKernelController::activate();
         TrackingKernelController::setGPURunMode(
             FT_orbExtractionEnabled, FT_stereoMatchEnabled, FT_searchLocalPointsEnabled, FT_poseEstimationEnabled, FT_poseOptimizationEnabled
@@ -101,7 +103,7 @@ int main(int argc, char **argv)
         cout << ")\n";
     }
 
-    if (run_TurboMap || run_all) {
+    if (run_TurboMap) {
         MappingKernelController::activate();
         MappingKernelController::setGPURunMode(TM_searchForTriangulationEnabled, TM_fuseEnabled, TM_keyframeCullingEnabled, TM_LBAEnabled);
 
@@ -116,10 +118,26 @@ int main(int argc, char **argv)
             cout << "LBA";
         cout << ")\n";
     }
-    
-    argc-=4;
-    const int num_seq = (argc-3)/2;
 
+    if (run_FastLoop) {
+        LoopClosingKernelController::activate();
+        LoopClosingKernelController::setGPURunMode(FL_mergedSearchByProjectionEnabled, FL_merged3SearchByProjectionEnabled, FL_searchAndFuseEnabled, FL_singleSearchByProjectionEnabled);
+
+        cout << "Activated FastLoop Kernels are: (";
+        if (FL_mergedSearchByProjectionEnabled)
+            cout << "MergedSearchByProjection ";
+        if (FL_merged3SearchByProjectionEnabled)
+            cout << "Merged3SearchByProjection ";
+        if (FL_searchAndFuseEnabled)
+            cout << "SearchAndFuse ";
+        if (FL_singleSearchByProjectionEnabled)
+            cout << "SingleSearchByProjection";
+        cout << ")\n";
+    }
+    
+    argc -= 7;
+
+    const int num_seq = (argc-3)/2;
     cout << "num_seq = " << num_seq << endl;
     bool bFileName= (((argc-3) % 2) == 1);
     string file_name;

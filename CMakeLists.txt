@@ -1,5 +1,12 @@
 cmake_minimum_required(VERSION 2.8)
 project(ORB_SLAM3 LANGUAGES CUDA CXX)
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr --extended-lambda --default-stream per-thread")
+if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+  # set(CMAKE_CUDA_ARCHITECTURES 75 80 86 87 89 90 120)
+  set(CMAKE_CUDA_ARCHITECTURES 86) # RTX 3000 Series -> 86
+endif()
+
+
 
 IF(NOT CMAKE_BUILD_TYPE)
   SET(CMAKE_BUILD_TYPE Release)
@@ -63,6 +70,13 @@ ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/compute-engine/external/kompute/src/include
 ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/compute-engine/external/kompute/external/VulkanMemoryAllocator/include
 )
 
+# ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/compute-engine/src/include
+# ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/compute-engine/external/kompute/src/include
+# ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/compute-engine/external/kompute/external/VulkanMemoryAllocator/include
+
+add_subdirectory(Thirdparty/graphite)
+set(BUILD_EXAMPLES OFF)
+
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
 
 add_library(${PROJECT_NAME} SHARED
@@ -85,6 +99,7 @@ src/Atlas.cc
 src/Map.cc
 src/MapDrawer.cc
 src/Optimizer.cc
+src/Optimizer.cu
 src/Frame.cc
 src/KeyFrameDatabase.cc
 src/Sim3Solver.cc
@@ -113,6 +128,13 @@ src/Kernels/TrackingKernelController.cu
 src/Kernels/MappingKernelController.cu
 src/Kernels/CudaKeyFrameStorage.cu
 src/Kernels/FuseKernel.cu
+src/Kernels/CudaUtils.cu
+src/Kernels/LoopClosingKernelController.cu
+src/Kernels/CudaWrappers/CudaMapPoint.cu
+src/Kernels/CudaWrappers/CudaKeyFrame.cu
+src/Kernels/LoopClosingCudaKeyFrameStorage.cu
+src/Kernels/SearchByProjectionKernel.cu
+src/Kernels/SearchAndFuseKernel.cu
 include/System.h
 include/Tracking.h
 include/LocalMapping.h
@@ -166,6 +188,18 @@ include/Kernels/FuseKernel.h
 include/Kernels/TrackingKernelController.h
 include/Kernels/MappingKernelController.h
 include/Kernels/CudaKeyFrameStorage.h
+include/Kernels/CudaUtils.h
+include/Kernels/LoopClosingKernelController.h
+include/Kernels/CudaWrappers/CudaMapPoint.h
+include/Kernels/CudaWrappers/CudaCamera.h
+include/Kernels/CudaWrappers/CudaKeyFrame.h
+include/Kernels/CudaWrappers/CudaKeyPoint.h
+include/Kernels/LoopClosingCudaKeyFrameStorage.h
+include/Kernels/SearchByProjectionKernel.h
+include/Kernels/SearchAndFuseKernel.h
+include/GPUPose.h
+include/PGOTypes.h
+include/PGOInterface.h
 )
 
 set_target_properties( ${PROJECT_NAME}
@@ -177,6 +211,7 @@ add_compile_options(-w)
 add_compile_definitions(SPDLOG_ACTIVE_LEVEL=5)
 add_subdirectory(Thirdparty/g2o)
 
+include(CheckLanguage)
 check_language(CUDA)
 
 if(CMAKE_CUDA_COMPILER)
@@ -201,6 +236,7 @@ OpenMP::OpenMP_CXX
 # new
 compute
 fmt::fmt
+graphite
 )
 
 # If RealSense SDK is found the library is added and its examples compiled
