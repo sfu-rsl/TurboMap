@@ -124,7 +124,10 @@ void CudaUtils::loadSetting(int _nFeatures, int _nLevels, bool _isMonocular, flo
 }
 
 void CudaUtils::shutdown(){
-    checkCudaError(cudaFree(d_mvScaleFactors),"[CudaUtils::] Failed to free frame memory: d_mvScaleFactors");
+    if (d_mvScaleFactors != nullptr) {
+        checkCudaError(cudaFree(d_mvScaleFactors), "[CudaUtils::] Failed to free frame memory: d_mvScaleFactors");
+        d_mvScaleFactors = nullptr;
+    }
 }
 
 __device__ int DescriptorDistance(const uint8_t *a, const uint8_t *b) {
