@@ -50,27 +50,27 @@ void SearchAndFuseKernel::shutdown()
 
 __device__ inline Eigen::Vector2f KannalaBrandt8Project(const Eigen::Vector3f &v3D, float* mvParameters)
 {
-    // const float x2_plus_y2 = v3D[0] * v3D[0] + v3D[1] * v3D[1];
-    // const float theta = atan2f(sqrtf(x2_plus_y2), v3D[2]);
-    // const float psi = atan2f(v3D[1], v3D[0]);
+    const float x2_plus_y2 = v3D[0] * v3D[0] + v3D[1] * v3D[1];
+    const float theta = atan2f(sqrtf(x2_plus_y2), v3D[2]);
+    const float psi = atan2f(v3D[1], v3D[0]);
 
-    // const float theta2 = theta * theta;
-    // const float theta3 = theta * theta2;
-    // const float theta5 = theta3 * theta2;
-    // const float theta7 = theta5 * theta2;
-    // const float theta9 = theta7 * theta2;
-    // const float r = theta + mvParameters[4] * theta3 + mvParameters[5] * theta5
-    //                      + mvParameters[6] * theta7 + mvParameters[7] * theta9;
-
-    // Eigen::Vector2f res;
-    // res[0] = mvParameters[0] * r * cos(psi) + mvParameters[2];
-    // res[1] = mvParameters[1] * r * sin(psi) + mvParameters[3];
-    // return res;
+    const float theta2 = theta * theta;
+    const float theta3 = theta * theta2;
+    const float theta5 = theta3 * theta2;
+    const float theta7 = theta5 * theta2;
+    const float theta9 = theta7 * theta2;
+    const float r = theta + mvParameters[4] * theta3 + mvParameters[5] * theta5
+                         + mvParameters[6] * theta7 + mvParameters[7] * theta9;
 
     Eigen::Vector2f res;
-    res[0] = mvParameters[0] * v3D[0] / v3D[2] + mvParameters[2];
-    res[1] = mvParameters[1] * v3D[1] / v3D[2] + mvParameters[3];
+    res[0] = mvParameters[0] * r * cos(psi) + mvParameters[2];
+    res[1] = mvParameters[1] * r * sin(psi) + mvParameters[3];
     return res;
+
+    // Eigen::Vector2f res;
+    // res[0] = mvParameters[0] * v3D[0] / v3D[2] + mvParameters[2];
+    // res[1] = mvParameters[1] * v3D[1] / v3D[2] + mvParameters[3];
+    // return res;
 }
 
 
