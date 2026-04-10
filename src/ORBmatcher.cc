@@ -665,8 +665,6 @@ namespace ORB_SLAM3
             set<MapPoint*> spAlreadyFound(vpMatched.begin(), vpMatched.end());
             spAlreadyFound.erase(static_cast<MapPoint*>(NULL));
 
-            int nmatches=0;
-
             // For each Candidate MapPoint Project and Match
             for(int iMP=0, iendMP=vpPoints.size(); iMP<iendMP; iMP++)
             {
