@@ -333,9 +333,9 @@ void LoopClosing::Run()
             std::chrono::duration<double, std::milli> elapsed = end - start;
             if(is_loop){
                 if(is_good)
-                    timing << "Good Loop\n";
+                    timing << "Good Loop" << std::endl;
                 if(is_bad)
-                    timing << "Bad Loop\n";
+                    timing << "Bad Loop" << std::endl;
                 timing << "*************** NewDetectCommonRegions: " << elapsed1.count() << " ms" << std::endl;
                 timing << "*************** BadLoop: " << elapsed15.count() << " ms" << std::endl;                
                 timing << "*************** CorrectLoop: " << elapsed2.count() << " ms" << std::endl;
@@ -359,6 +359,7 @@ void LoopClosing::Run()
 
         usleep(5000);
     }
+    timing << "--------------------------------------------------------" << std::endl;
     SetFinish();
     cleanup_pgo();
 }
@@ -820,71 +821,71 @@ bool LoopClosing::DetectCommonRegionsFromBoW(std::vector<KeyFrame*> &vpBowCand, 
                     // auto start6 = std::chrono::high_resolution_clock::now();
                     if(LoopClosingKernelController::mergedSearchByProjectionOnGPU){
                         
-                        // {
-                        //     vpMatchedMP.resize(mpCurrentKF->GetMapPointMatches().size(), static_cast<MapPoint*>(NULL));
+                        {
+                            vpMatchedMP.resize(mpCurrentKF->GetMapPointMatches().size(), static_cast<MapPoint*>(NULL));
                         
-                        //     vpMatchedKF.resize(mpCurrentKF->GetMapPointMatches().size(), static_cast<KeyFrame*>(NULL));
+                            vpMatchedKF.resize(mpCurrentKF->GetMapPointMatches().size(), static_cast<KeyFrame*>(NULL));
                                                     
                             
-                        //     g2o::Sim3 gSmw1(pMostBoWMatchesKF->GetRotation().cast<double>(),pMostBoWMatchesKF->GetTranslation().cast<double>(),1.0);
-                        //     gScw1 = gScm*gSmw1; // Similarity matrix of current from the world position
-                        //     Sophus::Sim3f mScw1 = Converter::toSophus(gScw1);
+                            g2o::Sim3 gSmw1(pMostBoWMatchesKF->GetRotation().cast<double>(),pMostBoWMatchesKF->GetTranslation().cast<double>(),1.0);
+                            gScw1 = gScm*gSmw1; // Similarity matrix of current from the world position
+                            Sophus::Sim3f mScw1 = Converter::toSophus(gScw1);
                             
-                        //     vpMatchedMP1.resize(mpCurrentKF->GetMapPointMatches().size(), static_cast<MapPoint*>(NULL));
+                            vpMatchedMP1.resize(mpCurrentKF->GetMapPointMatches().size(), static_cast<MapPoint*>(NULL));
                             
-                        //     matcher.MergedSearchByProjection(mpCurrentKF, vpMapPoints, mScw1,
-                        //                                     vpKeyFrames, vpMatchedMP, vpMatchedKF, 8, 1.5,
-                        //                                     vpMatchedMP1, 5, 1.0,
-                        //                                     numProjMatches, numProjOptMatches);
+                            matcher.MergedSearchByProjection(mpCurrentKF, vpMapPoints, mScw1,
+                                                            vpKeyFrames, vpMatchedMP, vpMatchedKF, 8, 1.5,
+                                                            vpMatchedMP1, 5, 1.0,
+                                                            numProjMatches, numProjOptMatches);
 
-                        //     if(numProjMatches >= nProjMatches)
-                        //     {
-                        //         // auto start7 = std::chrono::high_resolution_clock::now();
-                                
-                        //         Eigen::Matrix<double, 7, 7> mHessian7x7;
-                        //         bool bFixedScale = mbFixScale;
-                        //         if(mpTracker->mSensor==System::IMU_MONOCULAR && !mpCurrentKF->GetMap()->GetIniertialBA2())
-                        //             bFixedScale=false;
-
-                        //         int numOptMatches = Optimizer::OptimizeSim3(mpCurrentKF, pKFi, vpMatchedMP, gScm, 10, mbFixScale, mHessian7x7, true);
-                        //     }
-                        // }
-
-                        {
-                            g2o::Sim3 gSmw(pMostBoWMatchesKF->GetRotation().cast<double>(),pMostBoWMatchesKF->GetTranslation().cast<double>(),1.0);
-                            g2o::Sim3 gScw = gScm*gSmw; // Similarity matrix of current from the world position
-                            Sophus::Sim3f mScw = Converter::toSophus(gScw);
-
-                            vpMatchedMP.resize(mpCurrentKF->GetMapPointMatches().size(), static_cast<MapPoint*>(NULL));
-                            vpMatchedKF.resize(mpCurrentKF->GetMapPointMatches().size(), static_cast<KeyFrame*>(NULL));
-
-                            numProjMatches = matcher.SearchByProjection(mpCurrentKF, mScw, vpMapPoints, vpKeyFrames, vpMatchedMP, vpMatchedKF, 8, 1.5);
-                            
-                            if(numProjMatches >= nProjMatches) 
+                            if(numProjMatches >= nProjMatches)
                             {
+                                // auto start7 = std::chrono::high_resolution_clock::now();
+                                
                                 Eigen::Matrix<double, 7, 7> mHessian7x7;
                                 bool bFixedScale = mbFixScale;
                                 if(mpTracker->mSensor==System::IMU_MONOCULAR && !mpCurrentKF->GetMap()->GetIniertialBA2())
                                     bFixedScale=false;
+
                                 numOptMatches = Optimizer::OptimizeSim3(mpCurrentKF, pKFi, vpMatchedMP, gScm, 10, mbFixScale, mHessian7x7, true);
-
-                                if(numOptMatches >= nSim3Inliers) {
-
-                                    g2o::Sim3 gSmw1(pMostBoWMatchesKF->GetRotation().cast<double>(),pMostBoWMatchesKF->GetTranslation().cast<double>(),1.0);
-                                    gScw1 = gScm*gSmw1; // Similarity matrix of current from the world position
-                                    Sophus::Sim3f mScw1 = Converter::toSophus(gScw1);
-
-                                    vpMatchedMP1.resize(mpCurrentKF->GetMapPointMatches().size(), static_cast<MapPoint*>(NULL));
-                                        
-                                    numProjOptMatches = matcher.SearchByProjection(mpCurrentKF, mScw1, vpMapPoints, vpMatchedMP1, 5, 1.0);
-                                }
                             }
                         }
+
+                        // {
+                        //     g2o::Sim3 gSmw(pMostBoWMatchesKF->GetRotation().cast<double>(),pMostBoWMatchesKF->GetTranslation().cast<double>(),1.0);
+                        //     g2o::Sim3 gScw = gScm*gSmw; // Similarity matrix of current from the world position
+                        //     Sophus::Sim3f mScw = Converter::toSophus(gScw);
+
+                        //     vpMatchedMP.resize(mpCurrentKF->GetMapPointMatches().size(), static_cast<MapPoint*>(NULL));
+                        //     vpMatchedKF.resize(mpCurrentKF->GetMapPointMatches().size(), static_cast<KeyFrame*>(NULL));
+
+                        //     numProjMatches = matcher.SearchByProjection(mpCurrentKF, mScw, vpMapPoints, vpKeyFrames, vpMatchedMP, vpMatchedKF, 8, 1.5);
+                            
+                        //     if(numProjMatches >= nProjMatches) 
+                        //     {
+                        //         Eigen::Matrix<double, 7, 7> mHessian7x7;
+                        //         bool bFixedScale = mbFixScale;
+                        //         if(mpTracker->mSensor==System::IMU_MONOCULAR && !mpCurrentKF->GetMap()->GetIniertialBA2())
+                        //             bFixedScale=false;
+                        //         numOptMatches = Optimizer::OptimizeSim3(mpCurrentKF, pKFi, vpMatchedMP, gScm, 10, mbFixScale, mHessian7x7, true);
+
+                        //         if(numOptMatches >= nSim3Inliers) {
+
+                        //             g2o::Sim3 gSmw1(pMostBoWMatchesKF->GetRotation().cast<double>(),pMostBoWMatchesKF->GetTranslation().cast<double>(),1.0);
+                        //             gScw1 = gScm*gSmw1; // Similarity matrix of current from the world position
+                        //             Sophus::Sim3f mScw1 = Converter::toSophus(gScw1);
+
+                        //             vpMatchedMP1.resize(mpCurrentKF->GetMapPointMatches().size(), static_cast<MapPoint*>(NULL));
+                                        
+                        //             numProjOptMatches = matcher.SearchByProjection(mpCurrentKF, mScw1, vpMapPoints, vpMatchedMP1, 5, 1.0);
+                        //         }
+                        //     }
+                        // }
                     }
                     // auto end6 = std::chrono::high_resolution_clock::now();
                     // std::chrono::duration<double, std::milli> elapsed6 = end6 - start6;
                     // timing << "- 2D Search By Projection: " << elapsed6.count() << " ms" << std::endl;
-
+                    // cout << numProjMatches << "     " << numOptMatches << "     " << numProjOptMatches << std::endl;
                     if(numProjMatches >= nProjMatches)
                     {
                         if(numOptMatches >= nSim3Inliers)
