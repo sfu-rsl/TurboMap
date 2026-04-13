@@ -216,30 +216,26 @@ __global__ void searchAndFuseKernel(Eigen::Vector3f* Ow, Sophus::SE3f *Tcw,
 int SearchAndFuseKernel::launch(std::vector<ORB_SLAM3::KeyFrame*> connectedKFs, vector<Sophus::Sim3f> connectedScws, float th,
                         std::vector<ORB_SLAM3::MapPoint*> &vpMapPoints, vector<ORB_SLAM3::MapPoint*> &vpReplacePoints)
 {
-    std::ofstream timing("./test/timing.txt", std::ios::app);
-    // auto start1 = std::chrono::high_resolution_clock::now();
+#ifdef REGISTER_LOOP_CLOSING_STATS
+    std::chrono::steady_clock::time_point startTotal = std::chrono::steady_clock::now();
+#endif
     if (!memory_is_initialized)
         initialize();
-    // auto end1 = std::chrono::high_resolution_clock::now();
-    // std::chrono::duration<double, std::milli> elapsed1 = end1 - start1;
-    // timing << "? Initialization: " << elapsed1.count() << " ms" << std::endl;
 
     const int TH_LOW = 50;
     int numValidPoints = 0;
     int connectedKFSize = connectedKFs.size();
     size_t mapPointVecSize = vpMapPoints.size();
-    timing << "connectedKFSize: " << connectedKFSize << std::endl;
 
-    // auto start2 = std::chrono::high_resolution_clock::now();
+#ifdef REGISTER_LOOP_CLOSING_STATS
+    std::chrono::steady_clock::time_point startCopyObjectCreation = std::chrono::steady_clock::now();
+#endif
+
     for (size_t i = 0; i < connectedKFSize; i++) {
         h_Tcw[i] = Sophus::SE3f(connectedScws[i].rotationMatrix(),connectedScws[i].translation()/connectedScws[i].scale());
         h_Ow[i] = h_Tcw[i].inverse().translation();
     }
-    // auto end2 = std::chrono::high_resolution_clock::now();
-    // std::chrono::duration<double, std::milli> elapsed2 = end2 - start2;
-    // timing << "? h_Tcw: " << elapsed2.count() << " ms" << std::endl;
-
-    // auto start3 = std::chrono::high_resolution_clock::now();
+    
     for (int i = 0; i < mapPointVecSize; i++) {
         ORB_SLAM3::MapPoint* pMP = vpMapPoints[i];
         if (!pMP || pMP->isBad())
@@ -249,11 +245,7 @@ int SearchAndFuseKernel::launch(std::vector<ORB_SLAM3::KeyFrame*> connectedKFs, 
             numValidPoints++;
         }
     }
-    // auto end3 = std::chrono::high_resolution_clock::now();
-    // std::chrono::duration<double, std::milli> elapsed3 = end3 - start3;
-    // timing << "? h_MapPoints: " << elapsed3.count() << " ms" << std::endl;
 
-    // auto start4 = std::chrono::high_resolution_clock::now();
     for (int i=0; i < connectedKFSize; i++){
         ORB_SLAM3::KeyFrame* pKF = connectedKFs[i];
         h_KeyFrames[i] = CudaKeyFrameStorage::getCudaKeyFrame(pKF->mnId);
@@ -261,20 +253,22 @@ int SearchAndFuseKernel::launch(std::vector<ORB_SLAM3::KeyFrame*> connectedKFs, 
             h_KeyFrames[i] = CudaKeyFrameStorage::addCudaKeyFrame(pKF);
         }
     }
-    // auto end4 = std::chrono::high_resolution_clock::now();
-    // std::chrono::duration<double, std::milli> elapsed4 = end4 - start4;
-    // timing << "? h_KeyFrames fuse: " << elapsed4.count() << " ms" << std::endl;
 
-    // auto start5 = std::chrono::high_resolution_clock::now();
+#ifdef REGISTER_LOOP_CLOSING_STATS
+    std::chrono::steady_clock::time_point endCopyObjectCreation = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point startMemcpy = std::chrono::steady_clock::now();
+#endif
+    
     checkCudaError(cudaMemcpy(d_MapPoints, h_MapPoints, numValidPoints * sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint), cudaMemcpyHostToDevice), "Failed to copy h_MapPoints to host");
     checkCudaError(cudaMemcpy(d_KeyFrames, h_KeyFrames, connectedKFSize * sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame), cudaMemcpyHostToDevice), "Failed to copy h_KeyFrames to host");
     checkCudaError(cudaMemcpy(d_Ow, h_Ow, connectedKFSize * sizeof(Eigen::Vector3f), cudaMemcpyHostToDevice), "Failed to copy h_Ow to host");
     checkCudaError(cudaMemcpy(d_Tcw, h_Tcw, connectedKFSize * sizeof(Sophus::SE3f), cudaMemcpyHostToDevice), "Failed to copy h_Tcw to host");
-    // auto end5 = std::chrono::high_resolution_clock::now();
-    // std::chrono::duration<double, std::milli> elapsed5 = end5 - start5;
-    // timing << "? cudaMemcpy: " << elapsed5.count() << " ms" << std::endl;
+    
+#ifdef REGISTER_LOOP_CLOSING_STATS
+    std::chrono::steady_clock::time_point endMemcpy = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point startKernel = std::chrono::steady_clock::now();
+#endif
 
-    // auto start6 = std::chrono::high_resolution_clock::now();
     int threads = 256;
     int blocks = (connectedKFSize * numValidPoints + threads - 1) / threads;
     searchAndFuseKernel<<<blocks, threads>>>(d_Ow, d_Tcw, d_KeyFrames, d_MapPoints, 
@@ -282,24 +276,24 @@ int SearchAndFuseKernel::launch(std::vector<ORB_SLAM3::KeyFrame*> connectedKFs, 
                                     d_bestDists, d_bestIdxs);
 
     cudaDeviceSynchronize();
-    // auto end6 = std::chrono::high_resolution_clock::now();
-    // std::chrono::duration<double, std::milli> elapsed6 = end6 - start6;
-    // timing << "? main Kernel: " << elapsed6.count() << " ms" << std::endl;
 
-    // auto start7 = std::chrono::high_resolution_clock::now();
+#ifdef REGISTER_LOOP_CLOSING_STATS
+    std::chrono::steady_clock::time_point endKernel = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point startMemcpyToCPU = std::chrono::steady_clock::now();
+#endif
+    
     checkCudaError(cudaMemcpy(bestDists, d_bestDists, numValidPoints * connectedKFSize * sizeof(int), cudaMemcpyDeviceToHost), "Failed to copy d_bestDists back to host1");
     checkCudaError(cudaMemcpy(bestIdxs, d_bestIdxs, numValidPoints * connectedKFSize * sizeof(int), cudaMemcpyDeviceToHost), "Failed to copy d_bestIdxs back to host");
-    // auto end7 = std::chrono::high_resolution_clock::now();
-    // std::chrono::duration<double, std::milli> elapsed7 = end7 - start7;
-    // timing << "? cudaMemcpy Back: " << elapsed7.count() << " ms" << std::endl;
 
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
         printf("CUDA error: %s\n", cudaGetErrorString(err));
     }
 
-    // std::ofstream gpuOutFile("./test/GPU-Side.txt", std::ios::app);    
-    // std::ofstream cpuOutFile("./test/CPU-Side.txt", std::ios::app);
+#ifdef REGISTER_LOOP_CLOSING_STATS
+    std::chrono::steady_clock::time_point endMemcpyToCPU = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point startPostProcessing = std::chrono::steady_clock::now();
+#endif
         
     // for (int iKF = 0; iKF < connectedKFSize; iKF++) {
     //     gpuOutFile << "================================= Connected KF: " << connectedKFs[iKF]->mnId << " =================================\n";
@@ -324,8 +318,6 @@ int SearchAndFuseKernel::launch(std::vector<ORB_SLAM3::KeyFrame*> connectedKFs, 
     // gpuOutFile << "**********************************************************\n";
     // cpuOutFile << "**********************************************************\n";
 
-
-    // auto start8 = std::chrono::high_resolution_clock::now();
     int nFused = 0;
     for (int iKF = 0; iKF < connectedKFSize; iKF++)
     {
@@ -363,13 +355,27 @@ int SearchAndFuseKernel::launch(std::vector<ORB_SLAM3::KeyFrame*> connectedKFs, 
             }
         }
     }
-    // auto end8 = std::chrono::high_resolution_clock::now();
-    // std::chrono::duration<double, std::milli> elapsed8 = end8 - start8;
-    // timing << "? result: " << elapsed8.count() << " ms" << std::endl;
 
+#ifdef REGISTER_LOOP_CLOSING_STATS
+    std::chrono::steady_clock::time_point endPostProcessing = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point endTotal = std::chrono::steady_clock::now();
+    
+    double copyObjectCreation = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endCopyObjectCreation - startCopyObjectCreation).count();
+    double memcpyToGPU = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endMemcpy - startMemcpy).count();
+    double kernel = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endKernel - startKernel).count();
+    double memcpyToCPU = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endMemcpyToCPU - startMemcpyToCPU).count();
+    double postProcessing = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endPostProcessing - startPostProcessing).count();
+    double total = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(endTotal - startTotal).count();
+
+    input_data_wrap_time.push_back(copyObjectCreation);
+    input_data_transfer_time.push_back(memcpyToGPU);
+    kernel_exec_time.push_back(kernel);
+    output_data_transfer_time.push_back(memcpyToCPU);
+    post_processing_time.push_back(postProcessing);
+    total_exec_time.push_back(total);
+#endif
 
     return nFused;
-
 }
 
 
@@ -498,4 +504,49 @@ int SearchAndFuseKernel::origDescriptorDistance(const cv::Mat &a, const cv::Mat 
     }
 
     return dist;
+}
+
+void SearchAndFuseKernel::saveStats(const std::string &file_path) {
+    std::string data_path = file_path + "/SearchAndFuseKernel/";
+    std::cout << "[SearchAndFuseKernel:] writing stats data into file: " << data_path << '\n';
+    if (mkdir(data_path.c_str(), 0755) == -1) {
+        std::cerr << "[SearchAndFuseKernel:] Error creating directory: " << strerror(errno) << std::endl;
+    }
+    std::ofstream myfile;
+    
+    myfile.open(data_path + "/kernel_exec_time.txt");
+    for (const auto& p : kernel_exec_time) {
+        myfile << p << std::endl;
+    }
+    myfile.close();
+
+    myfile.open(data_path + "/input_data_wrap_time.txt");
+    for (const auto& p : input_data_wrap_time) {
+        myfile << p << std::endl;
+    }
+    myfile.close();
+
+    myfile.open(data_path + "/input_data_transfer_time.txt");
+    for (const auto& p : input_data_transfer_time) {
+        myfile << p << std::endl;
+    }
+    myfile.close();
+    
+    myfile.open(data_path + "/output_data_transfer_time.txt");
+    for (const auto& p : output_data_transfer_time) {
+        myfile << p << std::endl;
+    }
+    myfile.close();
+
+    myfile.open(data_path + "/post_processing_time.txt");
+    for (const auto& p : post_processing_time) {
+        myfile << p << std::endl;
+    }
+    myfile.close();
+
+    myfile.open(data_path + "/total_exec_time.txt");
+    for (const auto& p : total_exec_time) {
+        myfile << p << std::endl;
+    }
+    myfile.close();
 }

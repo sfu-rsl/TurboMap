@@ -31,20 +31,25 @@ public:
                                     const std::vector<ORB_SLAM3::KeyFrame*> &vpPointsKFs, std::vector<ORB_SLAM3::MapPoint*> &vpMatched, std::vector<ORB_SLAM3::KeyFrame*> &vpMatchedKF, int th, float ratioHamming,
                                     std::vector<ORB_SLAM3::MapPoint*> &vpMatched1, int th1, float ratioHamming1,
                                     int &numProjMatches, int &numProjOptMatches);
+    
     static void launch3SearchByProjectionKernel(vector<ORB_SLAM3::KeyFrame*> currentCovKFs, vector<Sophus::Sim3f> currentCovmScws, const std::vector<ORB_SLAM3::MapPoint*> &vpMapPoints,
                                     int th, float ratioHamming, int* num_matches, int covKFsSize);
+    
     static int launchSingleSearchByProjectionKernel2(ORB_SLAM3::KeyFrame* pKF, Sophus::Sim3<float> &Scw,
                                 const std::vector<ORB_SLAM3::MapPoint*> &vpPoints,
                                 std::vector<ORB_SLAM3::MapPoint*> &vpMatched, int th, float ratioHamming);
+    
     static int launchSingleSearchByProjectionKernel(ORB_SLAM3::KeyFrame* pKF, Sophus::Sim3<float> &Scw,
                                 const std::vector<ORB_SLAM3::MapPoint*> &vpPoints, const std::vector<ORB_SLAM3::KeyFrame*> &vpPointsKFs,
                                 std::vector<ORB_SLAM3::MapPoint*> &vpMatched, std::vector<ORB_SLAM3::KeyFrame*> &vpMatchedKF, int th, float ratioHamming);
+    
     static int launchSearchByBoWKernel(ORB_SLAM3::KeyFrame *pKF1, ORB_SLAM3::KeyFrame *pKF2, vector<ORB_SLAM3::MapPoint *> &vpMatches12);
+    
     static int launchSearchAndFuseKernel(vector<ORB_SLAM3::KeyFrame*> connectedKFs, vector<Sophus::Sim3f> connectedScws, const float th,
                                         vector<ORB_SLAM3::MapPoint*> vpMapPoints, vector<ORB_SLAM3::MapPoint*> &vpReplacePoints);
     static void launchWarmUp();
-        
-    
+
+    static void saveKernelsStats(const std::string &file_path);
 
 private:
     static bool memory_is_initialized, isShuttingDown, localMappingFinished, loopClosingFinished;

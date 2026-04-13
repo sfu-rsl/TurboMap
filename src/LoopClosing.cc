@@ -27,6 +27,7 @@
 
 #include "Kernels/MappingKernelController.h"
 #include "Kernels/LoopClosingKernelController.h"
+#include "Stats/LoopClosingStats.h"
 
 #include<mutex>
 #include<thread>
@@ -299,14 +300,20 @@ void LoopClosing::Run()
 
 #ifdef REGISTER_TIMES
                         std::chrono::steady_clock::time_point time_StartLoop = std::chrono::steady_clock::now();
-
                         nLoop += 1;
-
 #endif
+#ifdef REGISTER_LOOP_CLOSING_STATS
+        std::chrono::steady_clock::time_point time_StartLoopClosing = std::chrono::steady_clock::now();
+#endif
+
                         CorrectLoop();
+#ifdef REGISTER_LOOP_CLOSING_STATS
+    std::chrono::steady_clock::time_point time_EndLoopClosing = std::chrono::steady_clock::now();
+    double timeLoopClosing = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_EndLoopClosing - time_StartLoopClosing).count();
+    LoopClosingStats::getInstance().loopClosing_time.push_back(timeLoopClosing);
+#endif
 #ifdef REGISTER_TIMES
                         std::chrono::steady_clock::time_point time_EndLoop = std::chrono::steady_clock::now();
-
                         double timeLoopTotal = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_EndLoop - time_StartLoop).count();
                         vdLoopTotal_ms.push_back(timeLoopTotal);
 #endif
@@ -801,7 +808,9 @@ bool LoopClosing::DetectCommonRegionsFromBoW(std::vector<KeyFrame*> &vpBowCand, 
                 }
 
                 //std::cout << "There are " << vpKeyFrames.size() <<" KFs which view all the mappoints" << std::endl;
-
+#ifdef REGISTER_LOOP_CLOSING_STATS
+                std::chrono::steady_clock::time_point time_StartSearchByProjection = std::chrono::steady_clock::now();
+#endif
                 if (LoopClosingKernelController::is_active)
                 {
 
@@ -1032,7 +1041,8 @@ bool LoopClosing::DetectCommonRegionsFromBoW(std::vector<KeyFrame*> &vpBowCand, 
                         }
                     }
                 }
-                else{
+
+                else {
                     //std::cout << "There are " << vpKeyFrames.size() <<" KFs which view all the mappoints" << std::endl;
 
                     g2o::Sim3 gScm(solver.GetEstimatedRotation().cast<double>(),solver.GetEstimatedTranslation().cast<double>(), (double) solver.GetEstimatedScale());
@@ -1169,6 +1179,12 @@ bool LoopClosing::DetectCommonRegionsFromBoW(std::vector<KeyFrame*> &vpBowCand, 
                     }
                     // timing << "+ Search By Projection: " << elapsed6.count() + temp << " ms" << std::endl;
                 }
+#ifdef REGISTER_LOOP_CLOSING_STATS
+                std::chrono::steady_clock::time_point time_EndSearchByProjection = std::chrono::steady_clock::now();
+                double timeSearchByProjection = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_EndSearchByProjection - time_StartSearchByProjection).count();
+                LoopClosingStats::getInstance().searchByProjection_time.push_back(timeSearchByProjection);
+#endif
+            
             }
             /*else
             {
@@ -1507,10 +1523,20 @@ void LoopClosing::CorrectLoop()
     // into the current keyframe and neighbors using corrected poses.
     // Fuse duplications.
     auto start9 = std::chrono::high_resolution_clock::now();
+#ifdef REGISTER_LOOP_CLOSING_STATS
+        std::chrono::steady_clock::time_point time_StartSearchAndFuse = std::chrono::steady_clock::now();
+#endif
+
     if(LoopClosingKernelController::searchAndFuseOnGPU)
         GPUSearchAndFuse(CorrectedSim3, mvpLoopMapPoints);
     else 
         SearchAndFuse(CorrectedSim3, mvpLoopMapPoints);
+
+#ifdef REGISTER_LOOP_CLOSING_STATS
+        std::chrono::steady_clock::time_point time_EndSearchAndFuse = std::chrono::steady_clock::now();
+        double timeSearchAndFuse = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_EndSearchAndFuse - time_StartSearchAndFuse).count();
+        LoopClosingStats::getInstance().searchAndFuse_time.push_back(timeSearchAndFuse);
+#endif
     auto end9 = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::milli> elapsed9 = end9 - start9;
 

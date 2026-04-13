@@ -28,6 +28,7 @@
 #include<System.h>
 #include<Stats/TrackingStats.h>
 #include<Stats/LocalMappingStats.h>
+#include<Stats/LoopClosingStats.h>
 #include "Kernels/TrackingKernelController.h"
 #include "Kernels/MappingKernelController.h"
 #include "Kernels/LoopClosingKernelController.h"
@@ -346,6 +347,10 @@ int main(int argc, char **argv)
 
 #ifdef REGISTER_LOCAL_MAPPING_STATS
     LocalMappingStats::getInstance().saveStats(strStatsFile);
+#endif
+
+#ifdef REGISTER_LOOP_CLOSING_STATS
+    LoopClosingStats::getInstance().saveStats(strStatsFile);
 #endif
 
     // Save camera trajectory

@@ -14,8 +14,9 @@
 #endif
 
 // Flag to activate the measurement of time in each kernel.
-// #define REGISTER_TRACKING_STATS
-// #define REGISTER_LOCAL_MAPPING_STATS
+#define REGISTER_TRACKING_STATS
+#define REGISTER_LOCAL_MAPPING_STATS
+#define REGISTER_LOOP_CLOSING_STATS
 
 // #define DEBUG
 #define N_FEATURES_TH 20
