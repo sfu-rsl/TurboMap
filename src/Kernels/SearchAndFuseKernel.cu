@@ -10,15 +10,15 @@ void SearchAndFuseKernel::initialize()
     size_t mapPointVecSize = 3000;
     size_t connectedKFSize = 100;
 
-    cudaMallocHost((void**)&h_MapPoints, mapPointVecSize * sizeof(LOOP_DATA_WRAPPER::CudaMapPoint));
-    cudaMallocHost((void**)&h_KeyFrames, connectedKFSize * sizeof(LOOP_DATA_WRAPPER::CudaKeyFrame));
+    cudaMallocHost((void**)&h_MapPoints, mapPointVecSize * sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint));
+    cudaMallocHost((void**)&h_KeyFrames, connectedKFSize * sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame));
     cudaMallocHost((void**)&h_Ow, connectedKFSize * sizeof(Eigen::Vector3f));
     cudaMallocHost((void**)&h_Tcw, connectedKFSize * sizeof(Sophus::SE3f));
     cudaMallocHost((void**)&bestDists, connectedKFSize * mapPointVecSize * sizeof(int));
     cudaMallocHost((void**)&bestIdxs, connectedKFSize * mapPointVecSize * sizeof(int));
 
-    cudaMalloc(&d_MapPoints, mapPointVecSize * sizeof(LOOP_DATA_WRAPPER::CudaMapPoint));
-    cudaMalloc(&d_KeyFrames, connectedKFSize * sizeof(LOOP_DATA_WRAPPER::CudaKeyFrame));
+    cudaMalloc(&d_MapPoints, mapPointVecSize * sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint));
+    cudaMalloc(&d_KeyFrames, connectedKFSize * sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame));
     cudaMalloc(&d_Ow, connectedKFSize * sizeof(Eigen::Vector3f));
     cudaMalloc(&d_Tcw, connectedKFSize * sizeof(Sophus::SE3f));
     cudaMalloc(&d_bestDists, connectedKFSize * mapPointVecSize * sizeof(int));
@@ -74,12 +74,12 @@ __device__ inline Eigen::Vector2f KannalaBrandt8Project(const Eigen::Vector3f &v
 }
 
 
-__device__ inline bool isInImage1(LOOP_DATA_WRAPPER::CudaKeyFrame* keyframe, const float &x, const float &y)
+__device__ inline bool isInImage1(MAPPING_DATA_WRAPPER::CudaKeyFrame* keyframe, const float &x, const float &y)
 {
     return (x>=keyframe->mnMinX && x<keyframe->mnMaxX && y>=keyframe->mnMinY && y<keyframe->mnMaxY);
 }
 
-__device__ int predictScale1(float currentDist, float maxDistance, LOOP_DATA_WRAPPER::CudaKeyFrame* pKF)
+__device__ int predictScale1(float currentDist, float maxDistance, MAPPING_DATA_WRAPPER::CudaKeyFrame* pKF)
 {
     float ratio = maxDistance/currentDist;
     int nScale = ceil(log(ratio)/pKF->mfLogScaleFactor);
@@ -92,7 +92,7 @@ __device__ int predictScale1(float currentDist, float maxDistance, LOOP_DATA_WRA
 }
 
 __global__ void searchAndFuseKernel(Eigen::Vector3f* Ow, Sophus::SE3f *Tcw, 
-                            LOOP_DATA_WRAPPER::CudaKeyFrame** connectedKFs, LOOP_DATA_WRAPPER::CudaMapPoint* mapPoints,
+                            MAPPING_DATA_WRAPPER::CudaKeyFrame** connectedKFs, MAPPING_DATA_WRAPPER::CudaMapPoint* mapPoints,
                             int chunkNumKFs, int totalNumKFs, int baseKFIdx, int numPoints, float th,
                             int* bestDists, int* bestIdxs) 
 {
@@ -108,8 +108,8 @@ __global__ void searchAndFuseKernel(Eigen::Vector3f* Ow, Sophus::SE3f *Tcw,
     bestDists[idx] = 256;
     bestIdxs[idx] = -1;
 
-    LOOP_DATA_WRAPPER::CudaMapPoint& pMP = mapPoints[mapPointIdx];
-    LOOP_DATA_WRAPPER::CudaKeyFrame *connectedKF = connectedKFs[connectedKFIdx];
+    MAPPING_DATA_WRAPPER::CudaMapPoint& pMP = mapPoints[mapPointIdx];
+    MAPPING_DATA_WRAPPER::CudaKeyFrame *connectedKF = connectedKFs[connectedKFIdx];
 
     // printf("idx: %llu, pMP.mnId: %llu, keyframe.mnId: %llu, connectedKF->mapPointsId_size: %d\n", idx, pMP.mnId, connectedKF->mnId, connectedKF->mapPointsId_size);
 
@@ -182,7 +182,7 @@ __global__ void searchAndFuseKernel(Eigen::Vector3f* Ow, Sophus::SE3f *Tcw,
             for (size_t j=0, jend=vCell_size; j<jend; j++) {
                 size_t temp_idx = vCell[j];
 
-                const LOOP_DATA_WRAPPER::CudaKeyPoint &kpUn = (connectedKF->Nleft == -1) ? connectedKF->mvKeysUn[temp_idx]
+                const MAPPING_DATA_WRAPPER::CudaKeyPoint &kpUn = (connectedKF->Nleft == -1) ? connectedKF->mvKeysUn[temp_idx]
                                                                                         : (!false) ? connectedKF->mvKeys[temp_idx]
                                                                                                     : connectedKF->mvKeysRight[temp_idx];
                 
@@ -245,7 +245,7 @@ int SearchAndFuseKernel::launch(std::vector<ORB_SLAM3::KeyFrame*> connectedKFs, 
         if (!pMP || pMP->isBad())
             continue;
         else {
-            h_MapPoints[numValidPoints] = LOOP_DATA_WRAPPER::CudaMapPoint(pMP);
+            h_MapPoints[numValidPoints] = MAPPING_DATA_WRAPPER::CudaMapPoint(pMP);
             numValidPoints++;
         }
     }
@@ -256,9 +256,9 @@ int SearchAndFuseKernel::launch(std::vector<ORB_SLAM3::KeyFrame*> connectedKFs, 
     // auto start4 = std::chrono::high_resolution_clock::now();
     for (int i=0; i < connectedKFSize; i++){
         ORB_SLAM3::KeyFrame* pKF = connectedKFs[i];
-        h_KeyFrames[i] = LoopClosingCudaKeyFrameStorage::getCudaKeyFrame(pKF->mnId);
+        h_KeyFrames[i] = CudaKeyFrameStorage::getCudaKeyFrame(pKF->mnId);
         if (h_KeyFrames[i] == nullptr){
-            h_KeyFrames[i] = LoopClosingCudaKeyFrameStorage::addCudaKeyFrame(pKF);
+            h_KeyFrames[i] = CudaKeyFrameStorage::addCudaKeyFrame(pKF);
         }
     }
     // auto end4 = std::chrono::high_resolution_clock::now();
@@ -266,8 +266,8 @@ int SearchAndFuseKernel::launch(std::vector<ORB_SLAM3::KeyFrame*> connectedKFs, 
     // timing << "? h_KeyFrames fuse: " << elapsed4.count() << " ms" << std::endl;
 
     // auto start5 = std::chrono::high_resolution_clock::now();
-    checkCudaError(cudaMemcpy(d_MapPoints, h_MapPoints, numValidPoints * sizeof(LOOP_DATA_WRAPPER::CudaMapPoint), cudaMemcpyHostToDevice), "Failed to copy h_MapPoints to host");
-    checkCudaError(cudaMemcpy(d_KeyFrames, h_KeyFrames, connectedKFSize * sizeof(LOOP_DATA_WRAPPER::CudaKeyFrame), cudaMemcpyHostToDevice), "Failed to copy h_KeyFrames to host");
+    checkCudaError(cudaMemcpy(d_MapPoints, h_MapPoints, numValidPoints * sizeof(MAPPING_DATA_WRAPPER::CudaMapPoint), cudaMemcpyHostToDevice), "Failed to copy h_MapPoints to host");
+    checkCudaError(cudaMemcpy(d_KeyFrames, h_KeyFrames, connectedKFSize * sizeof(MAPPING_DATA_WRAPPER::CudaKeyFrame), cudaMemcpyHostToDevice), "Failed to copy h_KeyFrames to host");
     checkCudaError(cudaMemcpy(d_Ow, h_Ow, connectedKFSize * sizeof(Eigen::Vector3f), cudaMemcpyHostToDevice), "Failed to copy h_Ow to host");
     checkCudaError(cudaMemcpy(d_Tcw, h_Tcw, connectedKFSize * sizeof(Sophus::SE3f), cudaMemcpyHostToDevice), "Failed to copy h_Tcw to host");
     // auto end5 = std::chrono::high_resolution_clock::now();

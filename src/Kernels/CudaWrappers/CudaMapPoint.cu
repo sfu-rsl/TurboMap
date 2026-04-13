@@ -98,27 +98,3 @@ namespace MAPPING_DATA_WRAPPER
 
     void CudaMapPoint::freeMemory() {}
 }
-
-namespace LOOP_DATA_WRAPPER
-{
-    CudaMapPoint::CudaMapPoint() {
-        isEmpty = true;
-    }
-
-    CudaMapPoint::CudaMapPoint(ORB_SLAM3::MapPoint* mp) {
-        isEmpty = false;
-        mnId = mp->mnId;
-        mp->AssignWorldPos_MaxD_MinD_Normal_Descriptor(
-            mWorldPos,
-            mfMaxDistance,
-            mfMinDistance,
-            mNormalVector,
-            mDescriptor
-        );
-        mbBad = false;
-    }
-
-    bool CudaMapPoint::isBad(){
-        return mbBad;
-    }
-}

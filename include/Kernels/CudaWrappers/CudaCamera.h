@@ -11,12 +11,4 @@ namespace MAPPING_DATA_WRAPPER {
     };
 }
 
-namespace LOOP_DATA_WRAPPER {
-    struct CudaCamera {
-        bool isAvailable;
-        float mvParameters[8];
-        Eigen::Matrix3f toK;
-    };
-}
-
 #endif

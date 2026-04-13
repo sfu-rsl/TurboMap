@@ -394,10 +394,6 @@ bool LoopClosing::NewDetectCommonRegions()
         mpLastMap = mpCurrentKF->GetMap();
     }
 
-    if (LoopClosingKernelController::is_active) {
-        LoopClosingCudaKeyFrameStorage::addCudaKeyFrame(mpCurrentKF);
-    }
-
     if(mpLastMap->IsInertial() && !mpLastMap->GetIniertialBA2())
     {
         mpKeyFrameDB->add(mpCurrentKF);

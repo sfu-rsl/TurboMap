@@ -2,7 +2,7 @@
 #define LOOP_CLOSING_KERNEL_CONTROLLER_H
 
 #include "CudaWrappers/CudaKeyFrame.h"
-#include "LoopClosingCudaKeyFrameStorage.h"
+#include "CudaKeyFrameStorage.h"
 #include "SearchAndFuseKernel.h"
 #include "SearchByProjectionKernel.h"
 // #include "SearchByBoWKernel.h"
@@ -51,7 +51,7 @@ private:
     static std::unique_ptr<SearchByProjectionKernel> mpSearchByProjectionKernel;
     // static std::unique_ptr<SearchByBoWKernel> mpSearchByBoWKernel;
     static std::unique_ptr<SearchAndFuseKernel> mpSearchAndFuseKernel;
-    static LOOP_DATA_WRAPPER::CudaKeyFrame *cudaKeyFramePtr;
+    static MAPPING_DATA_WRAPPER::CudaKeyFrame *cudaKeyFramePtr;
     static std::mutex shutDownMutex;
 };
 

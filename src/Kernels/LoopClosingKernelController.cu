@@ -12,7 +12,7 @@ bool LoopClosingKernelController::merged3SearchByProjectionOnGPU = false;
 bool LoopClosingKernelController::searchAndFuseOnGPU = false;
 bool LoopClosingKernelController::singleSearchByProjectionOnGPU = false;
 bool LoopClosingKernelController::memory_is_initialized = false;
-LOOP_DATA_WRAPPER::CudaKeyFrame* LoopClosingKernelController::cudaKeyFramePtr;
+MAPPING_DATA_WRAPPER::CudaKeyFrame* LoopClosingKernelController::cudaKeyFramePtr;
 std::mutex LoopClosingKernelController::shutDownMutex;
 bool LoopClosingKernelController::localMappingFinished = false;
 bool LoopClosingKernelController::loopClosingFinished = false;
@@ -39,9 +39,9 @@ void LoopClosingKernelController::setGPURunMode(bool _mergedSearchByProjectionEn
 void LoopClosingKernelController::initializeKernels(){
     cout << "Initializing Kernels...\n";
     
-    LoopClosingCudaKeyFrameStorage::initializeMemory();
+    CudaKeyFrameStorage::initializeMemory();
 
-    cudaKeyFramePtr = new LOOP_DATA_WRAPPER::CudaKeyFrame();
+    cudaKeyFramePtr = new MAPPING_DATA_WRAPPER::CudaKeyFrame();
 
     if (mergedSearchByProjectionOnGPU || singleSearchByProjectionOnGPU || merged3SearchByProjectionOnGPU)
         mpSearchByProjectionKernel->initialize();
@@ -69,7 +69,7 @@ void LoopClosingKernelController::shutdownKernels(bool _localMappingFinished, bo
     cout << "Shutting kernels down...\n";
 
     if (memory_is_initialized) {
-        LoopClosingCudaKeyFrameStorage::shutdown();
+        CudaKeyFrameStorage::shutdown();
         cudaKeyFramePtr->freeMemory();
         delete cudaKeyFramePtr;
         if (mergedSearchByProjectionOnGPU || singleSearchByProjectionOnGPU || merged3SearchByProjectionOnGPU)

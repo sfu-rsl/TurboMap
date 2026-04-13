@@ -14,6 +14,7 @@ MAPPING_DATA_WRAPPER::CudaKeyFrame *CudaKeyFrameStorage::d_keyframes, *CudaKeyFr
 std::unordered_map<long unsigned int, ckd_buffer_index_t> CudaKeyFrameStorage::mnId_to_idx;
 int CudaKeyFrameStorage::num_keyframes = 0;
 bool CudaKeyFrameStorage::memory_is_initialized = false;
+bool CudaKeyFrameStorage::memory_is_free = false;
 ckd_buffer_index_t CudaKeyFrameStorage::first_free_idx = 0;
 std::mutex CudaKeyFrameStorage::mtx;
 std::queue<ckd_buffer_index_t> CudaKeyFrameStorage::free_idx;
@@ -150,9 +151,8 @@ void CudaKeyFrameStorage::addFeatureVector(long unsigned int KF_mnId, DBoW2::Fea
 }
 
 void CudaKeyFrameStorage::shutdown() {
-    // std::unique_lock<std::mutex> lock(mtx);
-    if (!memory_is_initialized) 
-    return;
+    if (!memory_is_initialized || memory_is_free) 
+        return;
 
     for (int i = 0; i < CUDA_KEYFRAME_STORAGE_SIZE; ++i) {
         h_keyframes[i].freeMemory();
@@ -160,4 +160,5 @@ void CudaKeyFrameStorage::shutdown() {
     
     cudaFree(d_keyframes);
     cudaFreeHost(h_keyframes);
+    memory_is_free = true;
 }

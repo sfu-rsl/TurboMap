@@ -132,7 +132,6 @@ src/Kernels/CudaUtils.cu
 src/Kernels/LoopClosingKernelController.cu
 src/Kernels/CudaWrappers/CudaMapPoint.cu
 src/Kernels/CudaWrappers/CudaKeyFrame.cu
-src/Kernels/LoopClosingCudaKeyFrameStorage.cu
 src/Kernels/SearchByProjectionKernel.cu
 src/Kernels/SearchAndFuseKernel.cu
 include/System.h
@@ -194,7 +193,6 @@ include/Kernels/CudaWrappers/CudaMapPoint.h
 include/Kernels/CudaWrappers/CudaCamera.h
 include/Kernels/CudaWrappers/CudaKeyFrame.h
 include/Kernels/CudaWrappers/CudaKeyPoint.h
-include/Kernels/LoopClosingCudaKeyFrameStorage.h
 include/Kernels/SearchByProjectionKernel.h
 include/Kernels/SearchAndFuseKernel.h
 include/GPUPose.h

@@ -34,7 +34,7 @@ class CudaKeyFrameStorage {
         static MAPPING_DATA_WRAPPER::CudaKeyFrame *d_keyframes, *h_keyframes;
         static std::unordered_map<long unsigned int, ckd_buffer_index_t> mnId_to_idx; 
         static int num_keyframes;
-        static bool memory_is_initialized;
+        static bool memory_is_initialized, memory_is_free;
         static ckd_buffer_index_t first_free_idx;
         static std::mutex mtx;
         static std::queue<ckd_buffer_index_t> free_idx;

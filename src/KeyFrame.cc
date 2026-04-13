@@ -22,7 +22,7 @@
 #include "Kernels/CudaKeyFrameStorage.h"
 #include "Kernels/MappingKernelController.h"
 #include "Kernels/LoopClosingKernelController.h"
-#include "Kernels/LoopClosingCudaKeyFrameStorage.h"
+#include "Kernels/CudaKeyFrameStorage.h"
 #include<mutex>
 
 namespace ORB_SLAM3
@@ -98,7 +98,7 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
 
     mnOriginMapId = pMap->GetId();
 
-    if (MappingKernelController::is_active) {
+    if (MappingKernelController::is_active || LoopClosingKernelController::is_active) {
         CudaKeyFrameStorage::addCudaKeyFrame(this);
     }
 }
@@ -701,12 +701,8 @@ void KeyFrame::SetBadFlag()
     mpMap->EraseKeyFrame(this);
     mpKeyFrameDB->erase(this);
 
-    if (MappingKernelController::is_active) {
+    if (MappingKernelController::is_active || LoopClosingKernelController::is_active) {
         CudaKeyFrameStorage::eraseCudaKeyFrame(this);
-    }
-
-    if (LoopClosingKernelController::is_active) {
-        LoopClosingCudaKeyFrameStorage::eraseCudaKeyFrame(this);
     }
 }
 

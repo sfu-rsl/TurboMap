@@ -117,3 +117,5 @@ evaluation/*.csv
 evaluation/ORB-SLAM3
 evaluation/TurboMap
 !Thirdparty/graphite
+
+*.nsys-rep

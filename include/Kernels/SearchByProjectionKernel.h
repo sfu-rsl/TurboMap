@@ -4,7 +4,7 @@
 #include <iostream>
 #include "CudaWrappers/CudaMapPoint.h"
 #include "CudaWrappers/CudaKeyFrame.h"
-#include "LoopClosingCudaKeyFrameStorage.h"
+#include "CudaKeyFrameStorage.h"
 #include "CudaUtils.h"
 #include "CameraModels/GeometricCamera.h"
 #include <Eigen/Core>
@@ -37,9 +37,9 @@ class SearchByProjectionKernel{
         bool memory_is_initialized;
         int *d_bestDists, *d_bestIdxs;
         int *bestDists, *bestIdxs;
-        LOOP_DATA_WRAPPER::CudaMapPoint *h_MapPoints, *d_MapPoints;
-        LOOP_DATA_WRAPPER::CudaKeyFrame *h_KeyFrame, *d_KeyFrame;
-        LOOP_DATA_WRAPPER::CudaKeyFrame **h_KeyFrames, **d_KeyFrames;
+        MAPPING_DATA_WRAPPER::CudaMapPoint *h_MapPoints, *d_MapPoints;
+        MAPPING_DATA_WRAPPER::CudaKeyFrame *h_KeyFrame, *d_KeyFrame;
+        MAPPING_DATA_WRAPPER::CudaKeyFrame **h_KeyFrames, **d_KeyFrames;
         Eigen::Vector3f *h_Ow, *d_Ow;
         Sophus::SE3f *h_Tcw, *d_Tcw;
         
