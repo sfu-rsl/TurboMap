@@ -99,7 +99,6 @@ void LoopClosing::SetLocalMapper(LocalMapping *pLocalMapper)
 
 void LoopClosing::Run()
 {
-    std::ofstream timing("./test/timing.txt", std::ios::app);
     mbFinished =false;
     
     init_pgo(1000, 1000);
@@ -119,6 +118,10 @@ void LoopClosing::Run()
         {
             auto start = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double, std::milli> elapsed15, elapsed2;
+
+#ifdef REGISTER_LOOP_CLOSING_STATS
+        std::chrono::steady_clock::time_point time_StartLoopClosing = std::chrono::steady_clock::now();
+#endif
 
             if(mpLastCurrentKF)
             {
@@ -303,14 +306,14 @@ void LoopClosing::Run()
                         nLoop += 1;
 #endif
 #ifdef REGISTER_LOOP_CLOSING_STATS
-        std::chrono::steady_clock::time_point time_StartLoopClosing = std::chrono::steady_clock::now();
+        std::chrono::steady_clock::time_point time_StartLoopCorrection = std::chrono::steady_clock::now();
 #endif
 
                         CorrectLoop();
 #ifdef REGISTER_LOOP_CLOSING_STATS
-    std::chrono::steady_clock::time_point time_EndLoopClosing = std::chrono::steady_clock::now();
-    double timeLoopClosing = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_EndLoopClosing - time_StartLoopClosing).count();
-    LoopClosingStats::getInstance().loopClosing_time.push_back(timeLoopClosing);
+    std::chrono::steady_clock::time_point time_EndLoopCorrection = std::chrono::steady_clock::now();
+    double timeLoopCorrection = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_EndLoopCorrection - time_StartLoopCorrection).count();
+    LoopClosingStats::getInstance().loopCorrection_time.push_back(timeLoopCorrection);
 #endif
 #ifdef REGISTER_TIMES
                         std::chrono::steady_clock::time_point time_EndLoop = std::chrono::steady_clock::now();
@@ -338,19 +341,16 @@ void LoopClosing::Run()
 
             auto end = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double, std::milli> elapsed = end - start;
-            if(is_loop){
-                if(is_good)
-                    timing << "Good Loop" << std::endl;
-                if(is_bad)
-                    timing << "Bad Loop" << std::endl;
-                timing << "*************** NewDetectCommonRegions: " << elapsed1.count() << " ms" << std::endl;
-                timing << "*************** BadLoop: " << elapsed15.count() << " ms" << std::endl;                
-                timing << "*************** CorrectLoop: " << elapsed2.count() << " ms" << std::endl;
-                if(is_good)
-                    timing << "*************** Good LoopClosing: " << elapsed.count() << " ms" << std::endl;
-                if(is_bad)
-                    timing << "*************** Bad LoopClosing: " << elapsed.count() << " ms" << std::endl;
-            }
+
+#ifdef REGISTER_LOOP_CLOSING_STATS
+    if(is_loop){
+        if(is_good){
+            std::chrono::steady_clock::time_point time_EndLoopClosing = std::chrono::steady_clock::now();
+            double timeLoopClosing = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_EndLoopClosing - time_StartLoopClosing).count();
+            LoopClosingStats::getInstance().loopClosing_time.push_back(timeLoopClosing);
+        }
+    }
+#endif
         }
 
         ResetIfRequested();
@@ -366,7 +366,6 @@ void LoopClosing::Run()
 
         usleep(5000);
     }
-    timing << "--------------------------------------------------------" << std::endl;
     SetFinish();
     cleanup_pgo();
 }
@@ -1343,7 +1342,6 @@ int LoopClosing::FindMatchesByProjection(KeyFrame* pCurrentKF, KeyFrame* pMatche
 
 void LoopClosing::CorrectLoop()
 {
-    std::ofstream timing("./test/timing.txt", std::ios::app);
     //cout << "Loop detected!" << endl;
 
     // Send a stop signal to Local Mapping
@@ -1576,25 +1574,24 @@ void LoopClosing::CorrectLoop()
     //cout << "Optimize essential graph" << endl;
     if(pLoopMap->IsInertial() && pLoopMap->isImuInitialized())
     {
+
+#ifdef REGISTER_LOOP_CLOSING_STATS
+        std::chrono::steady_clock::time_point time_StartGraphOptimization = std::chrono::steady_clock::now();
+#endif
         // {
-        //     std::cout << "CPU: Loop closing PGO!" << std::endl;
-        //     auto start_cpu = std::chrono::steady_clock::now();
         //     Optimizer::OptimizeEssentialGraph4DoF(pLoopMap, mpLoopMatchedKF, mpCurrentKF, NonCorrectedSim3, CorrectedSim3, LoopConnections);
-        //     auto end_cpu = std::chrono::steady_clock::now();
-        //     std::chrono::duration<double, std::milli> elapsed_cpu = end_cpu - start_cpu;
-        //     timing << "CPU: Completed loop closing PGO in " << elapsed_cpu.count() << " ms." << std::endl;
         // }
 
         {
-            // std::cout << "GPU: Loop closing PGO!" << std::endl;
-            auto start_gpu = std::chrono::steady_clock::now();
             OptimizerGPU::OptimizeEssentialGraph4DoF(pLoopMap, mpLoopMatchedKF, mpCurrentKF, NonCorrectedSim3, CorrectedSim3, LoopConnections);
-            auto end_gpu = std::chrono::steady_clock::now();
-            std::chrono::duration<double, std::milli> elapsed_gpu = end_gpu - start_gpu;
-            // std::cout << "GPU: Completed loop closing PGO in " << elapsed_gpu.count() << " ms." << std::endl;
-            timing << "Optimize Essential Graph(Part 11): " << elapsed_gpu.count() << " ms" << std::endl;
-
         }
+
+#ifdef REGISTER_LOOP_CLOSING_STATS
+        std::chrono::steady_clock::time_point time_EndGraphOptimization = std::chrono::steady_clock::now();
+        double timeGraphOptimization = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_EndGraphOptimization - time_StartGraphOptimization).count();
+        LoopClosingStats::getInstance().graphOptimization_time.push_back(timeGraphOptimization);
+#endif
+
     }
     else
     {
@@ -1630,9 +1627,6 @@ void LoopClosing::CorrectLoop()
 
     mLastLoopKFid = mpCurrentKF->mnId; //TODO old varible, it is not use in the new algorithm
     
-    // timing << "Correct Map Points(Part 7): " << elapsed7.count() << " ms" << std::endl;
-    // timing << "Update Matched Map Points(Part 8): " << elapsed8.count() << " ms" << std::endl;
-    timing << "Search and Fuse(Part 9): " << elapsed9.count() << " ms" << std::endl;
 }
 
 void LoopClosing::MergeLocal()
@@ -2537,7 +2531,6 @@ void LoopClosing::CheckObservations(set<KeyFrame*> &spKFsMap1, set<KeyFrame*> &s
 
 void LoopClosing::SearchAndFuse(const KeyFrameAndPose &CorrectedPosesMap, vector<MapPoint*> &vpMapPoints)
 {
-    std::ofstream timing("./test/timing.txt", std::ios::app);
     ORBmatcher matcher(0.8);
 
     int total_replaces = 0;
@@ -2575,7 +2568,6 @@ void LoopClosing::SearchAndFuse(const KeyFrameAndPose &CorrectedPosesMap, vector
 
         total_replaces += num_replaces;
     }
-    timing << "connectedKFSize: " << count_KFs << std::endl;
     //cout << "[FUSE]: " << total_replaces << " MPs had been fused" << endl;
 }
 

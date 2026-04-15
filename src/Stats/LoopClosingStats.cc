@@ -26,6 +26,12 @@ void LoopClosingStats::saveStats(const string &file_path) {
     }
     myfile.close();
 
+    myfile.open(data_path + "/loopCorrection_time.txt");
+    for (size_t i = 0; i < loopCorrection_time.size(); ++i) {
+        myfile << i << ": " << loopCorrection_time[i] << std::endl;
+    }
+    myfile.close();
+
     myfile.open(data_path + "/searchAndFuse_time.txt");
     for (size_t i = 0; i < searchAndFuse_time.size(); ++i) {
         myfile << i << ": " << searchAndFuse_time[i] << std::endl;
@@ -35,6 +41,12 @@ void LoopClosingStats::saveStats(const string &file_path) {
     myfile.open(data_path + "/searchByProjection_time.txt");
     for (size_t i = 0; i < searchByProjection_time.size(); ++i) {
         myfile << i << ": " << searchByProjection_time[i] << std::endl;
+    }
+    myfile.close();
+
+    myfile.open(data_path + "/graphOptimization_time.txt");
+    for (size_t i = 0; i < graphOptimization_time.size(); ++i) {
+        myfile << i << ": " << graphOptimization_time[i] << std::endl;
     }
     myfile.close();
 

@@ -22,7 +22,7 @@ class LoopClosingStats: public StatsInterface {
         void saveStats(const string &file_path) override;
 
     public:
-        std::vector<double> loopClosing_time, searchAndFuse_time, searchByProjection_time;
+        std::vector<double> loopClosing_time, loopCorrection_time, searchAndFuse_time, searchByProjection_time, graphOptimization_time;
 
     private:
         LoopClosingStats() = default; // Private constructor
