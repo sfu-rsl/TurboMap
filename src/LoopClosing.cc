@@ -1577,13 +1577,13 @@ void LoopClosing::CorrectLoop()
 #ifdef REGISTER_LOOP_CLOSING_STATS
         std::chrono::steady_clock::time_point time_StartGraphOptimization = std::chrono::steady_clock::now();
 #endif
-        // {
-        //     Optimizer::OptimizeEssentialGraph4DoF(pLoopMap, mpLoopMatchedKF, mpCurrentKF, NonCorrectedSim3, CorrectedSim3, LoopConnections);
-        // }
-
-        {
+        if(LoopClosingKernelController::graphOptimizationOnGPU){
             OptimizerGPU::OptimizeEssentialGraph4DoF(pLoopMap, mpLoopMatchedKF, mpCurrentKF, NonCorrectedSim3, CorrectedSim3, LoopConnections);
         }
+        else{
+            Optimizer::OptimizeEssentialGraph4DoF(pLoopMap, mpLoopMatchedKF, mpCurrentKF, NonCorrectedSim3, CorrectedSim3, LoopConnections);
+        }
+
 
 #ifdef REGISTER_LOOP_CLOSING_STATS
         std::chrono::steady_clock::time_point time_EndGraphOptimization = std::chrono::steady_clock::now();

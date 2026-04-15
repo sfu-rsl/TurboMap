@@ -11,6 +11,7 @@ bool LoopClosingKernelController::mergedSearchByProjectionOnGPU = false;
 bool LoopClosingKernelController::merged3SearchByProjectionOnGPU = false;
 bool LoopClosingKernelController::searchAndFuseOnGPU = false;
 bool LoopClosingKernelController::singleSearchByProjectionOnGPU = false;
+bool LoopClosingKernelController::graphOptimizationOnGPU = false;
 bool LoopClosingKernelController::memory_is_initialized = false;
 MAPPING_DATA_WRAPPER::CudaKeyFrame* LoopClosingKernelController::cudaKeyFramePtr;
 std::mutex LoopClosingKernelController::shutDownMutex;
@@ -27,12 +28,13 @@ void LoopClosingKernelController::activate()
 }
 
 
-void LoopClosingKernelController::setGPURunMode(bool _mergedSearchByProjectionEnabled, bool _merged3SearchByProjectionEnabled, bool _searchAndFuseEnabled, bool _singleSearchByProjectionEnabled)
+void LoopClosingKernelController::setGPURunMode(bool _mergedSearchByProjectionEnabled, bool _merged3SearchByProjectionEnabled, bool _searchAndFuseEnabled, bool _singleSearchByProjectionEnabled, bool _graphOptimizationEnabled)
 {
     mergedSearchByProjectionOnGPU = _mergedSearchByProjectionEnabled;
     merged3SearchByProjectionOnGPU = _merged3SearchByProjectionEnabled;
     searchAndFuseOnGPU = _searchAndFuseEnabled;
     singleSearchByProjectionOnGPU = _singleSearchByProjectionEnabled;
+    graphOptimizationOnGPU = _graphOptimizationEnabled;
 }
 
 
@@ -43,7 +45,7 @@ void LoopClosingKernelController::initializeKernels(){
 
     cudaKeyFramePtr = new MAPPING_DATA_WRAPPER::CudaKeyFrame();
 
-    if (mergedSearchByProjectionOnGPU || singleSearchByProjectionOnGPU || merged3SearchByProjectionOnGPU)
+    if (mergedSearchByProjectionOnGPU || singleSearchByProjectionOnGPU || merged3SearchByProjectionOnGPU || graphOptimizationOnGPU)
         mpSearchByProjectionKernel->initialize();
     
     if (searchAndFuseOnGPU)
@@ -72,7 +74,7 @@ void LoopClosingKernelController::shutdownKernels(bool _localMappingFinished, bo
         CudaKeyFrameStorage::shutdown();
         cudaKeyFramePtr->freeMemory();
         delete cudaKeyFramePtr;
-        if (mergedSearchByProjectionOnGPU || singleSearchByProjectionOnGPU || merged3SearchByProjectionOnGPU)
+        if (mergedSearchByProjectionOnGPU || singleSearchByProjectionOnGPU || merged3SearchByProjectionOnGPU || graphOptimizationOnGPU)
             mpSearchByProjectionKernel->shutdown();
         if (searchAndFuseOnGPU)
             mpSearchAndFuseKernel->shutdown();

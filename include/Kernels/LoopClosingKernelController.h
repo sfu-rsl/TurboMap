@@ -20,8 +20,9 @@ public:
     static bool merged3SearchByProjectionOnGPU;
     static bool searchAndFuseOnGPU;
     static bool singleSearchByProjectionOnGPU;
+    static bool graphOptimizationOnGPU;
 
-    static void setGPURunMode(bool mergedSearchByProjectionEnabled, bool merged3SearchByProjectionEnabled, bool searchAndFuseEnabled, bool singleSearchByProjectionEnabled);
+    static void setGPURunMode(bool mergedSearchByProjectionEnabled, bool merged3SearchByProjectionEnabled, bool searchAndFuseEnabled, bool singleSearchByProjectionEnabled, bool graphOptimizationEnabled);
 
     static void initializeKernels();
 
