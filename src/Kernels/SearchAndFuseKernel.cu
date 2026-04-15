@@ -66,13 +66,15 @@ __device__ inline Eigen::Vector2f KannalaBrandt8Project(const Eigen::Vector3f &v
     res[0] = mvParameters[0] * r * cos(psi) + mvParameters[2];
     res[1] = mvParameters[1] * r * sin(psi) + mvParameters[3];
     return res;
-
-    // Eigen::Vector2f res;
-    // res[0] = mvParameters[0] * v3D[0] / v3D[2] + mvParameters[2];
-    // res[1] = mvParameters[1] * v3D[1] / v3D[2] + mvParameters[3];
-    // return res;
 }
 
+__device__ inline Eigen::Vector2f PinholeProject(const Eigen::Vector3f &v3D, float* mvParameters)
+{
+    Eigen::Vector2f res;
+    res[0] = mvParameters[0] * v3D[0] / v3D[2] + mvParameters[2];
+    res[1] = mvParameters[1] * v3D[1] / v3D[2] + mvParameters[3];
+    return res;
+}
 
 __device__ inline bool isInImage1(MAPPING_DATA_WRAPPER::CudaKeyFrame* keyframe, const float &x, const float &y)
 {
@@ -124,8 +126,10 @@ __global__ void searchAndFuseKernel(Eigen::Vector3f* Ow, Sophus::SE3f *Tcw,
     }
 
     Eigen::Vector2f uv;
-
-    uv = KannalaBrandt8Project(p3Dc, connectedKF->camera1.mvParameters);
+    if(connectedKF->Nleft != -1)
+        uv = KannalaBrandt8Project(p3Dc, connectedKF->camera1.mvParameters);
+    else if(connectedKF->Nleft == -1)
+        uv = PinholeProject(p3Dc, connectedKF->camera1.mvParameters);
     
     if ((!isInImage1(connectedKF, uv(0), uv(1)))){
         return;
