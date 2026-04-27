@@ -62,16 +62,16 @@ int main(int argc, char **argv)
         cout << "Running FastTrack->" << run_FastTrack << ", TurboMap->" << run_TurboMap << ", FastLoop->" << run_FastLoop << endl;
     }
 
-    bool FT_orbExtractionEnabled = (argv[argc-2][0] == '1');
-    bool FT_stereoMatchEnabled = (argv[argc-2][1] == '1');
-    bool FT_searchLocalPointsEnabled = (argv[argc-2][2] == '1');
-    bool FT_poseEstimationEnabled = (argv[argc-2][3] == '1');
-    bool FT_poseOptimizationEnabled = (argv[argc-2][4] == '1');
+    bool FT_orbExtractionEnabled = (argv[argc-3][0] == '1');
+    bool FT_stereoMatchEnabled = (argv[argc-3][1] == '1');
+    bool FT_searchLocalPointsEnabled = (argv[argc-3][2] == '1');
+    bool FT_poseEstimationEnabled = (argv[argc-3][3] == '1');
+    bool FT_poseOptimizationEnabled = (argv[argc-3][4] == '1');
     
-    bool TM_searchForTriangulationEnabled = (argv[argc-1][0] == '1');
-    bool TM_fuseEnabled = (argv[argc-1][1] == '1');
-    bool TM_keyframeCullingEnabled = (argv[argc-1][2] == '1');
-    bool TM_LBAEnabled = (argv[argc-1][3] == '1');
+    bool TM_searchForTriangulationEnabled = (argv[argc-2][0] == '1');
+    bool TM_fuseEnabled = (argv[argc-2][1] == '1');
+    bool TM_keyframeCullingEnabled = (argv[argc-2][2] == '1');
+    bool TM_LBAEnabled = (argv[argc-2][3] == '1');
 
     bool FL_mergedSearchByProjectionEnabled = (argv[argc-1][0] == '1');
     bool FL_merged3SearchByProjectionEnabled = (argv[argc-1][1] == '1');
