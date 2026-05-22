@@ -8,7 +8,7 @@
 #include <mutex>
 #include <queue>
 
-#define CUDA_KEYFRAME_STORAGE_SIZE 1000
+#define CUDA_KEYFRAME_STORAGE_SIZE 2000
 
 namespace MAPPING_DATA_WRAPPER {
     class CudaKeyFrame;
