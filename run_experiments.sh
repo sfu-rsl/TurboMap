@@ -17,7 +17,7 @@ datasets=("room3" "room4" "corridor1" "magistrale1")
 for i in $(seq 0 $(expr $num_itr - 1)); do
     for dataset in "${datasets[@]}"; do
         echo -e "[bash:] -> ./run_script.sh $dataset $FastTrack_on $TurboMap_on $FastLoop_on 1 $version.$i"
-        ./run_script.sh $dataset $FastTrack_on $TurboMap_on $JacobiGPU_on 1 $version.$i
+        ./run_script.sh $dataset $FastTrack_on $TurboMap_on $FastLoop_on 1 $version.$i
     done
 done
 
