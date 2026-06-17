@@ -60,6 +60,8 @@ The following diagram shows the data flow of the local mapping process in TurboM
 
 🚀 You can also check out our related project, [FastTrack](https://github.com/sfu-rsl/FastTrack), which this work builds upon and which has been accepted for publication at IROS 2025.
 
+📜 TurboMap has been accepted for publication at [IROS 2026](https://2026.ieee-iros.org/).
+
 # 2. Prerequisites
 We have tested the library in **Ubuntu 22.04** and **20.04**, but it should be easy to compile in other platforms. A powerful computer (e.g. i7) will ensure real-time performance and provide more stable and accurate results.
 
